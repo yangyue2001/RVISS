@@ -1,0 +1,156 @@
+{
+  "status": "verified",
+  "date": "2026-10-12",
+  "goal": "Fixed RV64GC single-hart Linux cold boots/long run and independent Spike architectural difftest",
+  "git": {
+    "branch": "main",
+    "origin": "git@github.com:yangyue2001/RVISS.git",
+    "published": false,
+    "stage_commits": [
+      "d319684",
+      "b83d9b9",
+      "168f159",
+      "981ff83",
+      "8e6bd32"
+    ]
+  },
+  "commands": [
+    "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t015-linux check build/t015-linux/rviss_dut",
+    "python3 tools/spike/check.py --dut build/t015-linux/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --exhaustive-c --fp-exhaustive-c --out build/t015-linux/difftest-final-exhaustive",
+    "python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 3 --rounds 100 --timeout 1800 --max-instr 4000000000",
+    "python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 1 --rounds 1000 --timeout 7200 --max-instr 20000000000"
+  ],
+  "regression": {
+    "unit_tests": 17,
+    "unit_checks": 25676,
+    "smokes": 3,
+    "cli_checks": 14,
+    "ubsan_pmp_checks": 1518,
+    "ubsan_spike_cases": 8949,
+    "ubsan_spike_events": 74887
+  },
+  "spike": {
+    "cases": 66293,
+    "events": 132231,
+    "reset_replay": true,
+    "detected_injections": 4,
+    "commit": "da2f415bb62bec3e93b33b379d787b4262aade9f",
+    "dut_sha256": "e0f9d9515547ee08185582c4023b61064296648f9baf1be4db760e88214e4483",
+    "reference_sha256": "1f0ba0f154090d6d194a65f2d6ac9cfb6ca6683299faca98775429d9b206690f",
+    "compared": [
+      "PC/raw/length/priv",
+      "full GPR",
+      "full FPR (FLEN32/64)",
+      "44 trap/priv/counter/PMP/FP CSR",
+      "store",
+      "full RAM hash",
+      "retirement"
+    ],
+    "excluded": [
+      "misa capability identity",
+      "mcycle timing policy",
+      "cycle values across trap/IRQ (different permitted timing policies)",
+      "full platform devices"
+    ]
+  },
+  "linux": {
+    "profile": "RV64GC/MSU/Sv39, one hart, RAM256MiB, fixed OpenSBI FW_PAYLOAD/Linux6.11.4/BusyBox1.34.1",
+    "rviss_sha256": "02e551e294a66390c72fe2d6721704737bf44f2cdf699494e3074f28e734c7c5",
+    "manifest_sha256": "95f0f1152a73e58798d232cd9114db411bc308635d40716dbe810a676d1a7245",
+    "firmware_sha256": "a907c27805a4f37808f1c6876e4b003876a5b5a1cafe1d52598f75d78414ef86",
+    "artifact_hashes_rechecked": true,
+    "cold_normalized_output_equal": true,
+    "cold_normalization": "Remove CR and the host wall-clock performance line only",
+    "cold_counters_equal": true,
+    "runs": [
+      {
+        "rounds": 100,
+        "log": "docs/validation/t015_linux_logs/rviss_100_1.log",
+        "log_sha256": "580e2a3e5a6998e0b5161dd2b0681d10059966e4a61a9636bbb9974748e30d0e",
+        "input": "docs/validation/t015_linux_logs/rviss_100_1.input",
+        "input_sha256": "3eabe33054fce9c9df45063cff1de124a42ffeaa38a92946d241cf43b2edf3fc",
+        "extra_probe_passes": 10,
+        "exit_code": 0,
+        "guest_shutdown": true,
+        "counters": {
+          "retired": 768952261,
+          "attempts": 769073480,
+          "events": 769076065,
+          "logical_ticks": 15230890564
+        },
+        "elapsed_seconds": 305.574
+      },
+      {
+        "rounds": 100,
+        "log": "docs/validation/t015_linux_logs/rviss_100_2.log",
+        "log_sha256": "b65516a690035526aa774879afcf5e46c21b201d46ba9c70803da246e46b161e",
+        "input": "docs/validation/t015_linux_logs/rviss_100_2.input",
+        "input_sha256": "3eabe33054fce9c9df45063cff1de124a42ffeaa38a92946d241cf43b2edf3fc",
+        "extra_probe_passes": 10,
+        "exit_code": 0,
+        "guest_shutdown": true,
+        "counters": {
+          "retired": 768952261,
+          "attempts": 769073480,
+          "events": 769076065,
+          "logical_ticks": 15230890564
+        },
+        "elapsed_seconds": 348.68
+      },
+      {
+        "rounds": 100,
+        "log": "docs/validation/t015_linux_logs/rviss_100_3.log",
+        "log_sha256": "9916c843923cbb809cdfff2779cf11cbbfc5b97680e0c6885a7b236a0a74d2fe",
+        "input": "docs/validation/t015_linux_logs/rviss_100_3.input",
+        "input_sha256": "3eabe33054fce9c9df45063cff1de124a42ffeaa38a92946d241cf43b2edf3fc",
+        "extra_probe_passes": 10,
+        "exit_code": 0,
+        "guest_shutdown": true,
+        "counters": {
+          "retired": 768952261,
+          "attempts": 769073480,
+          "events": 769076065,
+          "logical_ticks": 15230890564
+        },
+        "elapsed_seconds": 317.949
+      },
+      {
+        "rounds": 1000,
+        "log": "docs/validation/t015_linux_logs/rviss_1000_1.log",
+        "log_sha256": "17cb72f1ea13074640d47188a80d00f163705ca67576a3eed38f7316f594f449",
+        "input": "docs/validation/t015_linux_logs/rviss_1000_1.input",
+        "input_sha256": "de6293817c6ff345b72aa89683bc6e246b5bf8016564fa2c1f5f14a5e355f85a",
+        "extra_probe_passes": 100,
+        "exit_code": 0,
+        "guest_shutdown": true,
+        "counters": {
+          "retired": 5909812555,
+          "attempts": 5910514276,
+          "events": 5910536302,
+          "logical_ticks": 138494890564
+        },
+        "elapsed_seconds": 2273.973
+      }
+    ]
+  },
+  "report_sha256": {
+    "t015_final_spike.json": "e853fd2f6400ba63fac349b97ed2badde3e68343e31b917b35f0f9e7b1e72195",
+    "t015_linux_100.json": "8c2c26ff2986c93d3a8d17c51ed22755f4260e71c5d4ad1ab584d3abef7713cb",
+    "t015_linux_1000.json": "52ef312d9ac8d11eab0f84942f7af36ac1b3b408fd52fd07122712c858863716",
+    "t015_cold_checkpoint.json": "a108a74d69b0cebd063ad944e9f5c3d61422a3f62e83172c3d18d63904cb6b25",
+    "t015_performance_checkpoint.json": "fe751b6261be08d897593dbc5aa3608ad4a1fe0c41d9b16cd50934ce3049b19d",
+    "t015_gc_spike.json": "86836c8d6163c631e8e86bf5c054b2a06681ce52f2e513f556cd8604ba49c2ba",
+    "t015_ubsan_spike.json": "567705a184260872caa032399c848bc60a1cbabc1a6d8a50d347e72d92f9d8d7",
+    "t015_release_spike.json": "c4f9aa02e717db99d194fe05830e00c60e410da21de4db1b7ea2b2c397b4cfd7",
+    "t015_release_replay.json": "c4cb45d31055358dd78923442f1cc29c6094697b10a697ee39fa96cdf54a02c5",
+    "t015_linux_manifest.json": "95f0f1152a73e58798d232cd9114db411bc308635d40716dbe810a676d1a7245"
+  },
+  "remaining_in_authorized_goal": [],
+  "limits": [
+    "Spike comparison covers instruction/architectural-state programs, not every instruction of the Linux platform boot.",
+    "mcycle/cycle timing policy exclusions are declared in the Spike report; device time is deterministic.",
+    "SoftFloat arithmetic shares upstream with Spike; independent literal IEEE unit cases supplement differential checks.",
+    "Full checkpoint restore equivalence, NEMU/RTL shared-library ABI, multi-hart and H are not validated.",
+    "Finisher reboot7777 and UART electrical/error timing are not implemented."
+  ]
+}

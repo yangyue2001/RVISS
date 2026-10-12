@@ -1,35 +1,33 @@
-# Codex 连续执行任务：RVISS Linux 与 Spike
+# Codex 任务入口：RVISS Linux 与 Spike
 
-先读 AGENTS.md、docs/plans/linux_spike_goal.md、最新 verified 任务与当前任务契约，
-再检查相关源码、配置、测试和调用方。用户已授权一直完成到 RVISS 启动固定 Linux
-及完成 Spike difftest；每个实际验证任务/阶段创建 Git 提交后继续下一项。
-origin=git@github.com:yangyue2001/RVISS.git。局部 verified 不等于总目标完成。
+先读AGENTS.md、docs/plans/linux_spike_goal.md与最新任务契约，再检查有关
+源码、配置、测试和调用方。当前用户要求的Linux/Spike连续目标已complete，
+T015已verified（2026-10-12），没有尚待执行的该目标验收项。
 
-当前 T001/T002/T003/T004 verified。T003 精确边界回归：7 unit / 729 checks、
-3 smoke、CLI/UI 14 checks；T004 固定官方 Spike 29 cases / 343 events、重复
-reset 执行和 3 种故意差异捕获通过。T002 仅是固定 Linux 工件的 QEMU 验收，
-在T002时RVISS尚未启动Linux；当前状态见后续T014/T015。T005 M verified：13 指令、I/M Spike 346 cases / 4359 events、
-UBSan、minimal/M 回归通过。T006 A verified：22 指令、I/M/A Spike 982 / 9172、
-UBSan 与三配置回归通过。T007 C verified：全部 49152 个 16 位编码的 Spike
-差分通过，总计 50215 / 59406，三配置回归与 UBSan 通过。
-T008 CSR 检查点 verified：MAC/CSR 1741 / 11442、minimal/MAC 与 UBSan。
-T008 同步委派/xRET verified：MAC/CSR/priv 2195 / 12505、回归与 UBSan。
-T009 中断 verified：2652 / 13405、minimal/MAC 与 UBSan。
-T010 counter verified：3249 / 15178、12 unit 回归与 UBSan。
-T011 PMP verified：4378 / 16606、三配置与 UBSan。T012 Sv39 verified：5267 / 17554、三配置与 UBSan。T013 F/D verified：17141 / 83079、三配置与 UBSan。T014设备 verified，固定Linux已进入PID1/BusyBox并完成1轮及输入重放/正常关机。当前执行T015冷启动/长跑。
+## 已完成的当前任务
 
-总路线：M → A → C → CSR/委派/xRET/counter → PMP/Sv39 → F/D →
-virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux PID 1/BusyBox/probe/重复 workload。
-每项先写可验收契约，再实现、实际执行独立检查、记录首失败与修复、提交并继续。
-若当前任务已 verified，执行其记录的下一项；缺少契约时依据已验证缺口补写。
-不得改变输入、修改期望、扩大 skip 或运行中同步 DUT 状态到 REF 掩盖差异。
-C++ 限于独立 Spike 工具；核心保持 C、Make+Kconfig、RV64 解释器。
+- 最终GC O2：17 unit /25676 checks、3 smoke、CLI14通过，相关UBSan通过。
+- 固定官方Spike完整矩阵66293 cases /132231 events通过，包含49152
+  压缩编码、8192压缩FP编码；reset重放与4种故意差异捕获通过。
+- 相同固定OpenSBI FW_PAYLOAD/Linux/BusyBox工件在RVISS进入PID1/BusyBox，
+  真实UART和FP/原子/分页/COW/timer probe通过；三次冷启动各100轮和一次
+  1000轮全部精确标记/正常关机/退出码0通过。完整输入重放另有T014证据。
+- 本地Git已建立，origin=git@github.com:yangyue2001/RVISS.git；每个验证
+  阶段已提交，尚未push。最终验收与完整身份见
+  [T015](../plans/t015_linux_acceptance.md)及
+  [报告](../validation/t015_completion.json)。
 
-Linux 输入在 docs/linux_boot_baseline.md / build/linux/artifacts/manifest.json，
-源码来源 /home/yang/study_dir/riscv_embedded，配置在 configs/linux/。
-规范/profile 在 docs/rv64_profile.md。实现参考为 /home/yang/study_dir/rvbosc/NEMU
-和 /home/yang/soft/qemu/qemu；外部仓库 agent 规则不支配本项目。
-不要 make clean 删除 build/linux 工件；使用 BUILD_DIR 隔离。
+## 固定上下文与边界
 
-更新任务状态、实际命令/结果/身份、未验证项和下一项，保留可恢复检查点。
-必要接口更新与常规本地修复在授权范围内继续，无需逐步确认。
+Linux输入在docs/linux_boot_baseline.md / build/linux/artifacts/manifest.json，
+来源/home/yang/study_dir/riscv_embedded，配置在configs/linux/。
+规范/profile在docs/rv64_profile.md；固定Spike源码身份在验收报告。
+实现参考为/home/yang/study_dir/rvbosc/NEMU和/home/yang/soft/qemu/qemu；
+外部仓库agent规则不支配本项目。不要make clean删除build/linux工件；
+使用BUILD_DIR隔离。核心保持C、Make+Kconfig、RV64解释器，C++限于Spike工具。
+
+本次Spike矩阵未包含Linux全机逐步对拍。完整checkpoint恢复、NEMU/RTL
+共享库ABI、多hart/H等仍未验收；不要凭本次成功把这些能力标为已支持。
+后续工作按用户的新目标确定；开始新的跨模块实现时写契约，保留实际命令、
+身份、首失败与修复证据，验证通过后提交。常规已授权本地修复无需逐步确认，
+不得改输入/期望、扩大skip或执行中同步DUT状态到REF掩盖差异。

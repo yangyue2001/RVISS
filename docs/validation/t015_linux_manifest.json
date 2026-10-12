@@ -1,0 +1,89 @@
+{
+  "profile": "rv64gc-single-hart-linux",
+  "sources": {
+    "_snapshot_format": 2,
+    "linux": {
+      "original": "/home/yang/study_dir/riscv_embedded/linux-6.11.4",
+      "snapshot": "/home/yang/work/ISS/build/linux/source/linux",
+      "tree_sha256": "40165391bdd0b060b51d5287c2f8a00ee643e720b0f946939bb5e0235591c8ad"
+    },
+    "busybox": {
+      "original": "/home/yang/study_dir/riscv_embedded/busybox-1.34.1",
+      "snapshot": "/home/yang/work/ISS/build/linux/source/busybox",
+      "tree_sha256": "8c3782aa8ee616d9023f15302da8f91e85c9f0ce321cb15b0a3080fa7a99ccdf"
+    },
+    "opensbi": {
+      "original": "/home/yang/study_dir/riscv_embedded/opensbi",
+      "snapshot": "/home/yang/work/ISS/build/linux/source/opensbi",
+      "commit": "69a0f0245f39ea3af4685cab4cb2dda90acd17cd",
+      "tree_sha256": "a3aa506c1701333d235ae90f3003a55fcab6ef380bf2b42840ecbd278049ade5",
+      "note": "git archive 固定提交，不包含原目录未提交补丁"
+    }
+  },
+  "toolchain": "riscv64-linux-gnu-gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0",
+  "isa": "RV64IMAFDC_Zicsr_Zifencei + Zicntr, M/S/U, Sv39",
+  "busybox_abi": "lp64d, static",
+  "opensbi_abi": "lp64",
+  "layout": {
+    "ram_base": "0x80000000",
+    "ram_bytes": 268435456,
+    "firmware_entry": "0x80000000",
+    "kernel_entry": "0x80200000",
+    "kernel_image_size": 2576392,
+    "dtb_address": "0x8f000000"
+  },
+  "qemu_cpu": "rv64,priv_spec=v1.12.0,i=true,m=true,a=true,f=true,d=true,c=true,s=true,u=true,h=false,v=false,sv39=true,sv48=false,sv57=false,zba=false,zbb=false,zbc=false,zbs=false,zicbom=false,zicbop=false,zicboz=false,zihintntl=false,zihintpause=false,zawrs=false,zfa=false,sstc=false,svadu=false,svvptc=false,zihpm=false,pmu-mask=0",
+  "bootargs": "console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000 rdinit=/init loglevel=6",
+  "artifacts": {
+    "Image": {
+      "sha256": "15e9113317efee39d163d25816e066b4cc91202c3c5089971328c3c355073f84",
+      "bytes": 2413976
+    },
+    "busybox": {
+      "sha256": "2e6f2392f4ef863510febdd11be5598650b01545089c8818c0756c8f3684f6ec",
+      "bytes": 818816
+    },
+    "busybox.config": {
+      "sha256": "b8a5767d62b9643c93081567433e86612c6a8d9a679447c248706654401ea30d",
+      "bytes": 37261
+    },
+    "fw_payload.bin": {
+      "sha256": "a907c27805a4f37808f1c6876e4b003876a5b5a1cafe1d52598f75d78414ef86",
+      "bytes": 4511144
+    },
+    "fw_payload.elf": {
+      "sha256": "4122808a773ba6f341e583b75ba50c27e2016d9452055f14afd1ca5441ce12f3",
+      "bytes": 3743336
+    },
+    "initramfs.cpio.gz": {
+      "sha256": "4b707e3538c3449272a5196ba1a2d9596b58c38c53030a664c54897a2ca6c5e8",
+      "bytes": 785599
+    },
+    "linux.config": {
+      "sha256": "fb2d22527bf637e308828ea510979721fd54f6c3c8cde38863a23ded05e14be6",
+      "bytes": 32526
+    },
+    "opensbi.config": {
+      "sha256": "0bc94571c5483927b50d25c27d42ad30cc600a8aafa6dc946925058f82cad233",
+      "bytes": 3866
+    },
+    "rviss_virt.dtb": {
+      "sha256": "00cbd96ace76222cbe814e690694846dc93688ad903e00b00e80d97f768bf0e2",
+      "bytes": 1993
+    },
+    "vmlinux": {
+      "sha256": "da131f5f7e7e8a96aa165f84dc7bd2d0861b2f5d7290e63e80ce85f9553141e5",
+      "bytes": 2973152
+    }
+  },
+  "inputs": {
+    "configs/linux/busybox_min.config": "5e40eec795f21ffca4ea0386e8fcb7d8890f02e3974a511046ed1fb56c7304ed",
+    "configs/linux/opensbi_min.config": "8e69b01573a8e9350851c12981eb79d72d670b542bc2d774c2b5ab43b3960a20",
+    "configs/linux/rv64gc_min.config": "c5a142a4af70acb8b4556c42e18be5024d78e84e14a7f0dd05dc1393eace9352",
+    "configs/linux/rviss_virt.dts": "7348000656bc98330f29a29536d93f5c573871b506a5f5f5e869ea7f09370c1e",
+    "tools/linux/init": "a52a40d03494f48e382d670a79718ed8b41e134104340eeba279cb0b039b1c87",
+    "tools/linux/workload": "8939fb4a79d2fd95034df4dbf1502bf8bc3b35f7c965c0dcfd2c9fffa3172068",
+    "tools/linux/rviss_probe.c": "dd96cc74a84b9079ff2946f2d21f505f4863d1370618275cf0d510c241685019",
+    "tools/linux/build.py": "cb2fe5b46d4cbce18960805a529a6b8d07ec6b4dc14d49bfe66521c4c9e858ee"
+  }
+}

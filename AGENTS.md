@@ -79,6 +79,11 @@ make check 和 UBSan 通过。T008 CSR 检查点通过：MAC/CSR 1741 / 11442，
 minimal/MAC 回归与 UBSan；同步委派/xRET 也 verified：2195 / 12505。
 T009 中断 verified：2652 / 13405、回归与 UBSan；
 T010 counter verified：3249 / 15178、12 unit 回归与 UBSan；
-T011 PMP verified：4378 / 16606、三配置与 UBSan；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079、三配置与 UBSan；T014 设备 verified：476+32 unit、GC8949/74887、固定Linux1轮与整机重放；当前继续 T015 冷启动/长跑；
-后续 agent 应重确认状态，完成局部任务后继续总目标。
+T011 PMP verified：4378 / 16606、三配置与 UBSan；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079、三配置与 UBSan；T014 设备 verified：476+32 unit、GC8949/74887、固定Linux1轮与整机重放。
+[T015](docs/plans/t015_linux_acceptance.md) verified：最终 GC Spike 66293 cases /
+132231 events、reset 重放与4种差异注入通过；固定 Linux 三次冷启动各100轮
+和一次1000轮全部正常关机，17 unit /25676 checks、3 smoke、CLI14通过。
+用户本次 Linux/Spike 总目标已 complete，证据见
+[最终验收](docs/validation/t015_completion.json)。后续任务按用户的新请求确定，
+不要把完整 checkpoint/RTL ABI 等未验收能力当作已完成。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

@@ -1,0 +1,50 @@
+{
+  "platform": "RVISS",
+  "rviss_sha256": "02e551e294a66390c72fe2d6721704737bf44f2cdf699494e3074f28e734c7c5",
+  "manifest_sha256": "95f0f1152a73e58798d232cd9114db411bc308635d40716dbe810a676d1a7245",
+  "command": [
+    "/home/yang/work/ISS/build/t015-linux/rviss",
+    "-b",
+    "--memory",
+    "256M",
+    "--max-instr",
+    "20000000000",
+    "--max-events",
+    "40000000001",
+    "/home/yang/work/ISS/build/linux/artifacts/fw_payload.bin"
+  ],
+  "requested_boots": 1,
+  "runs": [
+    {
+      "passed": true,
+      "rounds": 1000,
+      "elapsed_seconds": 2273.973,
+      "exit_code": 0,
+      "log": "/home/yang/work/ISS/build/linux/logs/rviss_1000_1.log",
+      "log_sha256": "17cb72f1ea13074640d47188a80d00f163705ca67576a3eed38f7316f594f449",
+      "command": [
+        "/home/yang/work/ISS/build/t015-linux/rviss",
+        "-b",
+        "--memory",
+        "256M",
+        "--max-instr",
+        "20000000000",
+        "--max-events",
+        "40000000001",
+        "/home/yang/work/ISS/build/linux/artifacts/fw_payload.bin",
+        "--uart-stdin",
+        "--uart-record",
+        "/home/yang/work/ISS/build/linux/logs/rviss_1000_1.input"
+      ],
+      "input_sha256": "de6293817c6ff345b72aa89683bc6e246b5bf8016564fa2c1f5f14a5e355f85a",
+      "counters": {
+        "retired": 5909812555,
+        "attempts": 5910514276,
+        "events": 5910536302,
+        "logical_ticks": 138494890564
+      },
+      "guest_shutdown": true
+    }
+  ],
+  "passed": true
+}

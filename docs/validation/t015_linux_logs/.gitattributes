@@ -1,0 +1,3 @@
+# Preserve the exact UART output/input bytes used by the acceptance report.
+*.log -text -diff
+*.input -text

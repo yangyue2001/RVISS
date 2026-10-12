@@ -6,6 +6,12 @@ trace 与 checkpoint；当前实现和验收范围如下。
 
 ## 当前实现与验证状态（2026-10-12）
 
+用户要求的 Linux 启动与 Spike difftest 已完成：固定 OpenSBI/Linux 进入
+PID1/BusyBox，三次冷启动各100轮和一次1000轮均通过并正常关机；完整
+Spike 66293 cases /132231 events、reset重放及4种差异注入通过。
+实际命令、二进制/工件身份、串口日志和输入记录见
+[T015 最终验收](docs/plans/t015_linux_acceptance.md)。
+
 [T001 基线](docs/plans/t001_baseline.md) 已 verified：从无旧产物的源码副本
 重建 Kconfig/fixdep、CLI 和 ref 共享库；minimal 下 6 个 unit（101 checks）
 及 UART/CLINT 两个 smoke 通过。ref 下同样的 unit 通过，CLI smoke 在 minimal
@@ -34,9 +40,11 @@ IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同
 [T010 counter](docs/plans/t010_counters.md) verified：3249 / 15178，12 unit、
 CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378 / 16606、三配置与 UBSan。
 [T012 Sv39](docs/plans/t012_sv39.md) verified：5267 / 17554、三配置与 UBSan。
-[T013 F/D](docs/plans/t013_fp.md) verified：GC 17141 / 83079、F-only 7558 / 47058，三配置与 UBSan。[T014设备](docs/plans/t014_devices.md) verified，固定Linux已进入PID1、BusyBox，真实UART完成1轮并正常关机与整机重放；下一项100/1000验收。
-用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
-仍在执行，每个验证阶段提交 Git 后继续。
+[T013 F/D](docs/plans/t013_fp.md) verified：GC 17141 / 83079、F-only 7558 / 47058，三配置与 UBSan。[T014设备](docs/plans/t014_devices.md) verified，固定Linux已进入PID1、BusyBox，真实UART完成1轮并正常关机与整机重放。
+[T015](docs/plans/t015_linux_acceptance.md) verified，最终GC回归17 unit /
+25676 checks、3 smoke、CLI14通过。
+用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)已complete，
+各验证阶段均有本地Git提交，origin已配置，尚未push。
 
 | 能力 | 当前源码行为 | 验证范围 / 下一步 |
 | --- | --- | --- |
@@ -52,7 +60,7 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
 | difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | 固定Spike已扩展到GC、44 CSR、Sv39/PMP与IRQ/counter；NEMU/RTL ABI和rviss_create未验收 |
-| Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU已验收；T014 RVISS PID1/probe/BusyBox/额外1轮及输入重放与正常关机通过，100/1000待T015 |
+| Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU单独验收；T015 RVISS PID1/probe/BusyBox/真实UART、3次100轮与1次1000轮全部正常关机，T014整机输入重放通过 |
 
 固定Linux入口（工件见 `build/linux/artifacts/manifest.json`）：
 
@@ -93,7 +101,7 @@ make -j4 CC=/usr/bin/gcc check
 
 ref 产物为 build/librviss_ref.so 和 build/tests-ref/*.test；共享库链接及
 unit 通过不代表 difftest consumer 可用。切回 CLI 使用 minimal_defconfig。
-本次验证保持原工作区配置，ref 在隔离源码副本中构建。
+minimal/ref的隔离构建证据见T001/T003；最终Linux验收使用gc_defconfig。
 
 ```sh
 ./build/rviss -b --max-instr 1000000 image.elf
@@ -114,8 +122,17 @@ python3 tools/spike/build.py --jobs 4
 make CC=/usr/bin/gcc check-diff
 ```
 
-29 个 case 在新进程重复运行并保存首差异；结果位于 build/difftest/。
-这个入口不验收 NEMU/RTL 共享库 ABI。
+默认最小入口有29个case，在新进程重复运行并保存首差异；结果位于
+build/difftest/。最终GC完整矩阵入口：
+
+```sh
+make gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/rv64gc check build/rv64gc/rviss_dut
+python3 tools/spike/check.py --dut build/rv64gc/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --exhaustive-c --fp-exhaustive-c --out build/rv64gc/difftest-final
+```
+
+Spike对拍覆盖指令/架构状态矩阵，完整平台设备和Linux整机逐步对拍不在此
+入口范围；NEMU/RTL共享库ABI也未验收。
 
 minimal 板只映射以下地址，默认 RAM 为 128 MiB、复位 PC 为 0x80000000。
 Linux 的固定 RAM 为256MiB，使用 `--memory 256M`；T014已装配固定virt设备。
@@ -125,6 +142,7 @@ Linux 的固定 RAM 为256MiB，使用 `--memory 256M`；T014已装配固定virt
 | UART16550 | 0x10000000 |
 | CLINT | 0x02000000 |
 | PLIC M/S | 0x0c000000 |
+| test finisher | 0x00100000 |
 
 没有 UARTLite 或其它 NEMU 地址别名。include/rviss.h 的结构/符号声明不能作为
 ABI 验收证据：当前 difftest_init 未完成整机初始化，set_ramsize 忽略参数，

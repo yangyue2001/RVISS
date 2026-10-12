@@ -127,8 +127,29 @@ manifest 保存来源、输入/工件哈希、工具链、ISA/ABI、地址及 CP
 三次冷启动各 100 轮均通过（29.592 / 29.418 / 29.056 宿主秒），
 另一次 1000 轮通过（260.778 宿主秒），均正常退出。
 详情见 [T002 验收记录](plans/t002_linux_artifacts.md)。
-这证明当前工件在固定 QEMU/profile/预算上的行为；当前T014已验证RVISS的PID1/BusyBox/1轮与正常关机及输入重放，100/1000完整验收见T015，
-后续仍需相同工件的冷启动、交互、长稳与 checkpoint 恢复证据。
+这证明当前工件在固定QEMU/profile/预算上的行为，RVISS结果另行记录如下。
+
+## RVISS 实际验收（2026-10-12）
+
+固定工件不变，GC O2构建在RVISS完成OpenSBI→S-mode Linux/Sv39→PID1→
+BusyBox。真实UART命令、F/D/原子/mmap/fork/COW/timer probe通过，三次冷启动
+各100轮耗时305.574/348.680/317.949s，一次1000轮2273.973s；全部精确轮数
+标记、RVISS_LINUX_OK、SBI-finisher正常关机和退出码0通过，无panic/Oops。
+三次冷启动输入/计数及去宿主performance行后完整输出一致，T014完整输入重放
+另有证据。客户机设备只使用逻辑时间，宿主耗时记录不参与执行语义。
+
+```sh
+make gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t015-linux check build/t015-linux/rviss_dut
+python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 3 --rounds 100 --timeout 1800 --max-instr 4000000000
+python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 1 --rounds 1000 --timeout 7200 --max-instr 20000000000
+```
+
+报告见[T015](plans/t015_linux_acceptance.md)与
+[最终汇总](validation/t015_completion.json)，原始log/input在
+docs/validation/t015_linux_logs/，固定manifest在t015_linux_manifest.json。
+完整Spike语义矩阵66293/132231另行通过；没有对Linux全机每条指令进行Spike
+对拍。完整checkpoint恢复不属于本次完成条件，仍未验收。
 
 ## 给 Codex 的任务
 

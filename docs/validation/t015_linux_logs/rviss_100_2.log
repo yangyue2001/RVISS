@@ -1,0 +1,116 @@
+[INFO  general] config: max_instr=4000000000 max_events=8000000001 batch=1 trace=0 mem_override=yes
+[INFO  general] machine: minimal
+[INFO  general] memory: 256 MiB @ 0x0000000080000000
+[INFO  general] cpu reset: pc = 0x0000000080000000, priv = M
+[INFO  general] decoder: 161 instructions in table
+[INFO  general] raw image: 4511144 bytes -> 0x0000000080000000
+[INFO  general] image loaded, end = 0x000000008044d5a8
+
+OpenSBI v1.6
+   ____                    _____ ____ _____
+  / __ \                  / ____|  _ \_   _|
+ | |  | |_ __   ___ _ __ | (___ | |_) || |
+ | |  | | '_ \ / _ \ '_ \ \___ \|  _ < | |
+ | |__| | |_) |  __/ | | |____) | |_) || |_
+  \____/| .__/ \___|_| |_|_____/|____/_____|
+        | |
+        |_|
+
+Platform Name               : RVISS RV64GC single-hart baseline
+Platform Features           : medeleg
+Platform HART Count         : 1
+Platform IPI Device         : aclint-mswi
+Platform Timer Device       : aclint-mtimer @ 10000000Hz
+Platform Console Device     : uart8250
+Platform HSM Device         : ---
+Platform PMU Device         : ---
+Platform Reboot Device      : syscon-reboot
+Platform Shutdown Device    : syscon-poweroff
+Platform Suspend Device     : ---
+Platform CPPC Device        : ---
+Firmware Base               : 0x80000000
+Firmware Size               : 185 KB
+Firmware RW Offset          : 0x20000
+Firmware RW Size            : 57 KB
+Firmware Heap Offset        : 0x25000
+Firmware Heap Size          : 37 KB (total), 2 KB (reserved), 10 KB (used), 24 KB (free)
+Firmware Scratch Size       : 4096 B (total), 392 B (used), 3704 B (free)
+Runtime SBI Version         : 3.0
+Standard SBI Extensions     : time,rfnc,ipi,base,hsm,srst,pmu,dbcn,fwft,legacy,sse
+Experimental SBI Extensions : none
+
+Domain0 Name                : root
+Domain0 Boot HART           : 0
+Domain0 HARTs               : 0*
+Domain0 Region00            : 0x0000000000100000-0x0000000000100fff M: (I,R,W) S/U: (R,W)
+Domain0 Region01            : 0x0000000010000000-0x0000000010000fff M: (I,R,W) S/U: (R,W)
+Domain0 Region02            : 0x0000000002000000-0x000000000200ffff M: (I,R,W) S/U: ()
+Domain0 Region03            : 0x0000000080020000-0x000000008002ffff M: (R,W) S/U: ()
+Domain0 Region04            : 0x0000000080000000-0x000000008001ffff M: (R,X) S/U: ()
+Domain0 Region05            : 0x000000000c000000-0x000000000fffffff M: (I,R,W) S/U: (R,W)
+Domain0 Region06            : 0x0000000000000000-0xffffffffffffffff M: () S/U: (R,W,X)
+Domain0 Next Address        : 0x0000000080200000
+Domain0 Next Arg1           : 0x000000008f000000
+Domain0 Next Mode           : S-mode
+Domain0 SysReset            : yes
+Domain0 SysSuspend          : yes
+
+Boot HART ID                : 0
+Boot HART Domain            : root
+Boot HART Priv Version      : v1.11
+Boot HART Base ISA          : rv64imafdc
+Boot HART ISA Extensions    : zicntr
+Boot HART PMP Count         : 16
+Boot HART PMP Granularity   : 2 bits
+Boot HART PMP Address Bits  : 54
+Boot HART MHPM Info         : 0 (0x00000000)
+Boot HART Debug Triggers    : 0 triggers
+Boot HART MIDELEG           : 0x0000000000000222
+Boot HART MEDELEG           : 0x000000000000b109
+Linux version 6.11.4-rviss (rviss@baseline) (riscv64-linux-gnu-gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #1 2026-10-09 00:00:00 +0000
+Machine model: RVISS RV64GC single-hart baseline
+SBI specification v3.0 detected
+SBI implementation ID=0x1 Version=0x10006
+SBI TIME extension detected
+SBI IPI extension detected
+SBI RFENCE extension detected
+SBI SRST extension detected
+SBI DBCN extension detected
+earlycon: uart8250 at MMIO 0x0000000010000000 (options '')
+printk: legacy bootconsole [uart8250] enabled
+Kernel command line: console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000 rdinit=/init loglevel=6
+Kernel memory protection not selected by kernel config.
+RVISS_PID1_OK pid=1
+Linux (none) 6.11.4-rviss #1 2026-10-09 00:00:00 +0000 riscv64
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_WORKLOAD_OK rounds=10
+RVISS_BUSYBOX_READY
+/bin/busybox uname -m && /bin/busybox echo RVISS_INTERACTIVE_OK && /bin/rviss_workload 100 && /bin/busybox echo RVISS_LINUX_OK && /bin/busybox poweroff -f
+
+
+BusyBox v1.34.1 (2026-10-09 08:00:00 CST) built-in shell (ash)
+
+rviss# /bin/busybox uname -m && /bin/busybox echo RVISS_INTERACTIVE_OK && /bin/r
+viss_workload 100 && /bin/busybox echo RVISS_LINUX_OK && /bin/busybox poweroff -
+f
+riscv64
+RVISS_INTERACTIVE_OK
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_PROBE_OK fp32 fp64 amo lrsc mmap cow fork timer
+RVISS_WORKLOAD_OK rounds=100
+RVISS_LINUX_OK
+reboot: Power down
+[INFO  general] stop reason: HALTED, pc = 0x0000000080014fa4, halt_code = 0
+[INFO  general] retired=768952261 attempts=769073480 events=769076065 logical_ticks=15230890564
+[INFO  general] idle advances=1136 ticks=14461814499
+[INFO  general] host time = 348570695 us, speed = 2206015 instr/s
+[INFO  general] [1;32mHIT GOOD TRAP[0m at pc = 0x0000000080014fa4

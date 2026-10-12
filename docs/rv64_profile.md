@@ -32,7 +32,7 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 
 csr_machine.h / csr_supervisor.h 中其它扩展的位宏只是一组既有编码定义，
 不代表支持这些扩展；WARL/可见位须按本 profile 显式处理。
-当前公共 cause 头声明 page fault 编号，同样不代表页表 walker 已实现。
+公共cause定义与实现能力分开维护；Sv39 walker的实际验证见T012/T015。
 
 ## 时间、计数与预算
 
@@ -43,8 +43,9 @@ csr_machine.h / csr_supervisor.h 中其它扩展的位宏只是一组既有编�
 
 目标步进策略：每个执行事件（指令或独立中断边界）推进一个逻辑 tick，
 每 128 ticks 推进 mtime 一次；客户机 cycle 按该逻辑步进计数，受其访问/抑制规则控制。
-这是功能模型的时间策略，不对应真实硬件周期/CPI。WFI 暂停后的平台时间推进在
-设备集成任务中实现，并须另留验收证据。单 hart 不给 AMO aq/rl 虚构宿主并行语义。
+这是功能模型的时间策略，不对应真实硬件周期/CPI。T014已实现WFI等待后的
+确定性设备deadline快进，并单独记录idle ticks；T015完成固定Linux长跑。
+单hart不给AMO aq/rl虚构宿主并行语义。
 
 T003 已实现上述事件/退休/平台时间分离。engine_step 返回一个事件；
 暂停或预算耗尽时返回 false、outcome=stopped，不生成新事件。
@@ -106,7 +107,8 @@ T013 实现 F/D 2.2 与压缩 D 访存，F-only FLEN32、D FLEN64/NaN boxing，
 FCSR 别名与 FS 权限/dirty、五个 rm 与动态 frm。保留 rm/frm trap，无目的写。
 固定 Spike 与 RVISS 共用来源的 SoftFloat 算术由独立 IEEE 边界 unit 补充覆盖。
 GC 17141 / 83079、F-only7558 / 47058、三配置与 UBSan通过，工具增加全FPR
-及44个CSR比较和FPR差异注入。T014设备与固定Linux1轮/正常关机已通过；100/1000仍待T015。
+及44个CSR比较和FPR差异注入。T014设备与固定Linux1轮/正常关机已通过；
+T015三次100轮冷启动和一次1000轮长跑已通过。
 
 T014 UART字节offset0..7、DLAB、16-byte FIFO四trigger/timeout、IER/IIR/LSR/
 MSR/loopback；TX即时就绪THRE/TEMT，未模拟电气时序/奇偶与framing fault。
@@ -114,4 +116,12 @@ PLIC31sources/M0/S1，claim不受threshold、priority/tie、level gateway和enab
 complete；CLINT32/64半寄存器精确。5555正常关机/3333失败，7777 reboot尚未实现。
 WFI仅逻辑时间/设备fastforward，不增加事件/尝试/退休/guest counters；记录
 idle_ticks/advances。真实UART输入可按event精确记录/重放，整机1轮输出与计数
-重放等价。固定Linux实际进入PID1/BusyBox/probe并1轮正常关机；不等于长期验收。
+重放等价；固定Linux进入PID1/BusyBox/probe并1轮正常关机的证据见T014。
+
+T015最终GC O2验收：17 unit /25676 checks、3 smoke、CLI14；固定Spike
+66293 cases /132231 events，含49152压缩编码和8192压缩FP编码，reset重放
+与4种差异注入通过。固定Linux三次100轮305.574/348.680/317.949s，完整
+输入、计数与去宿主performance行后输出相同；1000轮2273.973s正常关机，
+PID1/真实UART/probe/精确轮数标记通过。哈希与原始记录见
+[最终验收](validation/t015_completion.json)。Spike矩阵不包括Linux全平台
+逐条对拍；时间策略排除项、共用SoftFloat来源和未验收ABI/checkpoint仍明确保留。

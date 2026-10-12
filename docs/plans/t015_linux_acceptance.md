@@ -1,6 +1,31 @@
 # T015：固定 Linux 冷启动与长跑验收
 
-状态：active，依赖 T014 verified（b83d9b9）。
+状态：verified（2026-10-12），依赖 T014 verified（b83d9b9）。
+
+最终 GC O2 构建在固定输入上通过全部验收：三次冷启动各100轮，耗时
+305.574 /348.680 /317.949s；一次1000轮长跑耗时2273.973s，退出码0，
+精确轮数/PID1/BusyBox真实UART输入/probe/正常SBI-finisher关机全部通过。
+1000轮退休5909812555、尝试5910514276、事件5910536302、逻辑ticks
+138494890564；WFI idle advances10406、ticks132584354262。宿主耗时只用于
+性能记录，不驱动客户机设备时间。无panic/Oops，未改镜像、标记或轮数。
+
+完整固定 Spike 矩阵66293 cases /132231 events、reset重放与4种故意差异
+捕获通过；17 unit /25676 checks、3 smoke、CLI14与相关UBSan通过。
+最终二进制、Spike bridge、所有Linux工件和原始log/input的哈希重新核对一致。
+证据为 [汇总](../validation/t015_completion.json)、
+[100轮](../validation/t015_linux_100.json)、
+[1000轮](../validation/t015_linux_1000.json)、
+[Spike](../validation/t015_final_spike.json)。原始串口日志与输入事件在
+`docs/validation/t015_linux_logs/`，工件manifest保存在t015_linux_manifest.json。
+
+本任务及用户的Linux/Spike总目标complete。Spike比较范围是指令/架构状态
+矩阵，没有对Linux整机执行每条指令进行Spike对拍；完整checkpoint恢复、
+NEMU/RTL共享库ABI、多hart/H、UART电气错误时序、finisher reboot7777未验收。
+最终报告和状态更新创建完成提交；此前阶段提交168f159、981ff83、8e6bd32。
+
+## 契约与历史检查点
+
+以下active/待运行文字记录各检查点当时的状态，最终状态以上述结果为准。
 
 固定 T002 的 FW_PAYLOAD/DTB/内核/BusyBox/init/probe/workload 身份不变。
 完成3次冷启动各100轮和1次1000轮：PID1、probe、BusyBox真实UART输入、

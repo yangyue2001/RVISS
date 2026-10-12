@@ -1,51 +1,60 @@
 # RVISS Linux 与 Spike 连续实现目标
 
-状态：active（2026-10-12）。用户明确授权建立 Git、逐任务/阶段提交并持续完成
-RVISS 启动 Linux 和 Spike difftest；这一授权覆盖必要的 C 核心/接口/设备实现。
-原先各局部契约的非目标只限制该任务，不取消本总目标授权。
+状态：complete（2026-10-12）。用户授权的本地Git建库、配置origin、逐任务/
+阶段提交、持续实现RVISS启动固定Linux和真实Spike difftest已完成。
+最终结果见[T015](t015_linux_acceptance.md)与
+[可核对报告](../validation/t015_completion.json)。
 
-## 完成条件
+## 完成条件与实际结果
 
-- 本地 Git 已建立，origin=git@github.com:yangyue2001/RVISS.git，已验证任务有提交。
-- 固定完整 Spike 源码/配置，I/RAM/trap 的逐事件差分和差异注入检查通过；
-  随 M/A/C/F/D、CSR/特权/MMU 的开发持续增加独立差分，不能把 ABI 符号当作完成。
-- 相同 T002 固定工件从 OpenSBI 进入 RVISS 的 S-mode Linux、Sv39、PID 1、
-  BusyBox；真实串口输入，用户态 FP/原子/分页 probe 和重复 workload 通过。
-- 保存实际命令、身份/哈希、预算、首差异、冷启动与长跑报告。
-  QEMU 与 RVISS 分开报告。未验证能力不得标完成。
+- 本地Git已建立，main，origin=git@github.com:yangyue2001/RVISS.git；各阶段
+  都已提交。尚未push，远端仓库内容没有发布更新。
+- 固定官方Spike da2f415bb62bec3e93b33b379d787b4262aade9f，源码未修改。
+  最终GC O2矩阵66293 cases /132231 events通过，含49152压缩16位编码和
+  8192压缩FP编码；全GPR/FPR、44 CSR、PC/raw/priv、显式store、完整RAM
+  哈希与退休比较，reset重放与4种故意差异捕获通过。报告与允许策略差异
+  见[t015_final_spike.json](../validation/t015_final_spike.json)。
+- 相同T002固定FW_PAYLOAD/DTB/内核/BusyBox/init/probe/workload，从OpenSBI
+  进入RVISS S-mode Linux/Sv39、PID1/BusyBox；真实UART命令和用户态
+  F/D、AMO/LRSC、mmap/fork/COW/wait/timer probe通过。
+- 三次冷启动各100轮通过，305.574/348.680/317.949s；输入、所有计数和
+  去宿主performance行后完整输出相同。一次1000轮长跑2273.973s通过，
+  5909812555退休、5910514276尝试、5910536302事件、138494890564逻辑
+  ticks。全部精确轮数标记、正常SBI-finisher关机、退出码0，无panic/Oops。
+- 最终GC回归17 unit /25676 checks、3 smoke、CLI14通过；相关UBSan
+  PMP1518检查与GC8949 cases /74887 events通过。可选O3/LTO配置也通过
+  完整Spike矩阵和固定输入重放；最终Linux验收始终使用同一个GC O2二进制。
+- 实际命令、预算、二进制/工件/log/input哈希及原始串口记录已保存，最终
+  重新核对一致；首失败和修复证据保留在各任务记录。QEMU与RVISS报告分开。
 
-## 推进顺序
+## 实际最终命令
 
-T004 最小 Spike bridge → M → A → C → CSR/委派/返回与 counter → PMP/Sv39 →
-F/D → virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux → 重复验收。
-依照真实依赖可调整具体顺序，每一项先写规则与验收后实现/测试/提交。
-不更换 Linux 输入或放宽预期掩盖问题；性能只在实际阻碍验收时局部优化。
-完整 checkpoint、RTL consumer 和 H 不属于本次最终完成条件。
+```sh
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t015-linux check build/t015-linux/rviss_dut
+python3 tools/spike/check.py --dut build/t015-linux/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --exhaustive-c --fp-exhaustive-c --out build/t015-linux/difftest-final-exhaustive
+python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 3 --rounds 100 --timeout 1800 --max-instr 4000000000
+python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 1 --rounds 1000 --timeout 7200 --max-instr 20000000000
+```
 
-## 当前检查点
+所有命令实际运行并退出0。GC配置、固定工件与来源见
+[profile](../rv64_profile.md)和[Linux基线](../linux_boot_baseline.md)。
+最后一次长跑的timeout7200s/尝试20B预算基于已测解释器成本，不更换输入、
+降低轮数或放宽成功标记。客户机设备不用宿主墙钟驱动。
 
-T001/T002/T003 verified，初始提交 e745972。Git 已初始化，origin 已配置，
-远端 ls-remote 实测为空；尚未 push。
-T004 verified：固定 Spike 29 cases / 343 events、3 种差异注入、回归均通过。
-T004 已提交 a82ef82；随机程序 handler 覆盖修复 d275906。T005 M verified：
-13 指令、I/M Spike 346 cases / 4359 events、UBSan、minimal/M 回归通过。
-T005 已提交 215ca1e。T006 A verified：22 指令、I/M/A Spike 982 / 9172、
-UBSan 与三配置回归通过，提交 1710e50。T007 C verified：49152 编码全部 Spike
-差分通过（全部 50215 / 59406），三配置与 UBSan 通过；提交 fd23733。
-T008 CSR 检查点 verified：MAC/CSR 1741 / 11442、minimal/MAC 回归与 UBSan；
-CSR 提交 65847b2；同步委派/xRET 也 verified，MAC/CSR/priv 2195 / 12505，
-minimal/MAC 回归与 UBSan，提交 27fcd99。T009 中断 verified：2652 / 13405、
-minimal/MAC 回归与 UBSan，提交 ccc1005。T010 counter verified：3249 / 15178，
-12 unit 回归与 UBSan；提交 f274d04。T011 PMP verified：4378 / 16606、
-三配置回归与 UBSan，观察检查点提交 f32eb90；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079，含8192压缩FP编码；三配置与 UBSan。T014设备 verified，固定Linux1轮与输入重放/正常关机通过。下一项T015性能检查点/100/1000验收。
-Git 写入受沙箱只读 .git 限制，已按工具权限
-流程授权。RVISS 已完成固定 Linux PID1/probe/BusyBox/1轮与正常关机，整机输入重放通过；三次100轮与1000轮长跑尚待验证。
+## Git 阶段记录
 
-T014设备/固定Linux1轮与输入重放提交b83d9b9；T015性能检查点168f159。
-最终GC Spike66293/132231已通过（含完整压缩编码、重放与4种差异注入），
-证据docs/validation/t015_final_spike.json。两次100轮冷启动已通过，第三次
-与1000长跑仍运行，总目标active。
+T001–T013的任务/验证/提交可沿各docs/plans/t*.md及Git历史核对。
+最近阶段：F/D d319684；设备/固定Linux1轮与整机重放b83d9b9；
+PMP局部性能检查点168f159；完整GC Spike矩阵981ff83；三次100轮冷启动
+和已验证release配置8e6bd32。最终1000轮、原始证据与complete状态另建
+完成提交，当前文档随该提交保存。
 
-T015三次100轮冷启动已全部verified，305.574/348.680/317.949s，所有计数、
-输入记录与去宿主performance行后完整输出相同。完整证据t015_linux_100.json。
-O3/LTO可选构建也通过66293/132231矩阵与完整输入重放。1000轮长跑仍active。
+## 验收边界与后续
+
+本次所有完成条件已满足，无未完成的授权验收项。Spike对拍是指令/架构
+状态矩阵，没有对Linux整机每条指令进行Spike对拍；mcycle/cycle计时策略
+排除项和设备范围见报告。SoftFloat与Spike共用上游来源，独立IEEE字面值
+边界unit补充差分覆盖，不能宣称完全独立的浮点算术oracle或规范认证。
+完整checkpoint恢复、NEMU/RTL共享库ABI、多hart/H、UART电气错误时序和
+finisher reboot7777未验收。后续范围按用户的新请求建立契约，不能凭符号
+或本次Linux/Spike结果宣称这些能力已支持。
