@@ -175,6 +175,32 @@ def execute(binary, path, inject=None):
     return [json.loads(line) for line in completed.stdout.splitlines()], command
 
 
+def m_cases():
+    isa = 'rv64im_zicsr_zifencei'
+    ops = [0x0033,0x1033,0x2033,0x3033,0x4033,0x5033,0x6033,0x7033,
+           0x003b,0x403b,0x503b,0x603b,0x703b]
+    def encode(op, rd, rs1=6, rs2=7):
+        return 0x02000000 | (rs2 << 20) | (rs1 << 15) | (rd << 7) | op
+    values = [0,1,2,3,7,(1<<64)-1,(1<<64)-2,1<<63,(1<<63)-1,
+              0x80000000,0x7fffffff,0xffffffff,0xffffffff80000000,
+              0x1234567880000000,0xaaaaaaaa00000000]
+    for i,a in enumerate(values):
+        for j,b in enumerate(values):
+            words = [encode(op,8+n) for n,op in enumerate(ops)]
+            yield f'm-boundary-{i}-{j}', case_text(words,len(words),{6:a,7:b},isa=isa)
+    for n,op in enumerate(ops):
+        for rd in [0,6,7]:
+            yield f'm-alias-{n}-{rd}', case_text([encode(op,rd)],1,
+                                                {6:0x8000000000000000,7:(1<<64)-1},isa=isa)
+        for rs1,rs2 in [(0,7),(6,0),(6,6),(0,0)]:
+            yield f'm-source-{n}-{rs1}-{rs2}', case_text([encode(op,5,rs1,rs2)],1,
+                                                       {6:(1<<64)-1,7:0},isa=isa)
+    rng = random.Random(0x4d524956)
+    words = [encode(rng.choice(ops),rng.randrange(32),rng.randrange(32),rng.randrange(32))
+             for _ in range(1000)]
+    yield 'm-seeded', case_text(words,1000,{i:rng.getrandbits(64) for i in range(1,32)},isa=isa)
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -191,18 +217,20 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--dut',type=Path,default=ROOT/'build/rviss_dut')
     parser.add_argument('--ref',type=Path,default=ROOT/'build/spike/bridge')
+    parser.add_argument('--suite',choices=['i','m'],default='i')
     args=parser.parse_args()
     args.dut=args.dut.resolve(); args.ref=args.ref.resolve()
     OUT.mkdir(parents=True,exist_ok=True)
     records=[]; event_count=0; started=time.monotonic()
-    for name,text in cases():
+    suite = list(cases()) + (list(m_cases()) if args.suite == 'm' else [])
+    for name,text in suite:
         path=OUT/(name+'.case');path.write_text(text)
         dut,dc=execute(args.dut,path); ref,rc=execute(args.ref,path)
         difference=first_difference(dut,ref)
         if difference:
             packet=save_failure(name,path,dut,ref,difference,[dc,rc])
             raise AssertionError(f'{name}: first event {difference}; {packet}')
-        if name == 'seeded-integer':
+        if name in ['seeded-integer', 'm-seeded']:
             # 程序的 200 条 R/W 指令必须全部顺序执行，然后到达唯一的尾部循环。
             assert all(int(event['pc_before'], 16) == BASE + 4*i
                        and event['retired'] for i, event in enumerate(dut[1:])), name
@@ -223,11 +251,12 @@ def main():
         packet=save_failure('injected-'+kind,path,dut,ref,difference,[dc,rc])
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
-    summary=dict(status='verified',cases=records,event_count=event_count,reset_replay=True,
+    summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','18 trap/priv CSR','store','full RAM hash','retirement'],
-                 excluded=['misa capability identity','mcycle timing policy','counter writes','async devices','GC/Sv39/PMP'])
+                 excluded=['misa capability identity','mcycle timing policy','counter writes','async devices',
+                           'A/C/F/D/Sv39/PMP' if args.suite == 'm' else 'GC/Sv39/PMP'])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
 

@@ -1,0 +1,55 @@
+{
+  "status": "verified",
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc check",
+      "exit_code": 0,
+      "log": "build/spike/t005-minimal-check.log"
+    },
+    {
+      "command": "make CC=/usr/bin/gcc m_defconfig",
+      "exit_code": 0,
+      "log": null
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t005-m check",
+      "exit_code": 0,
+      "log": "build/spike/t005-m-check.log"
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t005-m check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t005-m-diff-first.log"
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t005-ubsan build/t005-ubsan/test_m.test",
+      "exit_code": 0,
+      "log": "build/spike/t005-ubsan-build.log"
+    },
+    {
+      "command": "build/t005-ubsan/test_m.test",
+      "exit_code": 0,
+      "log": "build/spike/t005-ubsan-run.log"
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t005-ubsan check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t005-ubsan-diff.log"
+    }
+  ],
+  "minimal_unit_checks": 2394,
+  "m_unit_checks": 2202,
+  "smokes_per_config": 3,
+  "cli_checks_per_config": 14,
+  "spike_cases": 346,
+  "spike_events": 4359,
+  "ubsan": "test_m and full I/M difftest passed, no report",
+  "isa": "M 2.0 (13 instructions)",
+  "spec_source": "https://github.com/riscv/riscv-isa-manual/blob/Ratified-IMAFDQC/src/m.tex",
+  "spec_blob": "fb3ac6a0c62aca0382895b87d088c02dc22345be",
+  "sha256": {
+    "build/t005-m/rviss_dut": "674b7faa17c043d6098d5f716e385ecf4486c7d54cd779eb8d6f2444f8080574",
+    "build/t005-ubsan/rviss_dut": "426516c0c94ef3198bf22117119b77505eb998ce6d9cecd672443460ed0b70f3",
+    "configs/m_defconfig": "6add9a419a34dabe06aa6a831b0095bea03b60bd70e4c435720212fa00e12836"
+  }
+}

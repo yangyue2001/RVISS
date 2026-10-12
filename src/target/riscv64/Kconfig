@@ -15,10 +15,12 @@ config RV_ZICSR
 	help
 	  关掉后 csrrw/csrrs/csrrc 等指令变成非法指令。
 
-comment "阶段一：Linux 必需（见 M5，尚未实现）"
+comment "Linux 必需扩展（能力以验证任务为准）"
 
 config RV_M
 	bool "M：乘除法（mul/div/rem）"
+	help
+	  RV64 M 2.0 的 13 条指令；关闭时相应编码为非法指令。
 config RV_A
 	bool "A：原子指令（lr/sc/amo）"
 config RV_F

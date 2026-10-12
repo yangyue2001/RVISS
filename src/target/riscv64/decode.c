@@ -22,6 +22,7 @@
 /* ---- 由 .def 生成执行函数声明（exec_<名字> 在 exec.c 里实现） ---- */
 #define INSTR(_n, _p, _f) void concat(exec_, _n)(Decode * s);
 #include "instr/i/instr.def"
+#include "instr/m/instr.def"
 #include "instr/system/instr.def"
 #undef INSTR
 
@@ -30,6 +31,7 @@
   {.name = #_n, .pattern = _p, .fmt = _f, .exec = concat(exec_, _n)},
 static InstrEntry instr_table[] = {
 #include "instr/i/instr.def"
+#include "instr/m/instr.def"
 #include "instr/system/instr.def"
 };
 #undef INSTR

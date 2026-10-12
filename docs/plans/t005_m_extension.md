@@ -1,6 +1,6 @@
 # T005：RV64 M 2.0 全部乘除指令
 
-状态：active（2026-10-12）。依赖 T004 verified；属于 Linux/Spike 总目标。
+状态：verified（2026-10-12）。依赖 T004 verified；属于 Linux/Spike 总目标。
 
 ## 行为与范围
 
@@ -21,14 +21,31 @@ signed 最小值除以 −1 返回最小值和零余数；所有 *W（包括 uns
 
 ## 验收
 
-- [ ] 13 个编码执行，关闭配置全部非法，保留 T003 原断言。
-- [ ] 固定边界期望经真实 engine_step 覆盖除零、signed overflow、high multiply、
+- [x] 13 个编码执行，关闭配置全部非法，保留 T003 原断言。
+- [x] 固定边界期望经真实 engine_step 覆盖除零、signed overflow、high multiply、
   *W 高位输入忽略和 unsigned 符号扩展、x0、rd alias；UBSan 路径无报告。
-- [ ] 固定 Spike 全边界组合与 seeded 序列逐事件比较、重复执行一致，I 基线
+- [x] 固定 Spike 全边界组合与 seeded 序列逐事件比较、重复执行一致，I 基线
   29 cases / 343 events 和 3 种差异注入继续通过。
-- [ ] make CC=/usr/bin/gcc check 在 minimal 和 M 配置通过，提交证据与任务状态。
+- [x] make CC=/usr/bin/gcc check 在 minimal 和 M 配置通过，提交证据与任务状态。
 
 ## 下一步
 
 完成并提交后执行 T006 A 2.1：LR/SC reservation、AMO RAM 权限/精确 fault 与 Spike。
 总目标仍 active，不能在 M 局部完成时停下。
+
+## 实际验证
+
+官方 M 2.0 源文件 blob fb3ac6a0c62aca0382895b87d088c02dc22345be 已读取。
+实现 13 条指令，128 位高乘积与显式除零/overflow 分支避开宿主 UB。
+执行源先取值再写回；所有 *W 无条件符号扩展。misa 的完整处理仍属后续特权项。
+
+实际命令及日志/哈希在 docs/validation/t005_checks.json；所有命令退出 0：
+minimal make check：8 unit / 2394 checks，M 配置：8 unit / 2202 checks；
+两配置各 3 smoke 与 CLI/UI 14 checks。新增 test_m 的 32 常量边界乘 4 种
+rd 选择经 engine_step 验证成功/非法，不改旧 T003 期望。
+M 的 check-diff：346 cases / 4359 events，包括原 I 29/343、15×15 输入边界
+每组 13 指令、91 alias/zero-source case 和完整 1000 条 seeded 序列。
+双方重复执行一致，3 种差异注入仍捕获；docs/validation/t005_difftest.json。
+UBSan 独立目录构建 test_m 与完整 I/M difftest，执行均通过且无报告。
+这是自建真实 ISA 编码检查与独立 Spike 差分，未运行官方 riscv-tests 全套。
+根配置完成后恢复 minimal；T006 A 为下一项，总目标继续。

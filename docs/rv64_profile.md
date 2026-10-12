@@ -21,7 +21,7 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 | 参数 | 固定目标 | T003 后当前源码 |
 | --- | --- | --- |
 | CPU | RV64，小端，hartid=0，单 hart，复位进入 M；GPR 清零作为确定性 reset 策略 | 已有；现有测试只覆盖部分状态 |
-| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现；M/A/F/D/C 和 counter CSR 缺失；misa=0，禁止置虚假支持位 |
+| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M 13 指令已通过 T005；A/F/D/C 和 counter CSR 缺失；misa=0，完整能力 WARL 待特权项 |
 | 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | M trap 骨架；委派/权限未完整 |
 | 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | 当前只支持 Bare；Sv39/PMP 未实现 |
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | 占位 |
