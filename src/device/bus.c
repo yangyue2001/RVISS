@@ -33,9 +33,20 @@ static struct {
   void *opaque;
 } tick_handlers[MAX_TICK_HANDLERS];
 static int nr_tick_handlers;
+static word_t (*time_reader)(void *);
+static void *time_opaque;
+
+void device_set_time_reader(word_t (*reader)(void *), void *opaque) {
+  time_reader=reader; time_opaque=opaque;
+}
+
+word_t device_time(void) {
+  return time_reader ? time_reader(time_opaque) : 0;
+}
 
 void bus_init(paddr_t ram_base, size_t ram_size) {
   nr_maps = 0;
+  device_set_time_reader(NULL,NULL);
   nr_tick_handlers = 0;
   memset(maps, 0, sizeof(maps));
   memset(tick_handlers, 0, sizeof(tick_handlers));

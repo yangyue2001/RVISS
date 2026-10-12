@@ -12,7 +12,7 @@
 
 static const unsigned diff_csrs[] = {
   0x300, 0x302, 0x303, 0x304, 0x344, 0x305, 0x341, 0x342, 0x343, 0x340,
-  0x306, 0x105, 0x141, 0x142, 0x143, 0x140, 0x180, 0x106, 0x100, 0x104, 0x144
+  0x306, 0x105, 0x141, 0x142, 0x143, 0x140, 0x180, 0x106, 0x100, 0x104, 0x144, 0xb02, 0x320
 };
 #define DIFF_CSR_COUNT (sizeof(diff_csrs) / sizeof(diff_csrs[0]))
 
@@ -22,6 +22,9 @@ typedef struct {
   bool csr_set[4096];
   struct {uint64_t event; unsigned bit; bool level;} irq[128];
   unsigned irq_count;
+  uint64_t time_value;
+  struct {uint64_t event,value;} clock[128];
+  unsigned clock_count;
   char isa[128];
   uint8_t *ram;
 } DiffCase;
@@ -40,6 +43,17 @@ static inline DiffCase load_case(const char *path) {
   while (fscanf(file, "%31s", key) == 1) {
     if (!strcmp(key, "isa")) {
       if (fscanf(file, "%127s", c.isa) != 1) case_error("isa");
+    } else if (!strcmp(key, "time")) {
+      uint64_t event;
+      if (fscanf(file, "%" SCNu64 " %127s", &event, value) != 2 || event > 100000)
+        case_error("time");
+      uint64_t val=strtoull(value,NULL,0);
+      if (!event) c.time_value=val;
+      else {
+        if (c.clock_count==128) case_error("clock count");
+        c.clock[c.clock_count].event=event;
+        c.clock[c.clock_count++].value=val;
+      }
     } else if (!strcmp(key, "irq")) {
       uint64_t event;
       unsigned bit, level;

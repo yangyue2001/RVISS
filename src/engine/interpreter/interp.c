@@ -76,10 +76,9 @@ static bool can_step(void) {
 static void complete_event(StepResult *r) {
   sim.event_seq++;
   sim.logical_ticks++;
-  cpu.cycle++;
+  riscv_update_counters(r);
   if (r->instruction_attempted) sim.attempts++;
   if (r->retired) {
-    cpu.instret++;
     sim.instret++;
   }
   if (r->outcome == STEP_HOST_ERROR) {

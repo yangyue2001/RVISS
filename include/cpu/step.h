@@ -29,6 +29,7 @@ typedef struct {
   bool register_write;
   uint8_t rd;
   word_t register_value;
+  bool counter_write_cycle, counter_write_instret;
   MemAccess memory; /* 一条 I 指令最多一个显式数据访问；取指 fault 也可记录 */
   struct {
     bool valid;
@@ -39,5 +40,6 @@ typedef struct {
 
 /* target 执行一个事件；计数、设备时间和预算由引擎管理。 */
 void riscv_step(StepResult *result);
+void riscv_update_counters(const StepResult *result);
 
 #endif /* RVISS_CPU_STEP_H */

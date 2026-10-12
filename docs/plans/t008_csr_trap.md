@@ -74,7 +74,7 @@ Machine Exception Program Counter），不改变故障事件/地址/预算断言
 MAC/CSR/priv 固定 Spike 2195 cases / 12505 events，minimal 1149 / 2582，
 两端每次新进程重放、3 种差异注入通过。100 次 U→S trap/return 确认完整走完
 600 事件、500 退休、x1=100；嵌套 U→S→M→S→U 11 事件、9 退休通过。
-priv unit MAC 4559、minimal 4551 checks；完整回归 minimal 11499 / MAC 11923 checks，
+priv unit MAC 4559、minimal 4549 checks；完整回归 minimal 11499 / MAC 11923 checks，
 各 11 unit、3 smoke、CLI/UI 14。UBSan priv 4559 与全量有限差分通过，无报告。
 命令与二进制身份见 docs/validation/t008_trap_checks.json 和差分报告。
 

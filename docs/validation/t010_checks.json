@@ -1,0 +1,70 @@
+{
+  "status": "verified",
+  "profiles": {
+    "minimal": {
+      "units": 12,
+      "checks": 17147,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "mac": {
+      "units": 12,
+      "checks": 17571,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t010-minimal check build/t010-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t010-mac check build/t010-mac/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t010-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t010-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t010-mac/rviss_dut --suite mac --csr --priv --irq --counters --out build/t010-mac/counter-difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t010-ubsan/rviss_dut --suite mac --csr --priv --irq --counters --out build/t010-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t010-ubsan build/t010-ubsan/test_counters.test build/t010-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t010-ubsan/test_counters.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "1238 counter checks + 3249 cases / 15178 events; no reports",
+  "first_semantic_failure": null,
+  "first_build_failure": {
+    "command": "make CC=/usr/bin/gcc BUILD_DIR=build/t010-mac build/t010-mac/test_counters.test",
+    "exit_code": 2,
+    "classification": "new test used wrong paddr_read signature; corrected to checked paddr_try_read",
+    "output": "+ LD build/t010-mac/test_counters.test\nIn file included from tests/unit/test_counters.c:9:\ntests/unit/test_counters.c: In function \u2018test_clint_time\u2019:\ntests/unit/test_counters.c:115:23: error: too many arguments to function \u2018paddr_read\u2019\n  115 |   word_t value; CHECK(paddr_read(0x0200bff8,8,&value)); CHECK_EQ(value,56);\n      |                       ^~~~~~~~~~\ntests/unit/test.h:14:11: note: in definition of macro \u2018CHECK\u2019\n   14 |     if (!(cond)) {                                                      \\\n      |           ^~~~\nIn file included from tests/unit/test_counters.c:5:\n/home/yang/work/ISS/include/memory/paddr.h:30:8: note: declared here\n   30 | word_t paddr_read(paddr_t addr, int len);\n      |        ^~~~~~~~~~\nmake: *** [Makefile:108: build/t010-mac/test_counters.test] Error 1\n"
+  },
+  "choices": [
+    "mcountinhibit and M HPM hardwired zero; no writable inhibit or Zihpm",
+    "mcycle +1 per event; fixed Spike +1 per retired instruction; shared cycle cases all retired",
+    "time CSR from board-selected CLINT callback, independent external time input in test",
+    "Spike actual commit log observes retirement; no source patches",
+    "Initial mcycle/minstret use fixed public write API followed by bump to restore explicit common input"
+  ],
+  "limitations": [
+    "Native CPU checkpoint layout changed; old format/ABI not claimed",
+    "No Sv39/FP/full devices/RVISS Linux yet"
+  ]
+}

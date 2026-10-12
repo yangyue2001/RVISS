@@ -56,6 +56,15 @@ enum {
   CSR_MTVAL = 0x343,
   CSR_MIP = 0x344,
 
+  CSR_MCYCLE = 0xb00,
+  CSR_MINSTRET = 0xb02,
+  CSR_CYCLE = 0xc00,
+  CSR_TIME = 0xc01,
+  CSR_INSTRET = 0xc02,
+  CSR_MCOUNTINHIBIT = 0x320,
+  CSR_MHPMCOUNTER3 = 0xb03,
+  CSR_MHPMEVENT3 = 0x323,
+
   /* 只读信息段（0xf1x：csr[11:10]==3，会被自动判为只读） */
   CSR_MVENDORID = 0xf11,
   CSR_MARCHID = 0xf12,
@@ -96,6 +105,7 @@ enum {
  */
 
 #define RVISS_CSRS_OWNED(f)                                                   \
+  f(cycle, CSR_MCYCLE, CSR_MASK_ALL) f(instret, CSR_MINSTRET, CSR_MASK_ALL) \
   f(mstatus, CSR_MSTATUS, CSR_MASK_ALL) f(misa, CSR_MISA, CSR_MASK_ALL) f(    \
       medeleg, CSR_MEDELEG, CSR_MASK_ALL)                                     \
       f(mideleg, CSR_MIDELEG, CSR_MASK_ALL) f(mie, CSR_MIE, CSR_MASK_ALL) f(  \
@@ -118,7 +128,16 @@ enum {
                                               f(scounteren, CSR_SCOUNTEREN,   \
                                                 CSR_MASK_ALL)
 
+#define RVISS_CSRS_COMPUTED(f) f(time, CSR_TIME) f(mcountinhibit, CSR_MCOUNTINHIBIT)
+
+#define RVISS_HPM_INDICES(f) \
+  f(3) f(4) f(5) f(6) f(7) f(8) f(9) f(10) f(11) f(12) f(13) f(14) f(15) \
+  f(16) f(17) f(18) f(19) f(20) f(21) f(22) f(23) f(24) f(25) f(26) f(27) \
+  f(28) f(29) f(30) f(31)
+
 #define RVISS_CSRS_VIEW(f)                       \
+  f(cycle_view, CSR_CYCLE, cycle, CSR_MASK_ALL) \
+  f(instret_view, CSR_INSTRET, instret, CSR_MASK_ALL) \
   f(sstatus, CSR_SSTATUS, mstatus, SSTATUS_MASK) \
       f(sie, CSR_SIE, mie, SIE_MASK) f(sip, CSR_SIP, mip, SIP_MASK)
 

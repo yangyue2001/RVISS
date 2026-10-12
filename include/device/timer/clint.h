@@ -25,6 +25,7 @@ typedef struct {
 } ClintState;
 
 /* 初始化实例（置 mmio 回调、复位寄存器、注册设备节拍）；不涉及地址 */
+word_t clint_time(void *opaque);
 void clint_init(ClintState *s);
 void clint_reset(ClintState *s);
 

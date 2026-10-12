@@ -30,7 +30,9 @@ IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同
 50215 cases / 59406 events，另有三配置回归与 UBSan。
 [T008 CSR/trap](docs/plans/t008_csr_trap.md) 和
 [T009 中断](docs/plans/t009_interrupts.md) 已 verified：MAC/CSR/priv/IRQ
-2652 cases / 13405 events，minimal/MAC 回归与 UBSan。下一项 T010 counter。
+2652 cases / 13405 events，minimal/MAC 回归与 UBSan。
+[T010 counter](docs/plans/t010_counters.md) verified：3249 / 15178，12 unit、
+CLINT 同源 time 与 UBSan。下一项 T011 PMP，再 Sv39、F/D 和 Linux。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 

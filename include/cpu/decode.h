@@ -31,6 +31,7 @@ struct Decode {
   bool trap_pending, host_error;
   word_t trap_cause;
   vaddr_t trap_tval;
+  bool counter_write_cycle, counter_write_instret;
   MemAccess memory;
   uint8_t rd, rs1, rs2;
   EHelper exec; /* 执行入口 */

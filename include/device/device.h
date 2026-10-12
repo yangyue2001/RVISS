@@ -16,6 +16,10 @@
  *   3. 设备之间互不认识，也不认识 ISA：中断用 IrqLine 对象（见 irq.h）。
  */
 
+/* 板级选择共享时钟；time CSR 只读此回调，不访问设备内部布局。 */
+void device_set_time_reader(word_t (*reader)(void *), void *opaque);
+word_t device_time(void);
+
 typedef struct MmioRegion {
   const char *name;
   paddr_t size; /* 设备只回答"我多大"；地址由板子决定 */

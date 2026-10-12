@@ -1,6 +1,7 @@
 #include <common.h>
 #include <cpu/csr_list.h>
 #include <cpu/decode.h>
+#include <device/device.h>
 
 #include "cpu_state.h"
 #include "csr.h"
@@ -16,10 +17,16 @@ typedef struct {
 
 #define CSR_ENTRY_OWNED(_n, _a, _m) {_a, &cpu._n, _m},
 #define CSR_ENTRY_VIEW(_n, _a, _f, _m) {_a, &cpu._f, _m},
+#define CSR_ENTRY_COMPUTED(_n, _a) {_a, NULL, CSR_MASK_ALL},
+#define CSR_ENTRY_HPM(_i) {CSR_MHPMCOUNTER3+_i-3, NULL, 0}, {CSR_MHPMEVENT3+_i-3, NULL, 0},
 static CsrEntry csr_table[] = {RVISS_CSRS_OWNED(CSR_ENTRY_OWNED)
-                             RVISS_CSRS_VIEW(CSR_ENTRY_VIEW)};
+                             RVISS_CSRS_VIEW(CSR_ENTRY_VIEW)
+                             RVISS_CSRS_COMPUTED(CSR_ENTRY_COMPUTED)
+                             RVISS_HPM_INDICES(CSR_ENTRY_HPM)};
 #undef CSR_ENTRY_OWNED
 #undef CSR_ENTRY_VIEW
+#undef CSR_ENTRY_COMPUTED
+#undef CSR_ENTRY_HPM
 
 static CsrEntry *csr_lookup(word_t addr) {
   for (size_t i = 0; i < ARRLEN(csr_table); i++) {
@@ -71,6 +78,11 @@ word_t riscv_misa_supported(void) {
 static bool csr_allowed(word_t addr, bool write) {
   if (!csr_lookup(addr) || cpu.priv < ((addr >> 8) & 3)) return false;
   if (write && ((addr >> 10) & 3) == 3) return false;
+  if (addr >= CSR_CYCLE && addr <= CSR_INSTRET && cpu.priv < PRV_M) {
+    word_t enable=1ull<<(addr-CSR_CYCLE);
+    if (!(cpu.mcounteren & enable) || (cpu.priv == PRV_U && !(cpu.scounteren & enable)))
+      return false;
+  }
   if (addr == CSR_SATP && cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_TVM))
     return false;
   return true;
@@ -80,6 +92,8 @@ bool csr_peek(word_t addr, word_t *val) {
   CsrEntry *e = csr_lookup(addr);
   if (!e) return false;
   switch (addr) {
+    case CSR_TIME: *val = device_time(); break;
+    case CSR_MCOUNTINHIBIT: *val = 0; break;
     case CSR_MSTATUS: *val = csr_status_value(cpu.mstatus); break;
     case CSR_SSTATUS: *val = csr_status_value(cpu.mstatus) & SSTATUS_MASK; break;
     case CSR_MEPC: case CSR_SEPC:
@@ -91,7 +105,7 @@ bool csr_peek(word_t addr, word_t *val) {
       cpu_sync_irq_inputs();
       *val = cpu.mip & (addr == CSR_MIP ? MIE_MASK : cpu.mideleg & SIE_MASK);
       break;
-    default: *val = *e->field & e->view_mask; break;
+    default: *val = e->field ? *e->field & e->view_mask : 0; break;
   }
   return true;
 }
@@ -104,6 +118,7 @@ bool csr_write(word_t addr, word_t val) {
   if (!csr_allowed(addr, true)) return false;
   CsrEntry *e = csr_lookup(addr);
   switch (addr) {
+    case CSR_MCOUNTINHIBIT: break;
     case CSR_MISA: {
       word_t supported = riscv_misa_supported();
       cpu.misa = (supported & ~MISA_C) | (supported & val & MISA_C);
@@ -139,7 +154,7 @@ bool csr_write(word_t addr, word_t val) {
       /* 未实现分页：只接受 Bare。Bare 的非 MODE 字段选择硬连线 0。 */
       if ((val >> 60) == 0) cpu.satp = 0;
       break;
-    default: *e->field = val & e->view_mask; break;
+    default: if(e->field) *e->field = val & e->view_mask; break;
   }
   return true;
 }
@@ -167,6 +182,10 @@ void csr_execute(Decode *s, int op, bool immediate) {
     if (!suppress && !csr_write(addr, val)) {
       riscv_exec_trap(s, EX_II, s->instr);
       return;
+    }
+    if (!suppress) {
+      s->counter_write_cycle = addr == CSR_MCYCLE;
+      s->counter_write_instret = addr == CSR_MINSTRET;
     }
   }
   if (s->rd != 0) *s->dest.preg = old;

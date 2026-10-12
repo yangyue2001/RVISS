@@ -40,7 +40,7 @@ class RamBus : public simif_t {
 
 static void snapshot(processor_t &p, DiffSnapshot &r) {
   auto *s = p.get_state();
-  r.pc = s->pc; r.privilege = s->prv; r.retired_total = s->minstret->read();
+  r.pc = s->pc; r.privilege = s->prv;
   for (unsigned i = 0; i < 32; i++) r.gpr[i] = s->XPR[i];
   for (unsigned i = 0; i < DIFF_CSR_COUNT; i++) r.csr[i] = p.get_csr(diff_csrs[i], insn_t(0), false, true);
 }
@@ -50,7 +50,8 @@ int main(int argc, char **argv) {
   DiffCase c = load_case(argv[1]);
   RamBus bus(c);
   isa_parser_t isa(c.isa, "MSU");
-  FILE *commits = fopen("/dev/null", "w");
+  FILE *commits = tmpfile();
+  if (!commits) case_error("commit observation file");
   processor_t p(&isa, &bus.config, &bus, 0, false, commits, std::cerr);
   // 本阶段固定 Bare、ASIDLEN=0；在 CSR 配置前选择独立参考能力。
   p.set_mmu_capability(IMPL_MMU_SBARE);
@@ -59,13 +60,22 @@ int main(int argc, char **argv) {
   auto *s = p.get_state();
   s->pc = c.pc;
   for (unsigned i = 0; i < 32; i++) s->XPR.write(i, c.gpr[i]);
-  for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) p.put_csr(i, c.csr[i]);
+  for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) {
+    p.put_csr(i, c.csr[i]);
+    // 该版本写 API 为即将发生的退休预减 1；初始化没有写指令，恢复共同输入。
+    if (i==CSR_MINSTRET) s->minstret->bump(1);
+    if (i==CSR_MCYCLE) s->mcycle->bump(1);
+  }
+  s->time->sync(c.time_value);
   p.set_privilege(c.priv, false);
   p.enable_log_commits();
   DiffSnapshot initial = {};
   initial.outcome = "initial"; initial.pc_before = s->pc; initial.privilege_before = s->prv;
   snapshot(p, initial); emit_snapshot(&initial, c.ram, c.size);
+  uint64_t retired_total=0;
   for (uint64_t i = 0; i < c.steps; i++) {
+    for(unsigned j=0;j<c.clock_count;j++)
+      if(c.clock[j].event==i+1) s->time->sync(c.clock[j].value);
     for (unsigned j=0;j<c.irq_count;j++) if(c.irq[j].event==i+1) {
       reg_t mask=reg_t(1)<<c.irq[j].bit;
       s->mip->backdoor_write_with_mask(mask,c.irq[j].level?mask:0);
@@ -84,9 +94,14 @@ int main(int argc, char **argv) {
       }
     }
     s->log_mem_write.clear(); s->log_reg_write.clear(); s->log_mem_read.clear();
-    const reg_t before = s->minstret->read();
+    fflush(commits);
+    long before=ftell(commits);
+    if (before<0) case_error("commit file position");
     p.step(1); // 该版本 trap 时返回，不继续执行 handler。
-    r.retired = s->minstret->read() == before + 1;
+    fflush(commits);
+    r.retired = ftell(commits)>before;
+    retired_total+=r.retired;
+    r.retired_total=retired_total;
     r.outcome = r.retired ? "retired" : "synchronous_trap";
     if (!r.retired) {
       reg_t cause=p.get_csr(s->prv==PRV_M?CSR_MCAUSE:CSR_SCAUSE,insn_t(0),false,true);

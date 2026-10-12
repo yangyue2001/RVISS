@@ -19,6 +19,10 @@
 
 #define CYCLES_PER_MTIME_TICK 128
 
+word_t clint_time(void *opaque) {
+  return ((ClintState *)opaque)->mtime;
+}
+
 static void clint_update_timer_irq(ClintState *s) {
   if (s->mtime >= s->mtimecmp) {
     irq_raise(s->mtimer_irq);

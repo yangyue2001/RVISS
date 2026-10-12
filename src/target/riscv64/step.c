@@ -58,6 +58,8 @@ void riscv_step(StepResult *result) {
       result->trap.tval = s.trap_tval;
       cpu.pc = riscv_raise_trap(s.trap_cause, s.pc, s.trap_tval);
     } else {
+      result->counter_write_cycle = s.counter_write_cycle;
+      result->counter_write_instret = s.counter_write_instret;
       result->retired = true;
       result->outcome = sim.state == SIM_HALTED ? STEP_HALTED : STEP_RETIRED;
       if (s.rd != 0 && s.dest.preg != NULL) {

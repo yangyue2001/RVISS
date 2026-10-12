@@ -6,6 +6,8 @@
 #include "csr.h"
 #include "case.h"
 
+static word_t input_time(void *opaque) { return *(uint64_t *)opaque; }
+
 static void snapshot(DiffSnapshot *s) {
   s->pc = cpu.pc;
   s->privilege = cpu.priv;
@@ -24,6 +26,8 @@ int main(int argc, char **argv) {
   DiffCase c = load_case(argv[1]);
   if (!mem_init(c.base, c.size)) return 2;
   bus_init(c.base, c.size);
+  uint64_t clock=c.time_value;
+  device_set_time_reader(input_time,&clock);
   cpu_reset(c.pc);
   const char *isa_end = strchr(c.isa, '_');
   if (!isa_end) isa_end = c.isa + strlen(c.isa);
@@ -45,6 +49,8 @@ int main(int argc, char **argv) {
   snapshot(&initial);
   emit_snapshot(&initial, mem_host_ptr(c.base), c.size);
   for (uint64_t i = 0; i < c.steps; i++) {
+    for (unsigned j=0;j<c.clock_count;j++)
+      if(c.clock[j].event==i+1) clock=c.clock[j].value;
     for (unsigned j=0;j<c.irq_count;j++) if(c.irq[j].event==i+1) {
       IrqLine *line=cpu_irq_input(c.irq[j].bit);
       if(c.irq[j].level) irq_raise(line); else irq_lower(line);

@@ -48,6 +48,7 @@ static void machine_build(const MachineConfig *cfg) {
 
 #ifdef CONFIG_HAS_CLINT
   clint_init(&clint);
+  device_set_time_reader(clint_time,&clint);
   Assert(mmio_map(&clint.mmio, cfg->clint_base), "CLINT 地址映射失败");
 #endif
 #ifdef CONFIG_HAS_UART16550

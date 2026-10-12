@@ -22,7 +22,7 @@ typedef struct {
 
   /*
    * CSR 存储：由 include/cpu/csr_list.h 的清单生成（视图 CSR 不占存储）。
-   * 「加一个 CSR」只需改那份清单一处 —— 存储成员、访问表、日志名一起有。
+   * mcycle/minstret 同属该清单，不驱动平台时间/累计退休或预算。
    */
 #define RVISS_CSR_MEMBER(_n, _a, _m) word_t _n;
   RVISS_CSRS_OWNED(RVISS_CSR_MEMBER)
@@ -30,8 +30,6 @@ typedef struct {
 
   /* ---- 运行状态 ---- */
   uint8_t  priv;    /* 当前特权级 */
-  uint64_t instret; /* 客户机退休计数；当前尚未接入 counter CSR */
-  uint64_t cycle;   /* 客户机逻辑周期；不驱动平台时间/预算 */
   /* 单 hart LR/SC；与 CSR/累计计数分开，reset 使 reservation 失效。 */
   paddr_t reservation_addr;
   uint8_t reservation_length;

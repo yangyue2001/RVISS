@@ -436,6 +436,48 @@ def irq_cases():
                              events=[(2,7,1),(3,7,0)])
 
 
+def counter_cases():
+    isa='rv64i_zicsr_zifencei_zicntr'
+    def encode(address,function=2,rd=5,rs1=0):
+        return (address<<20)|(rs1<<15)|(function<<12)|(rd<<7)|0x73
+    for address,shadow in [(0xb00,0xc00),(0xb02,0xc02)]:
+        for value in [0,1,(1<<64)-1,1<<63,0x5555555555555555]:
+            for function in [1,2,3,5,6,7]:
+                for rd in [0,5,6]:
+                    words=[encode(address,function,rd,6),encode(shadow,2,7),encode(address,2,8),encode(0xc01,2,9)]
+                    yield f'counter-write-{address:x}-{value:x}-{function}-{rd}',case_text(words,4,
+                        {6:value},isa=isa)+ 'csr 2816 23\ncsr 2818 17\ntime 0 42\n'
+        for function in [2,3,6,7]:
+            for source in [0,6]:
+                yield f'counter-write-suppression-{address:x}-{function}-{source}',case_text(
+                    [encode(address,function,5,source),encode(shadow,2,7)],2,{6:0},isa=isa)+ \
+                    'csr 2816 23\ncsr 2818 17\n'
+    for priv in [0,1,3]:
+        for m in [0,1,2,4,7]:
+            for s in [0,1,2,4,7]:
+                for address in [0xc00,0xc01,0xc02]:
+                    yield f'counter-permission-{priv}-{m}-{s}-{address:x}',case_text(
+                        [encode(address)],1,{5:0xdeadbeef},priv=priv,isa=isa)+ \
+                        f'csr 774 {m}\ncsr 262 {s}\ncsr 2816 23\ncsr 2818 17\ntime 0 42\n'
+    for priv in [0,1,3]:
+        for address in [0xc00,0xc01,0xc02]:
+            for function in [1,2,3,5,6,7]:
+                for source in [0,6]:
+                    yield f'counter-readonly-{priv}-{address:x}-{function}-{source}',case_text(
+                        [encode(address,function,5,source)],1,{5:0xdeadbeef,6:0},priv=priv,isa=isa)+ \
+                        'csr 774 7\ncsr 262 7\ntime 0 42\n'
+    for address in [0xb80,0xb82,0xc80,0xc81,0xc82,0xc03,0xc1f]:
+        yield f'counter-unavailable-{address:x}',case_text([encode(address)],1,{5:0xdeadbeef},isa=isa)
+    for address in [0x320]+list(range(0xb03,0xb20))+list(range(0x323,0x340)):
+        words=[encode(address,1,5,6),encode(address,2,7),encode(0xc02,2,8)]
+        yield f'counter-zero-{address:x}',case_text(words,3,{6:(1<<64)-1},isa=isa)
+    words=[word for _ in range(250) for word in [encode(0xb02,1,0,6),encode(0xc02,2,7)]]
+    yield 'counter-seeded-writes',case_text(words,500,{6:0},isa=isa)
+    words=[encode(0xc01,2,5),encode(0xc01,2,6),encode(0xc01,2,7),encode(0xc01,2,8)]
+    yield 'counter-time-input',case_text(words,4,isa=isa)+ \
+            'time 0 42\ntime 2 0x123456789abcdef0\ntime 3 0xffffffffffffffff\ntime 4 0\n'
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -458,6 +500,7 @@ def main():
     parser.add_argument('--csr',action='store_true')
     parser.add_argument('--priv',action='store_true')
     parser.add_argument('--irq',action='store_true')
+    parser.add_argument('--counters',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -470,6 +513,7 @@ def main():
     if args.csr: suite += list(csr_cases())
     if args.priv: suite += list(priv_cases('c' in args.suite))
     if args.irq: suite += list(irq_cases())
+    if args.counters: suite += list(counter_cases())
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -504,6 +548,11 @@ def main():
             assert dut[-1]['retired_total']==3
         if name == 'irq-cancel-before-enabled':
             assert dut[-1]['retired_total']==2 and int(dut[-1]['gpr'][1],16)==1
+        if name == 'counter-seeded-writes':
+            assert all(e['retired'] and int(e['pc_before'],16)==BASE+4*i for i,e in enumerate(dut[1:]))
+            assert dut[-1]['retired_total']==500 and int(dut[-1]['csrs']['b02'],16)==1
+        if name == 'counter-time-input':
+            assert [int(dut[-1]['gpr'][i],16) for i in [5,6,7,8]]==[42,0x123456789abcdef0,(1<<64)-1,0]
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -522,11 +571,11 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
-                 compared=['PC/raw/length/priv','full GPR','21 trap/priv CSR','store','full RAM hash','retirement'],
-                 excluded=['misa capability identity','mcycle timing policy','counter writes','full platform devices',
+                 compared=['PC/raw/length/priv','full GPR','23 trap/priv CSR','store','full RAM hash','retirement'],
+                 excluded=['misa capability identity','mcycle timing policy','cycle values across trap/IRQ (different permitted timing policies)','full platform devices',
                            '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39/PMP'])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
