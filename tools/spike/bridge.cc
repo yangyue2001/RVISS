@@ -12,6 +12,14 @@ class RamBus : public simif_t {
   DiffCase &input;
   cfg_t config;
   std::map<size_t, processor_t*> harts;
+  uint8_t partial[8] = {};
+  unsigned partial_bytes=0;
+  uint64_t fetched_raw=0;
+  unsigned fetched_length=0;
+  bool fetch_complete=false;
+  void begin_event() {
+    partial_bytes=0; fetched_raw=0; fetched_length=0; fetch_complete=false;
+  }
   explicit RamBus(DiffCase &c) : input(c) {
     config.isa = c.isa; config.priv = "MSU"; config.pmpregions = 0;
     config.misaligned = false; config.trigger_count = 0;
@@ -28,6 +36,28 @@ class RamBus : public simif_t {
     if (!range(address, length)) return false;
     memcpy(bytes, input.ram + address - input.base, length); return true;
   }
+  bool mmio_fetch(reg_t address, size_t length, uint8_t *bytes) override {
+    if (!mmio_load(address,length,bytes)) return false;
+    if (length>sizeof(partial)-partial_bytes) case_error("fetch byte count");
+    memcpy(partial+partial_bytes,bytes,length);
+    partial_bytes+=length;
+    return true;
+  }
+  void complete_fetch(size_t length) {
+    if(length!=partial_bytes || length>8) case_error("fetch trace byte count");
+    fetched_raw=0;
+    for(unsigned i=0;i<length;i++) fetched_raw|=uint64_t(partial[i])<<(8*i);
+    fetched_length=length; fetch_complete=true; partial_bytes=0;
+  }
+  void observe_fetch(DiffSnapshot &r) {
+    if (fetch_complete) {
+      r.raw=fetched_raw; r.length=fetched_length;
+      r.raw_bytes=fetched_length; r.valid=true;
+    } else if (partial_bytes) {
+      for(unsigned i=0;i<partial_bytes;i++) r.raw|=uint64_t(partial[i])<<(8*i);
+      r.raw_bytes=partial_bytes; r.length=insn_t(r.raw).length();
+    }
+  }
   bool mmio_store(reg_t address, size_t length, const uint8_t *bytes) override {
     if (!range(address, length)) return false;
     memcpy(input.ram + address - input.base, bytes, length); return true;
@@ -36,6 +66,18 @@ class RamBus : public simif_t {
   const cfg_t &get_cfg() const override { return config; }
   const std::map<size_t, processor_t*> &get_harts() const override { return harts; }
   const char *get_symbol(uint64_t) override { return nullptr; }
+};
+
+// 只订阅参考实际完成的取指，不调用翻译/取指来获取观测字段。
+class FetchObserver : public memtracer_t {
+ public:
+  RamBus &bus;
+  explicit FetchObserver(RamBus &b):bus(b) {}
+  bool interested_in_range(uint64_t,uint64_t,access_type type) override { return type==FETCH; }
+  void trace(uint64_t,size_t length,access_type type) override {
+    if(type==FETCH) bus.complete_fetch(length);
+  }
+  void clean_invalidate(uint64_t,size_t,bool,bool) override {}
 };
 
 static void snapshot(processor_t &p, DiffSnapshot &r) {
@@ -58,6 +100,8 @@ int main(int argc, char **argv) {
   p.set_impl(IMPL_MMU_ASID, false);
   bus.harts[0] = &p;
   auto *s = p.get_state();
+  FetchObserver fetch_observer(bus);
+  p.get_mmu()->register_memtracer(&fetch_observer);
   s->pc = c.pc;
   for (unsigned i = 0; i < 32; i++) s->XPR.write(i, c.gpr[i]);
   for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) {
@@ -82,24 +126,17 @@ int main(int argc, char **argv) {
     }
     DiffSnapshot r = {};
     r.seq = i + 1; r.pc_before = s->pc; r.privilege_before = s->prv;
-    // 捕获 reference 自己取到的指令；若取指不全，仅记录实际 RAM 字节。
-    try {
-      auto fetch = p.get_mmu()->load_insn(s->pc);
-      r.raw = fetch.insn.bits(); r.length = fetch.insn.length();
-      r.raw_bytes = r.length; r.valid = true;
-    } catch (trap_t &) {
-      if (bus.range(s->pc, 2)) {
-        r.raw = c.ram[s->pc-c.base] | (uint64_t(c.ram[s->pc-c.base+1]) << 8);
-        r.raw_bytes = 2; r.length = insn_t(r.raw).length();
-      }
-    }
+    bus.begin_event();
     s->log_mem_write.clear(); s->log_reg_write.clear(); s->log_mem_read.clear();
     fflush(commits);
     long before=ftell(commits);
     if (before<0) case_error("commit file position");
     p.step(1); // 该版本 trap 时返回，不继续执行 handler。
-    fflush(commits);
-    r.retired = ftell(commits)>before;
+    if (fflush(commits)) case_error("commit observation flush");
+    long after=ftell(commits);
+    if (after<0) case_error("commit file position");
+    bus.observe_fetch(r);
+    r.retired = after>before;
     retired_total+=r.retired;
     r.retired_total=retired_total;
     r.outcome = r.retired ? "retired" : "synchronous_trap";

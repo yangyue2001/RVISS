@@ -58,6 +58,7 @@ def main():
                     upstream='https://github.com/riscv-software-src/riscv-isa-sim',
                     source_modified=False, boost=False, compiler='/usr/bin/g++',
                     pmpregions=0, misaligned=False, isa='case input; initially rv64i_zicsr_zifencei',
+                    fetch_observer='actual mmio_fetch bytes plus FETCH memtracer; no speculative prefetch',
                     priv='MSU', mmu='Bare', asid_bits=0, counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
                     bridge_sha256=hashlib.sha256((OUT / 'bridge').read_bytes()).hexdigest(),
                     configure_args=(OBJ / 'config.status').read_text().split('ac_cs_config=')[1].splitlines()[0])
