@@ -58,3 +58,10 @@ O2 82.284s仅约5%额外收益。保持正在验收的GC O2构建，O3/LTO作为
 进程reset重放与4种故意差异捕获通过。DUT/ref哈希固定，记录
 t015_final_spike.json。第二100轮冷启动也通过（348.680s），计数/输入记录
 与第一轮完全相同。第三100轮和1000轮长跑仍运行，不能标总目标complete。
+
+冷启动检查点verified：3次各100轮，305.574/348.680/317.949宿主秒。
+全部PID1/probe/BusyBox输入/精确100轮/正常SBI关机通过；三次输入文件
+与所有计数相同，去宿主performance行后完整输出相同。每次769073480
+次尝试、769076065events、15230890564逻辑ticks。证据t015_linux_100.json
+和t015_cold_checkpoint.json。O3/LTO完整Spike66293/132231也通过，记录
+t015_release_spike.json。1000轮仍运行，总目标/T015仍active。

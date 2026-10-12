@@ -40,19 +40,32 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 
 | 能力 | 当前源码行为 | 验证范围 / 下一步 |
 | --- | --- | --- |
-| RV64I / Zifencei | 整数、访存、分支、fence/fence.i 执行函数存在；无缓存 | 位操作、部分译码、*W 运算及短汇编 smoke；完整一致性未验证 |
-| Zicsr / 特权 | 基础 CSR 访问表、权限/只读检查、部分 S 视图；trap 一律进 M，mret/sret 存在，WFI 为 NOP | CSR 29 checks；委派、WARL、counter 权限与 xRET 规则待完善 |
-| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；完整特权/GC 尚待扩展 |
+| RV64I / Zifencei | RV64整数、访存、分支、fence/fence.i；无缓存 | 固定Spike定向/随机和真实异常路径验证；没有规范认证声明 |
+| Zicsr / 特权 | M/S/U、WARL/别名、同步委派、M/S中断、xRET、counter权限、WFI等待请求 | T008–T010逐事件Spike与边界unit；T014确定性WFI计数分离验证 |
+| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；特权/GC/Sv39/PMP由后续任务独立矩阵验证 |
 | M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa 对应编译支持位已固定 |
 | A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
-| C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，D 压缩访存等 D 任务 |
+| C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，T013已增加压缩D访存完整8192编码差分 |
 | F/D | F/D 2.2、FLEN32/64、FCSR/FS/boxing、压缩 D 访存 | T013 逐事件 Spike/IEEE 边界 unit/UBSan 已验证 |
 | MMU / PMP | RV64 集中访问规则、Bare/Sv39、16-entry PMP、硬件 A/D 与 SFENCE | M 访问忽略 satp、MPRV 数据访问路径已测；T011 PMP/T012 Sv39 真实路径/Spike 验证；无 TLB |
 | 设备 | UART DLAB/FIFO/IRQ/输入；CLINT32/64半寄存器与WFI逻辑快进；PLIC M/S/source10；finisher关机 | T014设备476/输入32检查、UBSan、真实IRQ/MMIO异常及整机输入重放通过 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
-| difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | T004 只验收 I/RAM/同步异常；NEMU/RTL ABI 和 rviss_create 未验收 |
+| difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | 固定Spike已扩展到GC、44 CSR、Sv39/PMP与IRQ/counter；NEMU/RTL ABI和rviss_create未验收 |
 | Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU已验收；T014 RVISS PID1/probe/BusyBox/额外1轮及输入重放与正常关机通过，100/1000待T015 |
+
+固定Linux入口（工件见 `build/linux/artifacts/manifest.json`）：
+
+```sh
+make gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/rv64gc check
+python3 tools/linux/run_rviss.py --rviss build/rv64gc/rviss --boots 3 --rounds 100 --timeout 1800 --max-instr 4000000000
+python3 tools/linux/run_rviss.py --rviss build/rv64gc/rviss --boots 1 --rounds 1000 --timeout 7200 --max-instr 20000000000
+```
+
+`--uart-stdin`将batch stdin接到客户机串口，输出为stdout；`--uart-record FILE`
+记录输入event与字节，`--uart-replay FILE`按同一边界重放。按 `poweroff -f`
+经真实SBI/finisher关机；CPU/设备执行不用宿主墙钟驱动。
 
 固定规范版本、目标参数与当前差异见 [RV64 profile](docs/rv64_profile.md)。
 开发主线是 [P0–P8](docs/ai_coding_rv64gc_linux.md)；旧

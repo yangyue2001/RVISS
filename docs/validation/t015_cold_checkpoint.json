@@ -1,0 +1,10 @@
+{
+  "status": "verified cold-boot checkpoint",
+  "normalized_output_equal": true,
+  "exclude": "host wall-clock performance line",
+  "normalized_output_sha256": "99eea6f4204ad942d136eeb349752340b3dc86533e8a4e4b77841b22a3daf6ba",
+  "commands": [
+    "python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 3 --rounds 100 --timeout 1800 --max-instr 4000000000"
+  ],
+  "remaining": "1000-round long acceptance still running"
+}

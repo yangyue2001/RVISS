@@ -127,13 +127,12 @@ manifest 保存来源、输入/工件哈希、工具链、ISA/ABI、地址及 CP
 三次冷启动各 100 轮均通过（29.592 / 29.418 / 29.056 宿主秒），
 另一次 1000 轮通过（260.778 宿主秒），均正常退出。
 详情见 [T002 验收记录](plans/t002_linux_artifacts.md)。
-这证明当前工件在固定 QEMU/profile/预算上的行为；RVISS 尚未通过此验收，
+这证明当前工件在固定 QEMU/profile/预算上的行为；当前T014已验证RVISS的PID1/BusyBox/1轮与正常关机及输入重放，100/1000完整验收见T015，
 后续仍需相同工件的冷启动、交互、长稳与 checkpoint 恢复证据。
 
 ## 给 Codex 的任务
 
-本机 CLI 支持 `-C` 和 `exec`；当前 ISS 尚无 Git，自动模式加
-`--skip-git-repo-check`。正常交互入口：
+本机 CLI 支持 `-C` 和 `exec`；RVISS Git已建立。正常交互入口：
 
 ```sh
 codex -C /home/yang/work/ISS "阅读 AGENTS.md 和 docs/prompts/rviss_linux_next.md，执行其中的当前任务，实际验证并更新任务状态。"

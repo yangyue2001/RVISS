@@ -7,6 +7,17 @@ target/riscv64/step.c 负责单个架构事件，engine/interpreter/interp.c 负
 驱动 mtime 的说法已经过时；当前只做 RV64 解释器，准确契约见
 [T003](plans/t003_execution_boundary.md) 和 [profile](rv64_profile.md)。
 
+T015当前源码：`instr/m,a,c,fp`已实现，FPR/FCSR及SoftFloat C算术位于target/
+third_party，空rtl_fp.c已移除。集中访问路径含16-entry PMP与Sv39硬件A/D；
+CSR与trap支持M/S/U委派/返回/IRQ/counter。板级装配UART→PLIC source10→
+M/S输出、CLINT与test finisher；设备不读CPU CSR。MMIO接受规则在副作用前
+检查，legal WFI可按设备deadline推进逻辑时间，事件/退休/guest counters独立。
+`host/uart_input.c`按event记录/重放输入；host wallclock仅做性能统计。
+`tools/spike`是固定独立C DUT/C++参考进程，已经实际执行GC矩阵；对外
+`rviss.h`与原生checkpoint仍有未验收部分，不能据符号认定ABI完成。
+下文旧目录树与路线描述作为历史记录；当前行为与边界以源码及T004–T015
+验收证据为准。
+
 > 本文回答两个问题：**目录为什么这样分**、**每个文件负责什么**。
 > 实现路线见 [implementation_plan.md](implementation_plan.md)。
 
