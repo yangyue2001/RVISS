@@ -14,7 +14,7 @@ static const unsigned diff_csrs[] = {
   0x300, 0x302, 0x303, 0x304, 0x344, 0x305, 0x341, 0x342, 0x343, 0x340,
   0x306, 0x105, 0x141, 0x142, 0x143, 0x140, 0x180, 0x106, 0x100, 0x104, 0x144, 0xb02, 0x320, 0x3a0, 0x3a2,
   0x3b0, 0x3b1, 0x3b2, 0x3b3, 0x3b4, 0x3b5, 0x3b6, 0x3b7,
-  0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be, 0x3bf
+  0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be, 0x3bf, 1, 2, 3
 };
 #define DIFF_CSR_COUNT (sizeof(diff_csrs) / sizeof(diff_csrs[0]))
 
@@ -22,7 +22,7 @@ typedef struct {
   uint64_t base, size, pc, steps, priv;
   unsigned pmp_regions;
   bool sv39;
-  uint64_t gpr[32], csr[4096];
+  uint64_t gpr[32], fpr[32], csr[4096];
   bool csr_set[4096];
   struct {uint64_t event; unsigned bit; bool level;} irq[128];
   unsigned irq_count;
@@ -32,6 +32,12 @@ typedef struct {
   char isa[128];
   uint8_t *ram;
 } DiffCase;
+
+static inline bool case_extension(const DiffCase *c, char ext) {
+  const char *end=strchr(c->isa,'_');
+  if(!end) end=c->isa+strlen(c->isa);
+  return memchr(c->isa,ext,end-c->isa)!=NULL;
+}
 
 /* 初始 PMP 地址先于 cfg，避免锁定位让共同地址输入被初始化写拒绝。 */
 static inline bool case_pmp_cfg(unsigned addr) {
@@ -73,11 +79,12 @@ static inline DiffCase load_case(const char *path) {
       c.irq[c.irq_count].event=event;
       c.irq[c.irq_count].bit=bit;
       c.irq[c.irq_count++].level=level;
-    } else if (!strcmp(key, "gpr") || !strcmp(key, "csr")) {
+    } else if (!strcmp(key, "gpr") || !strcmp(key, "fpr") || !strcmp(key, "csr")) {
       unsigned index;
       if (fscanf(file, "%u %127s", &index, value) != 2) case_error(key);
-      if (index >= (!strcmp(key, "gpr") ? 32u : 4096u)) case_error("index");
+      if (index >= (strcmp(key, "csr") ? 32u : 4096u)) case_error("index");
       if (!strcmp(key, "gpr")) c.gpr[index] = strtoull(value, NULL, 0);
+      else if (!strcmp(key, "fpr")) c.fpr[index] = strtoull(value, NULL, 0);
       else { c.csr[index] = strtoull(value, NULL, 0); c.csr_set[index] = true; }
     } else if (!strcmp(key, "mem")) {
       char address[128], data[128];
@@ -115,7 +122,7 @@ static inline DiffCase load_case(const char *path) {
 
 typedef struct {
   uint64_t seq, pc_before, pc, privilege_before, privilege, retired_total;
-  uint64_t raw, gpr[32], csr[DIFF_CSR_COUNT];
+  uint64_t raw, gpr[32], fpr[32], csr[DIFF_CSR_COUNT];
   unsigned length, raw_bytes;
   bool valid, retired;
   const char *outcome;
@@ -135,6 +142,8 @@ static inline void emit_snapshot(const DiffSnapshot *s, const uint8_t *ram, size
          s->outcome, s->retired ? "true" : "false", s->raw, s->length, s->raw_bytes,
          s->valid ? "true" : "false");
   for (unsigned i = 0; i < 32; i++) printf("%s\"%016" PRIx64 "\"", i ? "," : "", s->gpr[i]);
+  printf("],\"fpr\":[");
+  for(unsigned i=0;i<32;i++) printf("%s\"%016" PRIx64 "\"",i?",":"",s->fpr[i]);
   printf("],\"csrs\":{");
   for (unsigned i = 0; i < DIFF_CSR_COUNT; i++)
     printf("%s\"%03x\":\"%016" PRIx64 "\"", i ? "," : "", diff_csrs[i], s->csr[i]);

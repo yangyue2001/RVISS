@@ -18,10 +18,10 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 [Machine 章节 mcause 表](https://raw.githubusercontent.com/riscv/riscv-isa-manual/Priv-v1.12/src/machine.tex)
 核对；H 和可选扩展的 cause 不在本次公共头内。
 
-| 参数 | 固定目标 | T003 后当前源码 |
+| 参数 | 固定目标 | 当前源码 |
 | --- | --- | --- |
 | CPU | RV64，小端，hartid=0，单 hart，复位进入 M；GPR 清零作为确定性 reset 策略 | 已有；现有测试只覆盖部分状态 |
-| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M/A/整数 C 通过 T005–T007；F/D 缺失，T010 basic counter CSR 已验证；misa 固定 RV64/I/已实现 M/A、可切换已编译 C，T012 后 S/U 已宣告 |
+| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/M/A/C/CSR/特权与 T013 F/D 已验证；misa 固定 RV64/I/已编译 M/A/F/D、可切换已编译 C，S/U 已宣告 |
 | 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | T008 CSR WARL/同步委派/xRET 权限已验证；T009 中断规则已验证；T010 counter 权限/写优先已验证 |
 | 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | T012 Bare/Sv39、硬件 A/D、page/access 分类已验证；无 TLB |
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | T011 16-entry CSR/锁/优先级/边界和真实访问已验证，关闭配置 0 entries |
@@ -101,3 +101,9 @@ T012 Bare/Sv39 初始化能力明确，ASIDLEN=0，satp 只接受 MODE0/8，unsu
 访问走 S 权限 PMP；硬件 A/D 精确更新，最终显式数据 fault 可保留隐式更新。
 5267 / 17554、三配置、UBSan 通过。参考 Svadu/ADUE 只选相同 A/D 策略，
 共同程序不使用该扩展，RVISS 不宣告 Svadu。S/U misa 已在本阶段加入。
+
+T013 实现 F/D 2.2 与压缩 D 访存，F-only FLEN32、D FLEN64/NaN boxing，
+FCSR 别名与 FS 权限/dirty、五个 rm 与动态 frm。保留 rm/frm trap，无目的写。
+固定 Spike 与 RVISS 共用来源的 SoftFloat 算术由独立 IEEE 边界 unit 补充覆盖。
+GC 17141 / 83079、F-only7558 / 47058、三配置与 UBSan通过，工具增加全FPR
+及44个CSR比较和FPR差异注入。设备与 Linux 尚待 T014。

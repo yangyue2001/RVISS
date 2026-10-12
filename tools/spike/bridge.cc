@@ -86,16 +86,19 @@ class FetchObserver : public memtracer_t {
   void clean_invalidate(uint64_t,size_t,bool,bool) override {}
 };
 
+static bool input_double;
 static void snapshot(processor_t &p, DiffSnapshot &r) {
   auto *s = p.get_state();
   r.pc = s->pc; r.privilege = s->prv;
   for (unsigned i = 0; i < 32; i++) r.gpr[i] = s->XPR[i];
+  for (unsigned i = 0; i < 32; i++) r.fpr[i] = s->FPR[i].v[0] & (input_double?UINT64_MAX:UINT32_MAX);
   for (unsigned i = 0; i < DIFF_CSR_COUNT; i++) r.csr[i] = p.get_csr(diff_csrs[i], insn_t(0), false, true);
 }
 
 int main(int argc, char **argv) {
   if (argc != 2) return 2;
   DiffCase c = load_case(argv[1]);
+  input_double=case_extension(&c,'d');
   RamBus bus(c);
   // Newer Spike names the Priv1.12 hardware A/D choice Svadu + ADUE.
   // Select that policy once; no new instruction encoding is used by shared cases.
@@ -116,9 +119,20 @@ int main(int argc, char **argv) {
   p.get_mmu()->register_memtracer(&fetch_observer);
   s->pc = c.pc;
   for (unsigned i = 0; i < 32; i++) s->XPR.write(i, c.gpr[i]);
+  for (unsigned i = 0; i < 32; i++) {
+    // Architectural FLEN32 input has no upper bits. Box for Spike's private
+    // 128-bit FPR representation, whose unboxF32 always checks all upper bits.
+    uint64_t bits=input_double?c.fpr[i]:UINT64_C(0xffffffff00000000)|(uint32_t)c.fpr[i];
+    s->FPR.write(i, freg_t{{bits,UINT64_MAX}});
+  }
   for(unsigned phase=0;phase<2;phase++) for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) {
     if (case_pmp_cfg(i)!=(phase==1)) continue;
+    reg_t old_status=p.get_csr(CSR_MSTATUS,insn_t(0),false,true);
+    if(i>=CSR_FFLAGS && i<=CSR_FCSR)
+      p.put_csr(CSR_MSTATUS,old_status|MSTATUS_FS); // write API requires FS enabled
     p.put_csr(i, c.csr[i]);
+    // Initial FP state does not dirty the independently supplied FS state.
+    if(i>=CSR_FFLAGS && i<=CSR_FCSR) p.put_csr(CSR_MSTATUS,old_status);
     // 该版本写 API 为即将发生的退休预减 1；初始化没有写指令，恢复共同输入。
     if (i==CSR_MINSTRET) s->minstret->bump(1);
     if (i==CSR_MCYCLE) s->mcycle->bump(1);

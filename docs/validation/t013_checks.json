@@ -1,0 +1,87 @@
+{
+  "status": "verified",
+  "profiles": {
+    "gc": {
+      "units": 15,
+      "checks": 25168,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "f": {
+      "units": 15,
+      "checks": 25083,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "minimal": {
+      "units": 15,
+      "checks": 17170,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t013-gc check build/t013-gc/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t013-gc/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --fp-exhaustive-c --out build/t013-gc/difftest-complete",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t013-f check build/t013-f/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t013-f/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp f --out build/t013-f/difftest-complete",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t013-minimal check build/t013-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t013-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t013-minimal/difftest-complete",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t013-ubsan/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --out build/t013-ubsan/difftest-complete",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t013-ubsan build/t013-ubsan/test_fp.test build/t013-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t013-ubsan/test_fp.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "ubsan_unit": "648 checks, 0 failures; no diagnostics",
+  "source_audit": {
+    "spike_unchanged_files": 1639,
+    "softfloat_unchanged_files": 71
+  },
+  "first_failures": [
+    "t013_first_build_failure.json",
+    "t013_first_reference_failure.json",
+    "t013_first_unit_failure.json",
+    "t013_flen32_failure.json",
+    "t013_misa_regression_failure.json"
+  ],
+  "choices": [
+    "62 FP encodings plus C.FLD/FSD/FLDSP/FSDSP; F-only FLEN32 and GC FLEN64",
+    "StepResult explicitly classifies GPR/FPR writes, including f0 and x0 discard",
+    "44 CSR/full FPR/GPR/RAM comparison; 8192 compressed FP encodings exhaustive",
+    "Rounding library shared with Spike; independent literal IEEE boundary unit tests address common-mode arithmetic risk"
+  ],
+  "limits": [
+    "RVISS Linux not booted yet; virt device integration follows",
+    "No claim of full checkpoint/RTL ABI/H availability"
+  ]
+}

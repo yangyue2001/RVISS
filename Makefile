@@ -42,6 +42,10 @@ DIRS-y  = src/util src/host src/memory src/machine src/monitor
 DIRS-y += src/checkpoint src/difftest
 DIRS-y += src/engine/$(ENGINE)
 DIRS-y += src/target/$(ISA)
+ifdef CONFIG_RV_F
+DIRS-y += third_party/softfloat
+INC_DIR += $(RVISS_HOME)/third_party/softfloat
+endif
 
 # 逐文件收集：这里体现 Kconfig 的作用 —— 改配置会改变编进去的设备
 # 设备按类别分子目录（QEMU 风格：char/timer/intc），bus.c 是设备框架本身

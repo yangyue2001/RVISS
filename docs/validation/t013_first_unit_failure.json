@@ -1,0 +1,11 @@
+{
+  "command": "build/t013-gc/test_fp.test",
+  "exit_code": 1,
+  "output": "  FAIL tests/unit/test_fp.c:59: cpu.fcsr == cases[i].flags (0x3 vs 0x1)\ntests/unit/test_fp.c: 578 checks, 1 failures\n",
+  "classification": "Incorrect normative constant oracle for tininess: compared final exponent-limited encoding instead of precision-rounded value with unbounded exponent. Corrected using IEEE754-2008 7.5; added a paired case that actually distinguishes before/after rounding. No simulator/library change.",
+  "source": "https://andrewt0301.github.io/hse-acos-course/part1ca/07_FP/ieee-754-2008.pdf",
+  "proof": [
+    "2^-126 * (1 - 2^-24) = (2^24-1)*2^-150, exactly 24 significant bits with unbounded exponent; still tiny. Exponent-limited rounding to 2^-126 is inexact => UF|NX=3.",
+    "(2^-126 - 2^-149) * (1+2^-23) = 2^-126*(1-2^-46). Full 24-bit precision with unbounded exponent rounds to 2^-126, not tiny => NX=1."
+  ]
+}

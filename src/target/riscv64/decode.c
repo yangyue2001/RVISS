@@ -24,6 +24,7 @@
 #include "instr/i/instr.def"
 #include "instr/m/instr.def"
 #include "instr/a/instr.def"
+#include "instr/fp/instr.def"
 #include "instr/system/instr.def"
 #undef INSTR
 
@@ -34,6 +35,7 @@ static InstrEntry instr_table[] = {
 #include "instr/i/instr.def"
 #include "instr/m/instr.def"
 #include "instr/a/instr.def"
+#include "instr/fp/instr.def"
 #include "instr/system/instr.def"
 };
 #undef INSTR

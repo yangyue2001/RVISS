@@ -59,6 +59,17 @@ static bool expand(Decode *s, int kind) {
       e = imm_op(0x13,0,r2p,2,imm); break;
     case C_c_lw: e = imm_op(0x03,2,r2p,rp,word_offset); break;
     case C_c_ld: e = imm_op(0x03,3,r2p,rp,double_offset); break;
+#ifdef CONFIG_RV_D
+    case C_c_fld: e = imm_op(0x07,3,r2p,rp,double_offset); break;
+    case C_c_fsd:
+      e = store(3,rp,r2p,double_offset); e = (e&~0x7fu)|0x27; break;
+    case C_c_fldsp:
+      imm = (BIT(c,12) << 5) | (BITS(c,6,5) << 3) | (BITS(c,4,2) << 6);
+      e = imm_op(0x07,3,rd,2,imm); break; /* f0 合法，区别整数 LDSP */
+    case C_c_fsdsp:
+      imm = (BITS(c,12,10) << 3) | (BITS(c,9,7) << 6);
+      e = store(3,2,rs2,imm); e=(e&~0x7fu)|0x27; break;
+#endif
     case C_c_sw: e = store(2,rp,r2p,word_offset); break;
     case C_c_sd: e = store(3,rp,r2p,double_offset); break;
     case C_c_nop: e = 0x13; break;

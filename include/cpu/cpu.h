@@ -18,6 +18,7 @@ enum { PRV_U = 0, PRV_S = 1, PRV_M = 3 };
 
 typedef struct {
   rtlreg_t gpr[32];
+  word_t fpr[32]; /* F-only FLEN32；D FLEN64，f0 可写 */
   vaddr_t  pc;
 
   /*

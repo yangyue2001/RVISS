@@ -94,7 +94,17 @@ static void test_memory_and_control(void) {
 static void test_misa(void) {
   setup();word_t supported=cpu.misa;
   CHECK(supported&MISA_C);CHECK_EQ(supported&MISA_MXL,MISA_MXL_64);
-  CHECK(!(supported&(MISA_F|MISA_D|MISA_H|MISA_V|MISA_G)));
+  CHECK(!(supported&(MISA_H|MISA_V|MISA_G)));
+#ifdef CONFIG_RV_F
+  CHECK(supported&MISA_F);
+#else
+  CHECK(!(supported&MISA_F));
+#endif
+#ifdef CONFIG_RV_D
+  CHECK(supported&MISA_D);
+#else
+  CHECK(!(supported&MISA_D));
+#endif
   CHECK(csr_write(CSR_MISA,UINT64_MAX));CHECK_EQ(cpu.misa,supported);
   CHECK(csr_write(CSR_MISA,0));CHECK_EQ(cpu.misa,supported&~MISA_C);
   CHECK(csr_write(CSR_MISA,supported));

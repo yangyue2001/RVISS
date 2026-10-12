@@ -9,6 +9,7 @@
 #include "intr.h"
 #include "pmp.h"
 #include "mmu.h"
+#include "fp.h"
 
 /* 地址/存储元信息来自唯一清单；有 WARL、别名或副作用的 CSR 显式处理。 */
 typedef struct {
@@ -79,13 +80,20 @@ word_t riscv_misa_supported(void) {
 #ifdef CONFIG_RV_C
   value |= MISA_C;
 #endif
-  /* M/S/U CSR/委派/xRET/IRQ/counter/PMP/Sv39 已闭环；F/D 后续接入。 */
+#ifdef CONFIG_RV_F
+  value |= MISA_F;
+#endif
+#ifdef CONFIG_RV_D
+  value |= MISA_D;
+#endif
+  /* 编译能力经规则组验证后宣告；C 可由客户机切换，其它能力保持固定。 */
   return value;
 }
 
 static bool csr_allowed(word_t addr, bool write) {
   if (!csr_lookup(addr) || cpu.priv < ((addr >> 8) & 3)) return false;
   if (riscv_pmp_csr(addr) && !cpu.pmp_count) return false;
+  if (addr>=CSR_FFLAGS && addr<=CSR_FCSR && !riscv_fp_enabled(false)) return false;
   if (write && ((addr >> 10) & 3) == 3) return false;
   if (addr >= CSR_CYCLE && addr <= CSR_INSTRET && cpu.priv < PRV_M) {
     word_t enable=1ull<<(addr-CSR_CYCLE);
@@ -102,6 +110,8 @@ bool csr_peek(word_t addr, word_t *val) {
   if (!e) return false;
   if(riscv_pmp_csr(addr)) { *val=riscv_pmp_read(addr); return true; }
   switch (addr) {
+    case CSR_FFLAGS: *val=cpu.fcsr&31; break;
+    case CSR_FRM: *val=(cpu.fcsr>>5)&7; break;
     case CSR_TIME: *val = device_time(); break;
     case CSR_MCOUNTINHIBIT: *val = 0; break;
     case CSR_MSTATUS: *val = csr_status_value(cpu.mstatus); break;
@@ -129,6 +139,11 @@ bool csr_write(word_t addr, word_t val) {
   CsrEntry *e = csr_lookup(addr);
   if(riscv_pmp_csr(addr)) { riscv_pmp_write(addr,val); return true; }
   switch (addr) {
+    case CSR_FFLAGS:
+      cpu.fcsr=(cpu.fcsr&0xe0)|(val&31); riscv_fp_dirty(); break;
+    case CSR_FRM:
+      cpu.fcsr=(cpu.fcsr&31)|((val&7)<<5); riscv_fp_dirty(); break;
+    case CSR_FCSR: cpu.fcsr=val&0xff; riscv_fp_dirty(); break;
     case CSR_MCOUNTINHIBIT: break;
     case CSR_MISA: {
       word_t supported = riscv_misa_supported();

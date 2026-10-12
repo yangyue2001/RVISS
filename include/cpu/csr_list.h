@@ -30,6 +30,9 @@
 /* ---------------- CSR 地址（privileged spec Vol.II 的 CSR 表）
  * ---------------- */
 enum {
+  CSR_FFLAGS = 0x001,
+  CSR_FRM = 0x002,
+  CSR_FCSR = 0x003,
   /* S 模式 */
   CSR_SSTATUS = 0x100,
   CSR_SIE = 0x104,
@@ -129,9 +132,10 @@ enum {
                                       f(sscratch, CSR_SSCRATCH, CSR_MASK_ALL) \
                                           f(satp, CSR_SATP, CSR_MASK_ALL)     \
                                               f(scounteren, CSR_SCOUNTEREN,   \
-                                                CSR_MASK_ALL)
+                                                CSR_MASK_ALL) f(fcsr, CSR_FCSR, 0xff)
 
-#define RVISS_CSRS_COMPUTED(f) f(time, CSR_TIME) f(mcountinhibit, CSR_MCOUNTINHIBIT)
+#define RVISS_CSRS_COMPUTED(f) f(time, CSR_TIME) f(mcountinhibit, CSR_MCOUNTINHIBIT) \
+  f(fflags, CSR_FFLAGS) f(frm, CSR_FRM)
 
 #define RVISS_HPM_INDICES(f) \
   f(3) f(4) f(5) f(6) f(7) f(8) f(9) f(10) f(11) f(12) f(13) f(14) f(15) \

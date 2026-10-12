@@ -9,6 +9,7 @@ import random
 import subprocess
 import time
 from sv39_cases import sv39_cases
+from fp_cases import fp_cases
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = 0x80000000
@@ -569,10 +570,14 @@ def main():
     parser.add_argument('--counters',action='store_true')
     parser.add_argument('--pmp',action='store_true')
     parser.add_argument('--sv39',action='store_true')
+    parser.add_argument('--fp',choices=['f','fd'])
+    parser.add_argument('--fp-exhaustive-c',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
     args.dut=args.dut.resolve(); args.ref=args.ref.resolve()
+    dut_hash=hashlib.sha256(args.dut.read_bytes()).hexdigest()
+    ref_hash=hashlib.sha256(args.ref.read_bytes()).hexdigest()
     OUT.mkdir(parents=True,exist_ok=True)
     records=[]; event_count=0; started=time.monotonic()
     suite = list(cases()) + (list(m_cases()) if 'm' in args.suite else [])
@@ -584,6 +589,7 @@ def main():
     if args.counters: suite += list(counter_cases())
     if args.pmp: suite += list(pmp_cases())
     if args.sv39: suite += list(sv39_cases(case_text,BASE))
+    if args.fp: suite += list(fp_cases(case_text,BASE,args.fp=='fd',args.fp_exhaustive_c))
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -645,6 +651,10 @@ def main():
         if name.startswith('sv39-cross-fetch-') and name != 'sv39-cross-fetch-11':
             assert dut[1]['raw_bytes']==2 and dut[1]['length']==4 and not dut[1]['valid']
             assert int(dut[1]['csrs']['342'],16)==12 and int(dut[1]['csrs']['343'],16)==0x5000
+        if name.startswith(('fp-group-', 'fp-fma-', 'fp-int-boundary-', 'fp-memory-roundtrip-')) or name=='fp-seeded':
+            assert all(e['retired'] and int(e['pc_before'],16)==BASE+4*i for i,e in enumerate(dut[1:])),name
+        if name.startswith('fp-c-exhaust-'):
+            assert dut[1]['retired'] and dut[1]['length']==2,name
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -652,25 +662,28 @@ def main():
         records.append(dict(case=name,events=len(dut)-1,input_sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
         print(f'{name}: {len(dut)-1} events matched',flush=True)
     injections=[]
-    for kind,name in [('gpr','two-adds'),('store','memory'),('trap','illegal-32')]:
+    for kind,name in [('gpr','two-adds'),('store','memory'),('trap','illegal-32')]+([('fpr','fp-seeded')] if args.fp else []):
         path=OUT/(name+'.case')
         dut,dc=execute(args.dut,path,kind);ref,rc=execute(args.ref,path)
         difference=first_difference(dut,ref)
         assert difference is not None,kind
-        expected={'gpr':'gpr','store':'ram_hash','trap':'csrs'}[kind]
+        expected={'gpr':'gpr','store':'ram_hash','trap':'csrs','fpr':'fpr'}[kind]
         assert expected in difference[1],difference
         packet=save_failure('injected-'+kind,path,dut,ref,difference,[dc,rc])
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
+    assert hashlib.sha256(args.dut.read_bytes()).hexdigest()==dut_hash
+    assert hashlib.sha256(args.ref.read_bytes()).hexdigest()==ref_hash
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,pmp_rules=args.pmp,sv39_rules=args.sv39,
+                 dut_sha256=dut_hash,reference_sha256=ref_hash,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,pmp_rules=args.pmp,sv39_rules=args.sv39,fp_rules=args.fp,fp_exhaustive_c=args.fp_exhaustive_c,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
-                 compared=['PC/raw/length/priv','full GPR','41 trap/priv/counter/PMP CSR','store','full RAM hash','retirement'],
+                 compared=['PC/raw/length/priv','full GPR','full FPR (FLEN32/64)','44 trap/priv/counter/PMP/FP CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','cycle values across trap/IRQ (different permitted timing policies)','full platform devices',
-                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D' + ('' if args.sv39 else '/Sv39') + ('' if args.pmp else '/PMP')])
+                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + ('' if args.fp=='fd' else '/D' if args.fp=='f' else '/F/D') + ('' if args.sv39 else '/Sv39') + ('' if args.pmp else '/PMP')])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
-    print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
+    print(f'Spike difftest: {len(records)} cases / {event_count} events passed; {len(injections)} injected differences captured.')
 
 
 if __name__=='__main__':

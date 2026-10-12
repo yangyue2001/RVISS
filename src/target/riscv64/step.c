@@ -62,7 +62,12 @@ void riscv_step(StepResult *result) {
       result->counter_write_instret = s.counter_write_instret;
       result->retired = true;
       result->outcome = sim.state == SIM_HALTED ? STEP_HALTED : STEP_RETIRED;
-      if (s.rd != 0 && s.dest.preg != NULL) {
+      if (s.fp_register_write) {
+        result->register_write = true;
+        result->register_is_fp = true;
+        result->rd = s.rd;
+        result->register_value = cpu.fpr[s.rd] & ((cpu.misa&MISA_D)?UINT64_MAX:UINT32_MAX);
+      } else if (s.rd != 0 && s.dest.preg != NULL) {
         result->register_write = true;
         result->rd = s.rd;
         result->register_value = cpu.gpr[s.rd];

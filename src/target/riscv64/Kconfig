@@ -27,14 +27,19 @@ config RV_A
 	  RV64 A 2.1；单 hart RAM LR/SC 和 W/D AMO，设备原子访问产生 fault。
 config RV_F
 	bool "F：单精度浮点"
+	depends on RV_ZICSR
+	help
+	  F 2.2，FLEN32、五种舍入模式、FCSR 与 FS 状态。
 config RV_D
 	bool "D：双精度浮点"
 	depends on RV_F
+	help
+	  D 2.2，FLEN64、单精度 NaN boxing 与 S/D 转换。
 config RV_C
 	bool "C：压缩指令（RVC）"
 	help
 	  RV64 C 2.0 整数压缩指令；misa.C 控制 IALIGN 与动态启用。
-	  D 的压缩浮点访存在完成 D 扩展时接入。
+	  编译 D 时包含 C.FLD/FSD/FLDSP/FSDSP。
 config RV_SV39
 	bool "Sv39 分页"
 	help

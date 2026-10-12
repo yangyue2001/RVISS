@@ -27,10 +27,11 @@ typedef struct {
   bool instruction_valid;
   const char *operation; /* 指向静态指令名；不是序列化格式 */
   bool register_write;
+  bool register_is_fp; /* GPR x0 不写；FPR f0 是普通可写寄存器 */
   uint8_t rd;
   word_t register_value;
   bool counter_write_cycle, counter_write_instret;
-  MemAccess memory; /* 一条 I 指令最多一个显式数据访问；取指 fault 也可记录 */
+  MemAccess memory; /* 一条指令最多一个显式数据访问；取指 fault 也可记录 */
   struct {
     bool valid;
     word_t cause;

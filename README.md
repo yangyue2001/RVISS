@@ -34,7 +34,7 @@ IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同
 [T010 counter](docs/plans/t010_counters.md) verified：3249 / 15178，12 unit、
 CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378 / 16606、三配置与 UBSan。
 [T012 Sv39](docs/plans/t012_sv39.md) verified：5267 / 17554、三配置与 UBSan。
-下一项 T013 F/D，再设备与 Linux。
+[T013 F/D](docs/plans/t013_fp.md) verified：GC 17141 / 83079、F-only 7558 / 47058，三配置与 UBSan。下一项设备与 Linux。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 
@@ -46,7 +46,7 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa 对应编译支持位已固定 |
 | A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
 | C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，D 压缩访存等 D 任务 |
-| F/D | 尚无执行实现 | 待实现及独立差分 |
+| F/D | F/D 2.2、FLEN32/64、FCSR/FS/boxing、压缩 D 访存 | T013 逐事件 Spike/IEEE 边界 unit/UBSan 已验证 |
 | MMU / PMP | RV64 集中访问规则、Bare/Sv39、16-entry PMP、硬件 A/D 与 SFENCE | M 访问忽略 satp、MPRV 数据访问路径已测；T011 PMP/T012 Sv39 真实路径/Spike 验证；无 TLB |
 | 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |

@@ -61,7 +61,8 @@ def main():
                     fetch_observer='actual mmio_fetch bytes plus FETCH memtracer; no speculative prefetch',
                     priv='MSU', mmu='case input: clear default with SBARE, then enable only Sv39 when selected', asid_bits=0,
                     ad_policy='Sv39 reference uses Svadu plus initial menvcfg.ADUE=1 to select Priv1.12 hardware update; RVISS does not advertise Svadu',
-                    store_observer='actual last successful physical callback plus explicit commit log; implicit A/D writes included in RAM hash', counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
+                    store_observer='actual last successful physical callback plus explicit commit log; implicit A/D writes included in RAM hash',
+                    fp_initialization='shared FPR bits; FLEN32 boxed to private Spike 128-bit representation; initial FP CSR writes bracketed by temporary FS enable/restore, before execution', counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
                     bridge_sha256=hashlib.sha256((OUT / 'bridge').read_bytes()).hexdigest(),
                     configure_args=(OBJ / 'config.status').read_text().split('ac_cs_config=')[1].splitlines()[0])
     (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
