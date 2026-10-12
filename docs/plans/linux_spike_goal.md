@@ -40,3 +40,8 @@ minimal/MAC 回归与 UBSan，提交 ccc1005。T010 counter verified：3249 / 15
 三配置回归与 UBSan，观察检查点提交 f32eb90；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079，含8192压缩FP编码；三配置与 UBSan。T014设备 verified，固定Linux1轮与输入重放/正常关机通过。下一项T015性能检查点/100/1000验收。
 Git 写入受沙箱只读 .git 限制，已按工具权限
 流程授权。RVISS 已完成固定 Linux PID1/probe/BusyBox/1轮与正常关机，整机输入重放通过；三次100轮与1000轮长跑尚待验证。
+
+T014设备/固定Linux1轮与输入重放提交b83d9b9；T015性能检查点168f159。
+最终GC Spike66293/132231已通过（含完整压缩编码、重放与4种差异注入），
+证据docs/validation/t015_final_spike.json。两次100轮冷启动已通过，第三次
+与1000长跑仍运行，总目标active。
