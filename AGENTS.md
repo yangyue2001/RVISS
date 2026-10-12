@@ -76,6 +76,7 @@ M 13 条指令已 verified，I/M Spike 346 cases / 4359 events、UBSan 和双配
 [T007](docs/plans/t007_c_extension.md) 整数 C/IALIGN 已 verified，全部 49152 个
 16 位编码的 Spike 差分通过，含其它用例 50215 cases / 59406 events；三配置
 make check 和 UBSan 通过。T008 CSR 检查点通过：MAC/CSR 1741 / 11442，
-minimal/MAC 回归与 UBSan；当前继续 T008 同步委派/xRET；
+minimal/MAC 回归与 UBSan；同步委派/xRET 也 verified：2195 / 12505。
+当前继续 T009 中断，然后 counter/PMP/Sv39；
 后续 agent 应重确认状态，完成局部任务后继续总目标。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

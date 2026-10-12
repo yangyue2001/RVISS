@@ -37,6 +37,18 @@ word_t csr_status_value(word_t val) {
   return val;
 }
 
+word_t csr_epc_storage_value(word_t val) {
+#ifdef CONFIG_RV_C
+  return val & ~1ull;
+#else
+  return val & ~3ull;
+#endif
+}
+
+word_t csr_epc_read_value(word_t val) {
+  return val & ((cpu.misa & MISA_C) ? ~1ull : ~3ull);
+}
+
 void csr_reset(void) {
   cpu.mstatus = csr_status_value(0);
 }
@@ -72,7 +84,7 @@ bool csr_peek(word_t addr, word_t *val) {
     case CSR_SSTATUS: *val = csr_status_value(cpu.mstatus) & SSTATUS_MASK; break;
     case CSR_MEPC: case CSR_SEPC:
       /* C 的实现支持 bit 1 存储；当前 IALIGN=32 时仅屏蔽读值。 */
-      *val = *e->field & ((cpu.misa & MISA_C) ? ~1ull : ~3ull);
+      *val = csr_epc_read_value(*e->field);
       break;
     case CSR_SIE: *val = cpu.mie & cpu.mideleg & SIE_MASK; break;
     case CSR_MIP: case CSR_SIP:
@@ -103,13 +115,7 @@ bool csr_write(word_t addr, word_t val) {
                                     (val & SSTATUS_WRITABLE_MASK));
       break;
     case CSR_MTVEC: case CSR_STVEC: *e->field = val & ~2ull; break;
-    case CSR_MEPC: case CSR_SEPC:
-#ifdef CONFIG_RV_C
-      *e->field = val & ~1ull;
-#else
-      *e->field = val & ~3ull;
-#endif
-      break;
+    case CSR_MEPC: case CSR_SEPC: *e->field = csr_epc_storage_value(val); break;
     case CSR_MEDELEG: cpu.medeleg = val & MEDELEG_MASK; break;
     case CSR_MIDELEG: cpu.mideleg = val & SIE_MASK; break;
     case CSR_MIE: cpu.mie = val & MIE_MASK; break;

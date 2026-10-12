@@ -27,6 +27,8 @@ bool csr_write(word_t addr, word_t val);
 /* 只读状态观测，绕过客户机权限但保留体系结构可见值/别名规则。 */
 bool csr_peek(word_t addr, word_t *val);
 word_t csr_status_value(word_t val);
+word_t csr_epc_storage_value(word_t val);
+word_t csr_epc_read_value(word_t val);
 
 void csr_reset(void);
 word_t riscv_misa_supported(void);

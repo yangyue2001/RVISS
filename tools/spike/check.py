@@ -341,6 +341,54 @@ def csr_cases():
                 {5:0xdeadbeef},priv=1,isa=isa)+'csr 768 0xa00100000\n'
 
 
+def priv_cases(compressed_capable=False):
+    isa='rv64i_zicsr_zifencei_zicntr'
+    for priv in [0,1,3]:
+        for delegated in [0,0xb3ff]:
+            for status in [0,2,8,10,0x200aa,0x4600aa]:
+                for vector in [0,1]:
+                    for name,raw in [('ecall',0x73),('break',0x100073),('illegal',0xb),
+                                     ('load',0x33283),('store',0x533023)]:
+                        text=case_text([raw],1,{5:0xdeadbeef,6:0x40000000},priv=priv,isa=isa)
+                        yield f'priv-trap-{priv}-{delegated:x}-{status:x}-{vector}-{name}',text+ \
+                            f'csr 768 {0xa00000000|status:#x}\ncsr 770 {delegated}\n'+ \
+                            f'csr 773 {BASE+3072+vector:#x}\ncsr 261 {BASE+2048+vector:#x}\n'+ \
+                            f'csr 833 {BASE+64:#x}\ncsr 321 {BASE+96:#x}\n'
+    for name,raw in [('mret',0x30200073),('sret',0x10200073),('wfi',0x10500073),
+                     ('sfence',0x12000073),('sfence-regs',0x12730073)]:
+        for priv in [0,1,3]:
+            for control in [0,0x100000,0x200000,0x400000]:
+                yield f'priv-guard-{name}-{priv}-{control:x}',case_text([raw],1,
+                        {5:0xdeadbeef},priv=priv,isa=isa)+ \
+                        f'csr 768 {0xa00000000|control:#x}\ncsr 833 {BASE+64:#x}\ncsr 321 {BASE+96:#x}\n'
+    for previous in [0,1,3]:
+        for pie in [0,1]:
+            for mprv in [0,1]:
+                for compressed in ([False,True] if compressed_capable else [False]):
+                    status=(previous<<11)|(0x80 if pie else 0)|(0x20000 if mprv else 0)|0x22
+                    yield f'priv-mret-{previous}-{pie}-{mprv}-{compressed}',case_text([0x30200073],1,
+                        isa=isa.replace('rv64i','rv64ic') if compressed else isa)+ \
+                        f'csr 768 {0xa00000000|status:#x}\ncsr 833 {BASE+67:#x}\n'
+    for current in [1,3]:
+        for previous in [0,1]:
+            for pie in [0,1]:
+                status=0x20088|(previous<<8)|(0x20 if pie else 0)|(0x400000 if current==3 else 0)
+                yield f'priv-sret-{current}-{previous}-{pie}',case_text([0x10200073],1,priv=current,isa=isa)+ \
+                    f'csr 768 {0xa00000000|status:#x}\ncsr 321 {BASE+96:#x}\n'
+    handler=BASE+2048
+    code=[word for _ in range(100) for word in [0x00108093,0x00000073]]
+    handler_words=[0x141022f3,0x00428293,0x14129073,0x10200073]
+    yield 'priv-repeat-delegated-return',case_text(code,600,priv=0,isa=isa,
+            extra_mem=[(handler+4*i,4,w) for i,w in enumerate(handler_words)])+ \
+            f'csr 770 256\ncsr 261 {handler:#x}\n'
+    supervisor=[0x73,*handler_words]
+    machine=[0x34102373,0x00430313,0x34131073,0x30200073]
+    yield 'priv-nested-m-s-u-return',case_text([0x73,0x00108093,0x6f],11,priv=0,isa=isa,
+            extra_mem=[(handler+4*i,4,w) for i,w in enumerate(supervisor)]+ \
+                      [(BASE+3072+4*i,4,w) for i,w in enumerate(machine)])+ \
+            f'csr 770 256\ncsr 261 {handler:#x}\ncsr 773 {BASE+3072:#x}\n'
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -361,6 +409,7 @@ def main():
     parser.add_argument('--suite',choices=['i','m','a','ma','c','mc','ac','mac'],default='i')
     parser.add_argument('--exhaustive-c',action='store_true')
     parser.add_argument('--csr',action='store_true')
+    parser.add_argument('--priv',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -371,6 +420,7 @@ def main():
     if 'a' in args.suite: suite += list(a_cases())
     if 'c' in args.suite: suite += list(c_cases())
     if args.csr: suite += list(csr_cases())
+    if args.priv: suite += list(priv_cases('c' in args.suite))
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -390,6 +440,13 @@ def main():
             for event in dut[1:]:
                 assert event['retired'] and int(event['pc_before'],16)==pc,name
                 pc+=event['length']
+        if name == 'priv-repeat-delegated-return':
+            assert dut[-1]['privilege']==0 and int(dut[-1]['pc'],16)==BASE+800
+            assert int(dut[-1]['gpr'][1],16)==100 and dut[-1]['retired_total']==500
+            assert sum(e['outcome']=='synchronous_trap' for e in dut[1:])==100
+        if name == 'priv-nested-m-s-u-return':
+            assert dut[-1]['privilege']==0 and int(dut[-1]['gpr'][1],16)==1
+            assert dut[-1]['retired_total']==9
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -408,7 +465,7 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','21 trap/priv CSR','store','full RAM hash','retirement'],

@@ -22,23 +22,31 @@ void exec_ecall(Decode* s) {
 void exec_ebreak(Decode* s) { riscv_exec_trap(s, EX_BP, s->pc); }
 
 void exec_mret(Decode* s) {
-  (void)s;
+  if (cpu.priv != PRV_M) {
+    riscv_exec_trap(s, EX_II, s->instr);
+    return;
+  }
   cpu.pc = riscv_mret();
 }
 
 void exec_sret(Decode* s) {
-  (void)s;
+  if (cpu.priv < PRV_S || (cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_TSR))) {
+    riscv_exec_trap(s, EX_II, s->instr);
+    return;
+  }
   cpu.pc = riscv_sret();
 }
 
 void exec_wfi(Decode* s) {
-  /* 教学实现：WFI 暂时当 NOP（真实实现要等中断+超时，见 M4） */
-  (void)s;
+  /* 允许的 WFI 采用规范许可的 NOP；TW 拦截时选择超时 0。 */
+  if (cpu.priv == PRV_U || (cpu.priv != PRV_M && (cpu.mstatus & MSTATUS_TW)))
+    riscv_exec_trap(s, EX_II, s->instr);
 }
 
 void exec_sfence_vma(Decode* s) {
-  (void)s;
-  isa_mmu_flush_tlb();
+  /* 当前 Bare-only profile 不提供地址翻译，SFENCE.VMA 尚不可执行。
+   * Sv39 接入后在本入口检查 S/TVM 并失效翻译缓存。 */
+  riscv_exec_trap(s, EX_II, s->instr);
 }
 
 /* ---------------- CSR 指令 ---------------- */

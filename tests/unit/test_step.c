@@ -37,7 +37,12 @@ static void check_trap(StepResult r, word_t cause, vaddr_t epc, vaddr_t tval) {
   CHECK_EQ(r.trap.epc, epc);
   CHECK_EQ(r.trap.tval, tval);
   CHECK_EQ(cpu.mcause, cause);
-  CHECK_EQ(cpu.mepc, epc);
+  /* 原始事件 epc 保留故障 PC；CSR 存储遵守实现支持的对齐。 */
+#ifdef CONFIG_RV_C
+  CHECK_EQ(cpu.mepc, epc & ~1ull);
+#else
+  CHECK_EQ(cpu.mepc, epc & ~3ull);
+#endif
   CHECK_EQ(cpu.mtval, tval);
   CHECK_EQ(r.pc_after, HANDLER);
   CHECK_EQ(r.retired_total, 0);

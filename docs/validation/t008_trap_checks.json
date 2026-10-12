@@ -1,0 +1,58 @@
+{
+  "status": "verified",
+  "profiles": {
+    "minimal": {
+      "units": 11,
+      "checks": 11499,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "mac": {
+      "units": 11,
+      "checks": 11923,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make CC=/usr/bin/gcc BUILD_DIR=build/t008-minimal check build/t008-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make CC=/usr/bin/gcc BUILD_DIR=build/t008-mac check build/t008-mac/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-minimal/rviss_dut --suite i --csr --priv --out build/t008-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-mac/rviss_dut --suite mac --csr --priv --out build/t008-mac/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-ubsan/rviss_dut --suite mac --csr --priv --out build/t008-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t008-ubsan build/t008-ubsan/test_priv.test build/t008-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t008-ubsan/test_priv.test",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "4559 privilege checks + 2195 cases / 12505 events; no reports",
+  "end_to_end": [
+    "100 U->S ecall/return, 100 traps and 500 retired instructions",
+    "U->S->M->S->U nested return, 2 traps and 9 retired instructions"
+  ],
+  "limitations": [
+    "Bare-only SFENCE.VMA illegal; legal S/TVM execution belongs to Sv39 task",
+    "S/U misa bits deferred until IRQ/counter/MMU closure",
+    "No RVISS Linux boot yet",
+    "State ABI/checkpoint incomplete"
+  ]
+}
