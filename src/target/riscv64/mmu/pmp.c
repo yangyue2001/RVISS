@@ -71,8 +71,8 @@ bool riscv_pmp_check(paddr_t addr, int len, int type, uint8_t privilege) {
     } else if(mode==PMP_NA4) {
       low=cpu.pmpaddr[i]<<2; high=low+4;
     } else {
-      unsigned ones=0;
-      while(ones<54 && ((cpu.pmpaddr[i]>>ones)&1)) ones++;
+      /* Bit54 sentinel bounds the trailing-one count and excludes ctz(0). */
+      unsigned ones=__builtin_ctzll(~cpu.pmpaddr[i] | (UINT64_C(1)<<54));
       low=(cpu.pmpaddr[i]&~((UINT64_C(1)<<ones)-1))<<2;
       high=low+(UINT64_C(1)<<(ones+3));
     }

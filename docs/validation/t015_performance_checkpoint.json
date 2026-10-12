@@ -1,0 +1,39 @@
+{
+  "status": "verified checkpoint",
+  "change": "Only NAPOT trailing-ones calculation: bounded nonzero ctz intrinsic, no state/cache/TLB",
+  "regression": {
+    "units": 17,
+    "checks": 25676,
+    "smokes": 3,
+    "cli_checks": 14,
+    "ubsan_pmp": 1518,
+    "spike_gc": "8949/74887",
+    "spike_ubsan": "8949/74887"
+  },
+  "replay": {
+    "same_input": true,
+    "same_output_except_host_performance_line": true,
+    "same_counters": true,
+    "before_seconds": 124.176,
+    "after_seconds": 82.284,
+    "observed_speedup": 1.509114773224442
+  },
+  "profile": {
+    "sample": "same fixed firmware,10M attempts",
+    "pmp_calls_before_and_after": 35330351,
+    "before_pmp_self_seconds": 1.84,
+    "after_pmp_self_seconds": 0.89,
+    "before_total_sampled_seconds": 3.49,
+    "after_total_sampled_seconds": 3.61,
+    "note": "Profile runs experienced different host contention; total wall-time sample not controlled. Full replay demonstrates observed speed and exact behavior preservation."
+  },
+  "commands": [
+    "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t015-linux check build/t015-linux/rviss_dut",
+    "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t015-ubsan build/t015-ubsan/test_pmp.test build/t015-ubsan/rviss_dut",
+    "build/t015-ubsan/test_pmp.test",
+    "python3 tools/spike/check.py --dut build/t015-linux/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --out build/t015-linux/difftest",
+    "python3 tools/spike/check.py --dut build/t015-ubsan/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --out build/t015-ubsan/difftest",
+    "python3 tools/linux/run_rviss.py --rviss build/t015-linux/rviss --boots 1 --rounds 1 --timeout 300 --max-instr 500000000 --replay build/linux/logs/rviss_1_1.input"
+  ],
+  "remaining": "3 cold boots100 rounds and1 long1000 rounds"
+}

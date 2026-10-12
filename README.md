@@ -48,11 +48,11 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，D 压缩访存等 D 任务 |
 | F/D | F/D 2.2、FLEN32/64、FCSR/FS/boxing、压缩 D 访存 | T013 逐事件 Spike/IEEE 边界 unit/UBSan 已验证 |
 | MMU / PMP | RV64 集中访问规则、Bare/Sv39、16-entry PMP、硬件 A/D 与 SFENCE | M 访问忽略 satp、MPRV 数据访问路径已测；T011 PMP/T012 Sv39 真实路径/Spike 验证；无 TLB |
-| 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
+| 设备 | UART DLAB/FIFO/IRQ/输入；CLINT32/64半寄存器与WFI逻辑快进；PLIC M/S/source10；finisher关机 | T014设备476/输入32检查、UBSan、真实IRQ/MMIO异常及整机输入重放通过 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
 | difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | T004 只验收 I/RAM/同步异常；NEMU/RTL ABI 和 rviss_create 未验收 |
-| Linux 工件 | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | [T002](docs/plans/t002_linux_artifacts.md) 的 QEMU 验收已通过；RVISS 尚未启动 Linux |
+| Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU已验收；T014 RVISS PID1/probe/BusyBox/额外1轮及输入重放与正常关机通过，100/1000待T015 |
 
 固定规范版本、目标参数与当前差异见 [RV64 profile](docs/rv64_profile.md)。
 开发主线是 [P0–P8](docs/ai_coding_rv64gc_linux.md)；旧
@@ -105,13 +105,13 @@ make CC=/usr/bin/gcc check-diff
 这个入口不验收 NEMU/RTL 共享库 ABI。
 
 minimal 板只映射以下地址，默认 RAM 为 128 MiB、复位 PC 为 0x80000000。
-Linux 的目标 RAM 为 256 MiB；完整 virt 装配仍待实现。
+Linux 的固定 RAM 为256MiB，使用 `--memory 256M`；T014已装配固定virt设备。
 
 | 设备 | 当前基址 |
 | --- | --- |
 | UART16550 | 0x10000000 |
 | CLINT | 0x02000000 |
-| PLIC 骨架 | 0x0c000000 |
+| PLIC M/S | 0x0c000000 |
 
 没有 UARTLite 或其它 NEMU 地址别名。include/rviss.h 的结构/符号声明不能作为
 ABI 验收证据：当前 difftest_init 未完成整机初始化，set_ramsize 忽略参数，
