@@ -4,122 +4,122 @@
     {
       "case": "two-adds",
       "events": 2,
-      "input_sha256": "dbc14a7499bf4fea4a82850058b4475d37bbd7fd59e6ccd4dfcc7561efe76c83"
+      "input_sha256": "d4df4650eb5dbd465809f63c06a33bf325868407dc1272e8b038232e24aec0ad"
     },
     {
       "case": "integer-groups",
       "events": 40,
-      "input_sha256": "87be198290dbfabffddfa84418cd16a875f5bbefc6515ef588765b3f3879ca1b"
+      "input_sha256": "b921f8342620795fb632903de8a27a89d43782e2504cfd2d4362e526150cdc8c"
     },
     {
       "case": "control",
       "events": 20,
-      "input_sha256": "2ca8aa49d8a765e29a466edbcff1a64ee8bdeb7ecc80e0f49cde935015e89f1e"
+      "input_sha256": "92c0c327830b6576302e2142f3b2752d405cc73355075314c0e7f0427f87b4fd"
     },
     {
       "case": "memory",
       "events": 18,
-      "input_sha256": "6167f9f50c7c08651c8a701078f4be85d1722fc370e6ad9a9d9f9d1ea362bcf0"
+      "input_sha256": "0e5969df4f1935d439dcd77741cec48b88933fce3ef84b7c9b1f9dc121948d0f"
     },
     {
       "case": "illegal-32",
       "events": 3,
-      "input_sha256": "fe7ff821b591b351550023d3d3b89f0239f615b7a76591ee33f4abc804afb159"
+      "input_sha256": "429a0658a38f20030cd30ec4fcb3641d4121cdade156ef8420d128a4b913dc0e"
     },
     {
       "case": "illegal-16",
       "events": 3,
-      "input_sha256": "ba56a8f17ffdb8e1ae2ff0684df7396b24d9e721eef3d1fccc980734cd010bc5"
+      "input_sha256": "c41b76c0fabed676c5cefeefb27ba5bf524352fa39128a9199a8bfee10234009"
     },
     {
       "case": "ecall-0",
       "events": 3,
-      "input_sha256": "d619bf8941562dc894077d0b770ef5610cd41ae2d13ed5ff0cee104f58ac6882"
+      "input_sha256": "a4ced772b041cc561912794f72b396a303fcb27cd4c776874806793177b4ca91"
     },
     {
       "case": "ecall-1",
       "events": 3,
-      "input_sha256": "45970891a5059dd6444da015652605cf1cc08c6df1a6c0ad824112f72f373339"
+      "input_sha256": "0f02abdd49000376a4eee3a090089c1707a4adef0f8a887d163c552f1dd213c0"
     },
     {
       "case": "ecall-3",
       "events": 3,
-      "input_sha256": "732bedf23e2f244e6dcaa71818b3aff1d40509e603f0ddbec60f5f1367ead7b3"
+      "input_sha256": "8cd3c82de61ccfd9b97232ae73d5763328c0dd7e8b20c3891616d826eb210bc9"
     },
     {
       "case": "ebreak",
       "events": 3,
-      "input_sha256": "148ab9cf973974f3d7d011d44f639627482b582a28fbd722844149fcde77d849"
+      "input_sha256": "76609276e45f14d75c6b4b25d3c8c73e2ca2043e17fed33e2dc283e77ce4c3bf"
     },
     {
       "case": "bad-csr",
       "events": 3,
-      "input_sha256": "4d1fd5e6011f86bb2e072766e23dad76f57b565837e8d32b7445fa211d0f053d"
+      "input_sha256": "f4b1ab95eab9b9e02547a6066e344ee1f838306ab81579f0eb89f2a5425ac22e"
     },
     {
       "case": "readonly-csr",
       "events": 3,
-      "input_sha256": "dee93adf4b66acc750a373a71c92e86d35e8edc0cdcf3ececb2bba9963487973"
+      "input_sha256": "61e36a5b608d98e7d8ebd15170bb288af5ead197cd67ef909e89a1734a4bb090"
     },
     {
       "case": "priv-csr",
       "events": 3,
-      "input_sha256": "521178cc7c721ebf03207d8585b978b035c542739a36cbf25072b90480bdacc0"
+      "input_sha256": "fa7ff838a56fdb474dfbd6c321424e6b8396cae335081e1352a9994a6e9fa974"
     },
     {
       "case": "load-unmapped",
       "events": 3,
-      "input_sha256": "9c86228b96a3bccc6b11c73745d6e11ba6eab010ca0bfc0ba563d71c5af3caab"
+      "input_sha256": "f6e76ce7d033329ed7e6becee9c1b6fc460cb8f9ce44350ae7b709ca12e26379"
     },
     {
       "case": "load-zero",
       "events": 3,
-      "input_sha256": "df2bb5126605b89ae04cae25ea68af3cf16037cee5bb32ba381558b105528b1f"
+      "input_sha256": "3ee4d20f34466118796e42f2cc5bdfdfd306fe7aef07aa54677546452ef000c3"
     },
     {
       "case": "store-unmapped",
       "events": 3,
-      "input_sha256": "fd4a1fb017c429ddd7f53bac1cf42d078b59d4633c9ddccdca1dd89492f32e5f"
+      "input_sha256": "7e351282ee43b1feebbf2849712b3af1b7416710a7245b86e73d7b1f6cd5d355"
     },
     {
       "case": "load-misaligned",
       "events": 3,
-      "input_sha256": "c1afa166ac56f2521b3f571c02014447841b37aa98cc4575b255e134ee2712cd"
+      "input_sha256": "2336adc390cfa034e8d29e51b05512883f01653c3aa8f436ef2a0048d7c5ddc4"
     },
     {
       "case": "store-misaligned",
       "events": 3,
-      "input_sha256": "77ca68a5500d14729ac22a6a9e47325a81746827675ef1941aefc2b9c1576340"
+      "input_sha256": "cb018da2b911334d739d7e834c12205572f0779dd8297941ebe2f4ae56a7e598"
     },
     {
       "case": "misaligned-priority",
       "events": 3,
-      "input_sha256": "400c14f42d76a06f4d317818acc400313262a55cd134b691047ce8cab3ec245a"
+      "input_sha256": "4359262e4c765f4985a6250360a345e86c39b39b269fc6ad963af0e46e176d9b"
     },
     {
       "case": "fetch-unmapped",
       "events": 3,
-      "input_sha256": "4c081a52344218fbfb0fab30043b387ef52ad7b35bac43010a38648c0be5baf3"
+      "input_sha256": "96355b57854dbb7ff8460d1cd6999f736b69c5cf3ac82a88e939d0476ed2a2d6"
     },
     {
       "case": "jal-misaligned",
       "events": 3,
-      "input_sha256": "69c1c1cfec54fe1032c2c49aa02d6d4a881c0b1d2095221b409808ac652b2050"
+      "input_sha256": "f43b81169eb59d06c3ba0dd2e58337b09996eb785ced1346cfa5bc3fe83fccc8"
     },
     {
       "case": "jalr-misaligned",
       "events": 3,
-      "input_sha256": "488e908eb87db7df0833caa6704a6775e74d63b52ec67df61f5503d8e87c34b2"
+      "input_sha256": "fec2fee5eb651e637f5738c6ae084587bd3c948d5bb3160bb33fc034d9c39e8c"
     },
     {
       "case": "branch-taken-misaligned",
       "events": 3,
-      "input_sha256": "01f4dbb17d4b98452c6b02e0a53cc44e60357dcee971561f98b7fb51ec5d85ae"
+      "input_sha256": "7a02197744f953959b26a441180d6425ddf877c53ae2c8d31c25c4000a1e1e48"
     },
     {
       "case": "branch-untaken-misaligned",
       "events": 1,
-      "input_sha256": "d93f13084d9d47a3a85d8d2f55033ae8643b85fe281d860562d295b36c98d09d"
+      "input_sha256": "1b46f630ac340c595b9a109896219e86244d23cf110ea4f896214c8ffe8fc591"
     },
     {
       "case": "fetch-second-halfword",
@@ -144,7 +144,7 @@
     {
       "case": "seeded-integer",
       "events": 201,
-      "input_sha256": "e97f354ddb093e2ad99aea6e798c0012742f4341faf35fd1f4648f524018ca01"
+      "input_sha256": "57c21df232782cf1e3f283a95fc128fa2d870eec55f49e844248cf8d5d9b69eb"
     }
   ],
   "event_count": 343,
@@ -175,7 +175,7 @@
       "packet": "/home/yang/work/ISS/build/difftest/injected-trap-failure.json"
     }
   ],
-  "seconds": 0.2488002449972555,
+  "seconds": 0.23789286200189963,
   "spike_manifest": {
     "commit": "da2f415bb62bec3e93b33b379d787b4262aade9f",
     "archive_sha256": "1d82e498671cf82279c28d8e46c6fa85e3cd14b7c5c18e24707ed628c8b8c6b5",

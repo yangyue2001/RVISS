@@ -98,3 +98,13 @@ make CC=/usr/bin/gcc check
 这一结果是实际 RVISS DUT → 独立 Spike 的最小差分，不能代替 GC/Sv39/Linux 对拍。
 整个用户目标仍 active；下一项为 T005 M 扩展，随后 A/C/特权/MMU/FD/设备和 Linux。
 每个通过的任务点创建 Git 提交并继续，不在此局部阶段结束总目标。
+
+## 后续复核修正
+
+扩展 M 用例时发现 case generator 的固定 trap handler（偏移 256）会覆盖
+较长随机程序的两条指令；原 200 条序列实际提前跳进 handler 的循环。
+原双方事件仍一致，但完整随机路径覆盖声明不足。已将 handler 移至 RAM 尾部，
+对 seeded-integer 添加全部 200 条顺序退休及第 201 条尾部跳转的 PC 断言。
+重新运行 make CC=/usr/bin/gcc check-diff 退出 0，仍 29 cases / 343 events，
+三种注入均捕获。日志 build/spike/check-handler-fix.log，耐久 JSON 已更新。
+这项修复只改测试输入布局，不改变指令期望或忽略差异。

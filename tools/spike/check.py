@@ -2,7 +2,6 @@
 """独立进程逐事件比较；首次差异保存可重放输入与双方近期事件。"""
 from pathlib import Path
 import argparse
-import copy
 import hashlib
 import json
 import random
@@ -26,31 +25,32 @@ def first_difference(dut, reference):
     return None
 
 
-def case_text(words, steps=1, regs=None, pc=BASE, priv=3, size=4096, extra_mem=None):
-    lines = [f'isa {ISA}', f'base {BASE:#x}', f'size {size}',
+def case_text(words, steps=1, regs=None, pc=BASE, priv=3, size=4096, extra_mem=None, isa=ISA):
+    handler = BASE + size - 8 if size >= 264 else BASE + 256
+    lines = [f'isa {isa}', f'base {BASE:#x}', f'size {size}',
              f'pc {pc:#x}', f'priv {priv}', f'steps {steps}',
-             'csr 768 0xa00000000', f'csr 773 {BASE+256:#x}']
+             'csr 768 0xa00000000', f'csr 773 {handler:#x}']
     for index, value in (regs or {}).items():
         lines.append(f'gpr {index} {value & ((1<<64)-1):#x}')
     for address, width, value in [(BASE+4*i,4,w) for i,w in enumerate(words)]:
         lines.append(f'mem {address:#x} {width} {value:#x}')
     if size >= 264:
-        lines.extend([f'mem {BASE+256:#x} 4 0x00000013', f'mem {BASE+260:#x} 4 0x0000006f'])
+        lines.extend([f'mem {handler:#x} 4 0x00000013', f'mem {handler+4:#x} 4 0x0000006f'])
     for address, width, value in (extra_mem or []):
         lines.append(f'mem {address:#x} {width} {value:#x}')
     return '\n'.join(lines) + '\n'
 
 
-def asm_case(name, source, steps, regs=None):
+def asm_case(name, source, steps, regs=None, isa=ISA):
     assembly, elf, binary = [OUT / (name + suffix) for suffix in ['.S', '.elf', '.bin']]
     assembly.write_text('.option norvc\n.section .text.start,"ax"\n.globl _start\n_start:\n' + source)
     subprocess.run(['riscv64-linux-gnu-gcc', '-nostdlib', '-nostartfiles', '-no-pie',
-                    '-march=' + ISA, '-mabi=lp64', '-mcmodel=medany', '-Wl,--build-id=none',
+                    '-march=' + isa, '-mabi=lp64', '-mcmodel=medany', '-Wl,--build-id=none',
                     '-Wl,-T' + str(ROOT / 'tests/smoke/link.ld'), '-o', str(elf), str(assembly)], check=True)
     subprocess.run(['riscv64-linux-gnu-objcopy', '-O', 'binary', str(elf), str(binary)], check=True)
     data = binary.read_bytes()
     mem = [(BASE+i, 1, byte) for i, byte in enumerate(data)]
-    return case_text([], steps, regs, extra_mem=mem)
+    return case_text([], steps, regs, extra_mem=mem, isa=isa)
 
 
 def cases():
@@ -202,6 +202,10 @@ def main():
         if difference:
             packet=save_failure(name,path,dut,ref,difference,[dc,rc])
             raise AssertionError(f'{name}: first event {difference}; {packet}')
+        if name == 'seeded-integer':
+            # 程序的 200 条 R/W 指令必须全部顺序执行，然后到达唯一的尾部循环。
+            assert all(int(event['pc_before'], 16) == BASE + 4*i
+                       and event['retired'] for i, event in enumerate(dut[1:])), name
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
