@@ -1,0 +1,19 @@
+{
+  "task": "T001",
+  "status": "verified",
+  "date": "2026-10-12",
+  "unit_programs": 6,
+  "unit_checks_per_configuration": 101,
+  "unit_failures": 0,
+  "minimal_smoke_cases": 2,
+  "ref_cli_smoke_run": false,
+  "complete_clean_build": true,
+  "ref_abi_semantics_verified": false,
+  "rviss_linux_verified": false,
+  "spike_run": false,
+  "workspace_config_preserved": true,
+  "linux_manifest_sha256": "95f0f1152a73e58798d232cd9114db411bc308635d40716dbe810a676d1a7245",
+  "source_before_sha256": "0e9a6d259bbda6a8a99fad5b639dee173759e585d887e39456073ad94333db00",
+  "source_after_sha256": "c3aafd2b28737b3a5aeefba365be916f48b3ae8cb1f99fa85c9d7f94a6a82bbc",
+  "note": "Initial source archive covers core/include/scripts/configs and selected docs; original Kconfig tool Makefile saved separately."
+}

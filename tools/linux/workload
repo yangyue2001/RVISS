@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+rounds=${1:-100}
+case "$rounds" in ''|*[!0-9]*) exit 2;; esac
+[ "$rounds" -ge 1 ] && [ "$rounds" -le 100000 ]
+i=0
+while [ "$i" -lt "$rounds" ]; do
+    printf 'rviss round %s\n' "$i" >/tmp/rviss_a
+    cp /tmp/rviss_a /tmp/rviss_b
+    cmp /tmp/rviss_a /tmp/rviss_b
+    grep -q 'rviss round' /tmp/rviss_b
+    dd if=/dev/zero of=/tmp/rviss_mem bs=4096 count=16 2>/dev/null
+    [ "$(wc -c </tmp/rviss_mem)" -eq 65536 ]
+    rm /tmp/rviss_a /tmp/rviss_b /tmp/rviss_mem
+    i=$((i + 1))
+    if [ "$((i % 10))" -eq 0 ]; then
+        /bin/rviss_probe
+        sleep 1
+    fi
+done
+echo "RVISS_WORKLOAD_OK rounds=$rounds"

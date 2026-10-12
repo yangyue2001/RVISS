@@ -1,0 +1,21 @@
+#!/bin/sh
+# /init 必须作为 PID 1 执行；初始化失败不能输出成功标记。
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export HOME=/root
+export TERM=vt100
+export PS1='rviss# '
+set -eu
+[ "$$" -eq 1 ]
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mount -t tmpfs tmpfs /tmp
+echo 'RVISS_PID1_OK pid=1'
+uname -a
+/bin/rviss_probe
+/bin/rviss_workload 10
+echo 'RVISS_BUSYBOX_READY'
+# PID 1 保留为监督脚本，交互 shell 退出后重新启动，避免 PID 1 退出造成 panic。
+while true; do
+    setsid cttyhack /bin/sh -i </dev/console >/dev/console 2>&1 || true
+done

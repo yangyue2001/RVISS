@@ -1,0 +1,28 @@
+#
+# 设备开关
+#
+# 关掉的设备：代码不编译进二进制（见顶层 Makefile 的 SRCS-$(CONFIG_...)），
+# 对它的 MMIO 访问会落到"未映射地址"分支。
+#
+
+menu "Devices"
+
+config HAS_CLINT
+	bool "CLINT（mtime/mtimecmp/msip）"
+	default y
+	help
+	  mtime 由独立的平台逻辑 tick 驱动（每 128 ticks +1），不读宿主时钟。
+
+config HAS_UART16550
+	bool "UART 16550（串口输出）"
+	default y
+	help
+	  写 THR 即输出到宿主 stdout，裸机程序打印用。
+
+config HAS_PLIC
+	bool "PLIC（平台级中断控制器）"
+	default y
+	help
+	  目前是最小实现（单上下文），完整仲裁见 M4。
+
+endmenu

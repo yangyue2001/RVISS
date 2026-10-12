@@ -1,0 +1,4 @@
+interface:
+  display_name: "Constrained AI Coding"
+  short_description: "把软件需求转成受约束、可验证、可恢复的 Agent 工程协作流程"
+  default_prompt: "使用 $constrained-ai-coding 处理当前开发任务：读取项目规则，建立任务契约，完成一个最小可验证切片并报告证据。"

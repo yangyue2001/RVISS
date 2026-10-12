@@ -1,0 +1,27 @@
+#
+# 机器/板级参数
+#
+# 这里是"编译期板子默认值"；运行期仍可用命令行覆盖
+# （--memory 覆盖 RAM 大小），一次编译多种跑法。
+#
+
+menu "Machine"
+
+config MBASE
+	hex "RAM 基址"
+	default 0x80000000
+
+config MSIZE
+	hex "RAM 大小（字节）"
+	default 0x8000000
+	help
+	  默认 128 MiB。
+
+config PC_RESET_OFFSET
+	hex "复位向量相对 RAM 基址的偏移"
+	default 0x0
+	help
+	  裸机程序直接放在 RAM 起始时填 0（默认）。
+	  香山那种"bbl 在 RAM 起始、复位向量在 +1MiB"的板子填 0x100000。
+
+endmenu

@@ -1,0 +1,257 @@
+{
+  "stage": "/tmp/rviss-t003-verify-pvhupnjf",
+  "results": [
+    {
+      "name": "clean-minimal-config",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "minimal_defconfig"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-minimal-config.log"
+    },
+    {
+      "name": "clean-minimal-check",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "check"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-minimal-check.log"
+    },
+    {
+      "name": "clean-ref-config",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "ref_defconfig"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-ref-config.log"
+    },
+    {
+      "name": "clean-ref-check",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "check"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-ref-check.log"
+    },
+    {
+      "name": "clean-debug-config",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "debug_defconfig"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-debug-config.log"
+    },
+    {
+      "name": "clean-debug-check",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t003-verify-pvhupnjf/out",
+        "check"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "clean-debug-check.log"
+    },
+    {
+      "name": "compile-uart",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "-nostdlib",
+        "-nostartfiles",
+        "-no-pie",
+        "-march=rv64im",
+        "-mabi=lp64",
+        "-mcmodel=medany",
+        "-Wl,--build-id=none",
+        "-Wl,-T/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/link.ld",
+        "-e",
+        "_start",
+        "-o",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/uart.elf",
+        "/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/start.S"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "compile-uart.log"
+    },
+    {
+      "name": "uart-plain",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/uart.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "uart-plain.log"
+    },
+    {
+      "name": "uart-trace",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "-t",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/uart.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "uart-trace.log"
+    },
+    {
+      "name": "compile-fault",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "-nostdlib",
+        "-nostartfiles",
+        "-no-pie",
+        "-march=rv64im",
+        "-mabi=lp64",
+        "-mcmodel=medany",
+        "-Wl,--build-id=none",
+        "-Wl,-T/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/link.ld",
+        "-e",
+        "_start",
+        "-o",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/fault.elf",
+        "/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/fault.S"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "compile-fault.log"
+    },
+    {
+      "name": "fault-plain",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/fault.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "fault-plain.log"
+    },
+    {
+      "name": "fault-trace",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "-t",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/fault.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "fault-trace.log"
+    },
+    {
+      "name": "compile-irq",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "-nostdlib",
+        "-nostartfiles",
+        "-no-pie",
+        "-march=rv64im",
+        "-mabi=lp64",
+        "-mcmodel=medany",
+        "-Wl,--build-id=none",
+        "-Wl,-T/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/link.ld",
+        "-e",
+        "_start",
+        "-o",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/irq.elf",
+        "/tmp/rviss-t003-verify-pvhupnjf/tests/smoke/irq.S"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "compile-irq.log"
+    },
+    {
+      "name": "irq-plain",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/irq.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "irq-plain.log"
+    },
+    {
+      "name": "irq-trace",
+      "command": [
+        "/tmp/rviss-t003-verify-pvhupnjf/out/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "-t",
+        "/tmp/rviss-t003-verify-pvhupnjf/out/irq.elf"
+      ],
+      "cwd": "/tmp/rviss-t003-verify-pvhupnjf",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "irq-trace.log"
+    },
+    {
+      "name": "workspace-final-check",
+      "command": [
+        "make",
+        "CC=/usr/bin/gcc",
+        "check"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "workspace-final-check.log"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+#
+# RISC-V 扩展开关
+#
+# 与 Linux arch/riscv 的扩展清单对齐：先做"能跑 Linux"的必需集，
+# 再做内核用到的可选加速/特性。落地顺序见 docs/implementation_plan.md。
+#
+
+menu "RISC-V extensions"
+
+comment "基础（已实现）"
+
+config RV_ZICSR
+	bool "Zicsr（CSR 读写指令）"
+	default y
+	help
+	  关掉后 csrrw/csrrs/csrrc 等指令变成非法指令。
+
+comment "阶段一：Linux 必需（见 M5，尚未实现）"
+
+config RV_M
+	bool "M：乘除法（mul/div/rem）"
+config RV_A
+	bool "A：原子指令（lr/sc/amo）"
+config RV_F
+	bool "F：单精度浮点"
+config RV_D
+	bool "D：双精度浮点"
+	depends on RV_F
+config RV_C
+	bool "C：压缩指令（RVC）"
+config RV_SV39
+	bool "Sv39 分页"
+config RV_SV48
+	bool "Sv48 分页"
+	depends on RV_SV39
+config RV_PMP
+	bool "PMP：物理内存保护"
+
+comment "阶段二：可选特性（未实现）"
+
+config RV_B
+	bool "B：位操作（Zba/Zbb/Zbs）"
+config RV_V
+	bool "V：向量（RVV 1.0）"
+config RVH
+	bool "H：虚拟化（两阶段翻译）"
+config RV_SSTC
+	bool "Sstc：S 模式定时器"
+
+endmenu

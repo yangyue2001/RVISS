@@ -1,0 +1,438 @@
+{
+  "stage": "/tmp/rviss-t001-final-w9ag2bda",
+  "results": [
+    {
+      "name": "final-clean-config",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "minimal_defconfig"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "final-clean-config.log"
+    },
+    {
+      "name": "final-clean-check",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "check"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "final-clean-check.log"
+    },
+    {
+      "name": "header-0",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-0.log"
+    },
+    {
+      "name": "header-1",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-1.log"
+    },
+    {
+      "name": "header-2",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-2.log"
+    },
+    {
+      "name": "header-3",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-3.log"
+    },
+    {
+      "name": "header-4",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-4.log"
+    },
+    {
+      "name": "header-5",
+      "command": [
+        "/usr/bin/gcc",
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-fsyntax-only",
+        "-x",
+        "c",
+        "-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "header-5.log"
+    },
+    {
+      "name": "unit-failure-propagation",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "check",
+        "TEST_BINS=/tmp/rviss-t001-final-w9ag2bda/injected-fail.test"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "log": "unit-failure-propagation.log"
+    },
+    {
+      "name": "cross-failure-propagation",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "check",
+        "CROSS_COMPILE=/tmp/rviss-t001-final-w9ag2bda/missing-"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 2,
+      "expected_exit_code": 2,
+      "log": "cross-failure-propagation.log"
+    },
+    {
+      "name": "final-ref-config",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "ref_defconfig"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "final-ref-config.log"
+    },
+    {
+      "name": "final-ref-check",
+      "command": [
+        "make",
+        "-j4",
+        "CC=/usr/bin/gcc",
+        "BUILD_DIR=/tmp/rviss-t001-final-w9ag2bda/out",
+        "check"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "final-ref-check.log"
+    },
+    {
+      "name": "ref-file",
+      "command": [
+        "file",
+        "/tmp/rviss-t001-final-w9ag2bda/out/librviss_ref.so",
+        "/tmp/rviss-t001-final-w9ag2bda/out/tests-ref/test_bits.test"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "ref-file.log"
+    },
+    {
+      "name": "ref-symbols",
+      "command": [
+        "nm",
+        "-D",
+        "--defined-only",
+        "/tmp/rviss-t001-final-w9ag2bda/out/librviss_ref.so"
+      ],
+      "cwd": "/tmp/rviss-t001-final-w9ag2bda",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "ref-symbols.log"
+    },
+    {
+      "name": "workspace-check",
+      "command": [
+        "make",
+        "CC=/usr/bin/gcc",
+        "check"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "workspace-check.log"
+    },
+    {
+      "name": "host-compiler",
+      "command": [
+        "/usr/bin/gcc",
+        "--version"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "host-compiler.log"
+    },
+    {
+      "name": "cross-compiler",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "--version"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "cross-compiler.log"
+    },
+    {
+      "name": "make-version",
+      "command": [
+        "make",
+        "--version"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "make-version.log"
+    },
+    {
+      "name": "bison-version",
+      "command": [
+        "bison",
+        "--version"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "bison-version.log"
+    },
+    {
+      "name": "flex-version",
+      "command": [
+        "flex",
+        "--version"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "flex-version.log"
+    },
+    {
+      "name": "smoke-smoke-compile",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "-nostdlib",
+        "-nostartfiles",
+        "-no-pie",
+        "-march=rv64im",
+        "-mabi=lp64",
+        "-mcmodel=medany",
+        "-Wl,--build-id=none",
+        "-Wl,-T/home/yang/work/ISS/tests/smoke/link.ld",
+        "-e",
+        "_start",
+        "-o",
+        "/home/yang/work/ISS/build/baseline/t001/smoke/smoke.elf",
+        "/home/yang/work/ISS/tests/smoke/start.S"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "smoke-smoke-compile.log"
+    },
+    {
+      "name": "smoke-smoke-run",
+      "command": [
+        "timeout",
+        "20",
+        "/home/yang/work/ISS/build/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "/home/yang/work/ISS/build/baseline/t001/smoke/smoke.elf"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "smoke-smoke-run.log"
+    },
+    {
+      "name": "smoke-irq-compile",
+      "command": [
+        "riscv64-linux-gnu-gcc",
+        "-nostdlib",
+        "-nostartfiles",
+        "-no-pie",
+        "-march=rv64im",
+        "-mabi=lp64",
+        "-mcmodel=medany",
+        "-Wl,--build-id=none",
+        "-Wl,-T/home/yang/work/ISS/tests/smoke/link.ld",
+        "-e",
+        "_start",
+        "-o",
+        "/home/yang/work/ISS/build/baseline/t001/smoke/irq.elf",
+        "/home/yang/work/ISS/tests/smoke/irq.S"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "smoke-irq-compile.log"
+    },
+    {
+      "name": "smoke-irq-run",
+      "command": [
+        "timeout",
+        "20",
+        "/home/yang/work/ISS/build/rviss",
+        "-b",
+        "-n",
+        "200000",
+        "/home/yang/work/ISS/build/baseline/t001/smoke/irq.elf"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "smoke-irq-run.log"
+    },
+    {
+      "name": "p1-probe-compile",
+      "command": [
+        "/usr/bin/gcc",
+        "-I/tmp/rviss-t001-final-w9ag2bda",
+        "-I/tmp/rviss-t001-final-w9ag2bda/include",
+        "-I/tmp/rviss-t001-final-w9ag2bda/src/target/riscv64",
+        "-I/tmp/rviss-t001-final-w9ag2bda/src/target/riscv64/local_include",
+        "-Wall",
+        "-Werror",
+        "/home/yang/work/ISS/build/baseline/t001/p1_probe.c",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/checkpoint/checkpoint.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/device/bus.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/device/char/uart16550.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/device/intc/plic.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/device/timer/clint.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/difftest/difftest_api.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/difftest/dut/difftest_dut.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/engine/interpreter/interp.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/engine/interpreter/rtl_basic.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/engine/interpreter/rtl_fp.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/host/host_time.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/machine/boards/minimal.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/machine/machine.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/memory/image.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/memory/paddr.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/memory/vaddr.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/monitor/monitor.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/monitor/ui.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/cpu.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/csr/csr_access.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/decode.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/instr/i/exec.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/instr/system/exec.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/mmu/mmu.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/mmu/pmp.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/mmu/tlb.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/trap/intr.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/target/riscv64/trap/trap.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/util/config.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/util/log.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/util/panic.o",
+        "/tmp/rviss-t001-final-w9ag2bda/out/obj-rviss/src/util/state.o",
+        "-o",
+        "/home/yang/work/ISS/build/baseline/t001/p1_probe"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "p1-probe-compile.log",
+      "purpose": "diagnostic of known P1 gaps, not semantic pass"
+    },
+    {
+      "name": "p1-probe-run",
+      "command": [
+        "/home/yang/work/ISS/build/baseline/t001/p1_probe"
+      ],
+      "cwd": "/home/yang/work/ISS",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "log": "p1-probe-run.log",
+      "purpose": "diagnostic of known P1 gaps, not semantic pass"
+    }
+  ]
+}

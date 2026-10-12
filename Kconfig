@@ -1,0 +1,124 @@
+#
+# RVISS 顶层 Kconfig
+#
+# 组织方式是 Linux/NEMU 风格：顶层只放全局选项，子系统用自己的 Kconfig，
+# 由这里 source 进来。加新子系统 = 建一个 Kconfig + 这里加一行 source。
+#
+
+mainmenu "RVISS Configuration"
+
+config TARGET_RISCV64
+	bool
+	default y
+
+menu "Build setup"
+
+choice
+	prompt "优化等级"
+	default CC_O2
+	help
+	  -O2 适合日常跑；用 gdb 单步时建议 -O0（见 debug_defconfig）。
+
+config CC_O0
+	bool "-O0（不优化，便于调试）"
+config CC_O1
+	bool "-O1"
+config CC_O2
+	bool "-O2"
+config CC_O3
+	bool "-O3"
+
+endchoice
+
+config CC_OPT
+	string
+	default "-O0" if CC_O0
+	default "-O1" if CC_O1
+	default "-O2" if CC_O2
+	default "-O3" if CC_O3
+
+config CC_DEBUG
+	bool "生成调试信息（-ggdb3）"
+	default y
+	help
+	  关掉则二进制里没有符号，gdb 无法按源码单步。
+
+config CC_STRICT
+	bool "把编译警告当错误（-Werror）"
+	default y
+
+config CC_LTO
+	bool "链接时优化（-flto）"
+	default n
+	help
+	  LTO 会把函数合并，gdb 断点可能失效，调试期建议关闭。
+
+config CC_NATIVE
+	bool "针对本机 CPU 优化（-march=native）"
+	default n
+
+endmenu
+
+menu "Engine"
+
+choice
+	prompt "执行引擎"
+	default ENGINE_INTERPRETER
+	help
+	  目前只有解释器一种。引擎与 target 通过 include/rtl/rtl.h 解耦，
+	  将来加 JIT 时只需要新增一个 engine 目录。
+
+config ENGINE_INTERPRETER
+	bool "解释器（interpreter）"
+
+endchoice
+
+config ENGINE
+	string
+	default "interpreter" if ENGINE_INTERPRETER
+
+endmenu
+
+menu "Debug and trace"
+
+config DEBUG
+	bool "启用日志系统"
+	default y
+	help
+	  关掉后所有 Log* 变成空操作，用于跑性能或减小二进制。
+
+config TRACE_INST
+	bool "指令 trace（pc + 助记符）"
+	depends on DEBUG
+	default n
+
+config TRACE_INST_DASM
+	bool "指令 trace（含原始编码与操作数）"
+	depends on DEBUG
+	default n
+	help
+	  等价于 NEMU 的 TRACE_INST_DASM。运行时再配合 -t/--trace 或
+	  --log-level 4 打开。
+
+config TRACE_MEM
+	bool "访存 trace"
+	depends on DEBUG
+	default n
+
+config TRACE_MMU
+	bool "地址翻译 / TLB trace"
+	depends on DEBUG
+	default n
+
+config SHARE
+	bool "编译为 difftest 参考共享库（librviss_ref.so）"
+	default n
+	help
+	  产物供香山 / XS-GEM5 等 DUT 通过 dlopen 加载做逐指令对拍，
+	  对外 ABI 见 include/rviss.h。
+
+endmenu
+
+source "src/machine/Kconfig"
+source "src/device/Kconfig"
+source "src/target/riscv64/Kconfig"

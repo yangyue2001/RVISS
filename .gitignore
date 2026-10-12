@@ -1,0 +1,25 @@
+# 构建产物
+build/
+/rviss
+__pycache__/
+*.pyc
+*.o
+*.a
+*.so
+tests/smoke/*.elf
+tests/smoke/*.bin
+*.cpt
+
+# Kconfig 产物
+.config
+.config.old
+include/config/
+include/generated/
+tools/kconfig/build/
+tools/fixdep/build/
+
+# clangd 编译数据库（由 make compiledb 生成，参数取自真实构建）
+compile_commands.json
+
+# clangd 的索引缓存（本地生成，会自动重建）
+.cache/
