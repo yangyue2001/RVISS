@@ -40,13 +40,18 @@ config RV_C
 	help
 	  RV64 C 2.0 整数压缩指令；misa.C 控制 IALIGN 与动态启用。
 	  编译 D 时包含 C.FLD/FSD/FLDSP/FSDSP。
+
+comment "地址翻译（Bare 始终可用；分页能力编译期选择）"
+
 config RV_SV39
 	bool "Sv39 分页"
 	help
-	  Bare/Sv39、ASIDLEN=0、4K/2M/1G、PMP 页表保护与硬件 A/D 更新。
-config RV_SV48
-	bool "Sv48 分页"
-	depends on RV_SV39
+	  编译 Sv39 页表遍历器；运行时 satp.MODE=0 仍选择 Bare，MODE=8 选择 Sv39。
+	  关闭此选项时只提供 Bare 地址转换；启用时仍可按运行时 satp 在两者间选择。
+	  ASIDLEN=0，支持 4K/2M/1G、PMP 页表保护与硬件 A/D 更新。
+
+# Sv48 没有实现，因此暂不提供可选的 Kconfig 符号；实现后再加入。
+
 config RV_PMP
 	bool "PMP：物理内存保护"
 	help

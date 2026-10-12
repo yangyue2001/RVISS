@@ -8,11 +8,12 @@
 #include "encoding.h"
 
 /*
- * 译码：取指 → 线性扫描指令表 → 填操作数。
+ * 译码：取指 → opcode/funct3 候选索引 → 完整模式匹配 → 填操作数。
  *
  * 对比 NEMU：它用"opcode 一级表 + funct3/funct7 二级表"分级译码；
- * 这里改成一张扁平表（一条指令一行完整模式），可读性优先。
- * 将来若表变大（RVV 全量 ~600 条）再换 hash/分级，接口不变。
+ * 这里保留一张扁平表（一条指令一行完整模式）作为唯一来源，
+ * 只在初始化阶段生成轻量的 opcode/funct3 候选索引。这样新增指令时
+ * 仍只需维护一行模式，运行时也不必扫描整张表。
  */
 
 /* 注意：宏参数名不能叫 name/pattern/fmt —— 它们会和结构体成员
@@ -41,6 +42,18 @@ static InstrEntry instr_table[] = {
 #undef INSTR
 
 #define NR_INSTRS ((int)ARRLEN(instr_table))
+
+/*
+ * 扁平表是可读性和匹配优先级的来源；这个索引只是运行时加速结构。
+ * 每条指令最多因 funct3 通配而出现在 8 个桶中，最终仍用完整 key/mask
+ * 检查，因此不会改变重叠 pattern 的原有表序优先级。
+ */
+enum { DECODE_OPCODE_COUNT = 1 << 7, DECODE_FUNCT3_COUNT = 1 << 3 };
+static uint16_t decode_bucket_count[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
+static uint16_t decode_bucket_offset[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
+static uint16_t decode_bucket_cursor[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
+static uint16_t decode_candidates[NR_INSTRS * DECODE_FUNCT3_COUNT];
+static bool decode_index_ready;
 
 /* x0 的写入要被丢弃：指向这个哑元寄存器即可（NEMU 里叫 zero_null） */
 static rtlreg_t zero_reg;
@@ -85,12 +98,105 @@ static void pattern_decode(const char* pat, uint64_t* key, uint64_t* mask,
   *mask = m >> trailing_wild;
 }
 
+/* 从原始 32 位 pattern 中提取一个字段，不受尾部通配压缩影响。 */
+static void pattern_field(const char* pat, unsigned low, unsigned width,
+                          uint32_t* key, uint32_t* mask) {
+  uint32_t k = 0, m = 0;
+  int bit = 31;
+
+  Assert(low + width <= 32, "pattern field out of range");
+  for (const char* p = pat; *p != '\0'; p++) {
+    if (*p == ' ') continue;
+    Assert(bit >= 0, "pattern has more than 32 bits: %s", pat);
+    if ((unsigned)bit >= low && (unsigned)bit < low + width) {
+      unsigned field_bit = (unsigned)bit - low;
+      if (*p == '0' || *p == '1') {
+        m |= UINT32_C(1) << field_bit;
+        if (*p == '1') k |= UINT32_C(1) << field_bit;
+      } else {
+        Assert(*p == '?', "非法 pattern 字符 '%c' (pattern: %s)", *p, pat);
+      }
+    } else {
+      Assert(*p == '0' || *p == '1' || *p == '?',
+             "非法 pattern 字符 '%c' (pattern: %s)", *p, pat);
+    }
+    bit--;
+  }
+  Assert(bit == -1, "pattern has fewer than 32 bits: %s", pat);
+  *key = k;
+  *mask = m;
+}
+
+static void pattern_bucket(const InstrEntry* e, unsigned* opcode,
+                           uint32_t* funct3_key, uint32_t* funct3_mask) {
+  uint32_t opcode_key = 0, opcode_mask = 0;
+  pattern_field(e->pattern, 0, 7, &opcode_key, &opcode_mask);
+  pattern_field(e->pattern, 12, 3, funct3_key, funct3_mask);
+  Assert(opcode_mask == UINT32_C(0x7f),
+         "instruction %s must fix all opcode bits", e->name);
+  *opcode = opcode_key;
+}
+
+static bool pattern_matches_funct3(unsigned funct3, uint32_t key,
+                                   uint32_t mask) {
+  return ((funct3 & mask) == key);
+}
+
 void riscv_decode_init(void) {
+  for (unsigned opcode = 0; opcode < DECODE_OPCODE_COUNT; opcode++) {
+    for (unsigned funct3 = 0; funct3 < DECODE_FUNCT3_COUNT; funct3++) {
+      decode_bucket_count[opcode][funct3] = 0;
+      decode_bucket_offset[opcode][funct3] = 0;
+      decode_bucket_cursor[opcode][funct3] = 0;
+    }
+  }
+
   for (int i = 0; i < NR_INSTRS; i++) {
     InstrEntry* e = &instr_table[i];
     pattern_decode(e->pattern, &e->key, &e->mask, &e->shift);
+
+    unsigned opcode;
+    uint32_t funct3_key, funct3_mask;
+    pattern_bucket(e, &opcode, &funct3_key, &funct3_mask);
+    for (unsigned funct3 = 0; funct3 < DECODE_FUNCT3_COUNT; funct3++) {
+      if (pattern_matches_funct3(funct3, funct3_key, funct3_mask)) {
+        Assert(decode_bucket_count[opcode][funct3] < UINT16_MAX,
+               "decoder bucket is too large");
+        decode_bucket_count[opcode][funct3]++;
+      }
+    }
   }
-  Log("decoder: %d instructions in table", NR_INSTRS);
+
+  unsigned total = 0;
+  unsigned max_bucket = 0;
+  for (unsigned opcode = 0; opcode < DECODE_OPCODE_COUNT; opcode++) {
+    for (unsigned funct3 = 0; funct3 < DECODE_FUNCT3_COUNT; funct3++) {
+      Assert(total <= UINT16_MAX, "decoder candidate index overflow");
+      decode_bucket_offset[opcode][funct3] = (uint16_t)total;
+      decode_bucket_cursor[opcode][funct3] = (uint16_t)total;
+      total += decode_bucket_count[opcode][funct3];
+      if (decode_bucket_count[opcode][funct3] > max_bucket)
+        max_bucket = decode_bucket_count[opcode][funct3];
+    }
+  }
+  Assert(total <= ARRLEN(decode_candidates), "decoder candidate pool overflow");
+
+  for (int i = 0; i < NR_INSTRS; i++) {
+    const InstrEntry* e = &instr_table[i];
+    unsigned opcode;
+    uint32_t funct3_key, funct3_mask;
+    pattern_bucket(e, &opcode, &funct3_key, &funct3_mask);
+    for (unsigned funct3 = 0; funct3 < DECODE_FUNCT3_COUNT; funct3++) {
+      if (pattern_matches_funct3(funct3, funct3_key, funct3_mask)) {
+        unsigned pos = decode_bucket_cursor[opcode][funct3]++;
+        Assert(pos < ARRLEN(decode_candidates), "decoder candidate pool overflow");
+        decode_candidates[pos] = (uint16_t)i;
+      }
+    }
+  }
+  decode_index_ready = true;
+  Log("decoder: %d instructions, %u candidate entries, max bucket %u",
+      NR_INSTRS, total, max_bucket);
 }
 
 static void fill_operands(Decode* s, char fmt) {
@@ -171,6 +277,7 @@ static bool fetch_halfword(Decode *s, vaddr_t addr, uint16_t *data) {
 }
 
 bool riscv_decode(Decode* s) {
+  Assert(decode_index_ready, "riscv_decode_init() was not called");
   /* IALIGN 随 misa.C；错误的跳转在其执行处报告；这里也拒绝
    * 调试/导入提供的非法 PC，避免宿主越界或错误执行。
    */
@@ -198,8 +305,12 @@ bool riscv_decode(Decode* s) {
     s->encoding = s->instr;
   }
 
-  for (int i = 0; i < NR_INSTRS; i++) {
-    const InstrEntry* e = &instr_table[i];
+  unsigned opcode = s->encoding & UINT32_C(0x7f);
+  unsigned funct3 = (s->encoding >> 12) & UINT32_C(0x7);
+  unsigned begin = decode_bucket_offset[opcode][funct3];
+  unsigned end = begin + decode_bucket_count[opcode][funct3];
+  for (unsigned pos = begin; pos < end; pos++) {
+    const InstrEntry* e = &instr_table[decode_candidates[pos]];
     if (((s->encoding >> e->shift) & e->mask) == e->key) {
       s->exec = e->exec;
       if (!s->mnemonic) s->mnemonic = e->name;
