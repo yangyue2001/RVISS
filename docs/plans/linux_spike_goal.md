@@ -24,6 +24,8 @@ F/D → virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux → 重复验收�
 
 ## 当前检查点
 
-T001/T002/T003 verified。Git 已初始化；正在创建现有源码与可复现证据的初始提交。
-T004 pending，即将固定 Spike 源码并实现独立桥。Git 写入受沙箱只读 .git 限制，
-已按工具权限流程申请；这不是用户未授权提交。
+T001/T002/T003 verified，初始提交 e745972。Git 已初始化，origin 已配置，
+远端 ls-remote 实测为空；尚未 push。
+T004 verified：固定 Spike 29 cases / 343 events、3 种差异注入、回归均通过。
+正在记录阶段提交，随后 T005 M。Git 写入受沙箱只读 .git 限制，已按工具权限
+流程授权。Linux 仍仅有 QEMU 工件验收，RVISS 尚未启动。

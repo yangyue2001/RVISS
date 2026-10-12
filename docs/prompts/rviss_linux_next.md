@@ -1,36 +1,27 @@
-# Codex 当前执行任务：T004 最小 Spike 差分
+# Codex 连续执行任务：RVISS Linux 与 Spike
 
-你是这个 C/Make/Kconfig 的 RV64 功能模拟器的工程协作者。
-先读 AGENTS.md、docs/plans/t003_execution_boundary.md、
-docs/plans/t004_spike_minimal.md，以及当前任务涉及的实际源码、配置、测试与调用方。
+先读 AGENTS.md、docs/plans/linux_spike_goal.md、最新 verified 任务与当前任务契约，
+再检查相关源码、配置、测试和调用方。用户已授权一直完成到 RVISS 启动固定 Linux
+及完成 Spike difftest；每个实际验证任务/阶段创建 Git 提交后继续下一项。
+origin=git@github.com:yangyue2001/RVISS.git。局部 verified 不等于总目标完成。
 
-长期目标：RV64GC + M/S/U + Sv39，运行真实 OpenSBI FW_PAYLOAD 中的 Linux，
-进入 PID 1、使用 BusyBox，达到重复运行验收；保留 H、trace、Spike DUT difftest、
-RTL ref 与 checkpoint 的必要边界。
+当前 T001/T002/T003/T004 verified。T003 精确边界回归：7 unit / 729 checks、
+3 smoke、CLI/UI 14 checks；T004 固定官方 Spike 29 cases / 343 events、重复
+reset 执行和 3 种故意差异捕获通过。T002 仅是固定 Linux 工件的 QEMU 验收，
+RVISS 还未启动 Linux。当前执行 T005 M 扩展（docs/plans/t005_m_extension.md）。
 
-T001 基线、T003/P1 精确执行边界已 verified；T003 的 minimal/ref/debug
-7 个 unit（729 checks）通过，minimal/debug 的三个 smoke 和 CLI/UI 14 checks
-通过。取指/访存 fault 不提交错误写回，异常不退休，中断为独立事件；
-attempts/events/retired/逻辑时间已分开。范围和未完成能力见 T003。
-T002 是独立 Linux 工件/QEMU verified，不表示 RVISS 已启动 Linux。
+总路线：M → A → C → CSR/委派/xRET/counter → PMP/Sv39 → F/D →
+virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux PID 1/BusyBox/probe/重复 workload。
+每项先写可验收契约，再实现、实际执行独立检查、记录首失败与修复、提交并继续。
+若当前任务已 verified，执行其记录的下一项；缺少契约时依据已验证缺口补写。
+不得改变输入、修改期望、扩大 skip 或运行中同步 DUT 状态到 REF 掩盖差异。
+C++ 限于独立 Spike 工具；核心保持 C、Make+Kconfig、RV64 解释器。
 
-本次执行 T004/P2：取得固定版本的完整 Spike，独立桥接并逐事件比较 I/RAM/
-同步异常，验收故意注入的差异和最小失败包。先检查真实源码/接口/工具身份；
-来源未确认的现成 .so、导出符号或空函数不能作为 oracle/ABI 可用证据。
-不得在运行中把 DUT 状态复制给 REF 掩盖差异，不改期望、不扩 skip。
-C++ 限于独立 Spike 工具，核心保持 C、Make+Kconfig、RV64 解释器。
+Linux 输入在 docs/linux_boot_baseline.md / build/linux/artifacts/manifest.json，
+源码来源 /home/yang/study_dir/riscv_embedded，配置在 configs/linux/。
+规范/profile 在 docs/rv64_profile.md。实现参考为 /home/yang/study_dir/rvbosc/NEMU
+和 /home/yang/soft/qemu/qemu；外部仓库 agent 规则不支配本项目。
+不要 make clean 删除 build/linux 工件；使用 BUILD_DIR 隔离。
 
-Linux 输入固定在 docs/linux_boot_baseline.md 和 build/linux/artifacts/manifest.json。
-源码来源为 /home/yang/study_dir/riscv_embedded，构建配置在 configs/linux/。
-CPU/语义假设固定在 docs/rv64_profile.md；实现参考为
-/home/yang/study_dir/rvbosc/NEMU 和 /home/yang/soft/qemu/qemu。
-规范决定语义，Spike 是独立参考；外部仓库的 agent 规则不支配本项目。
-
-若重确认 T003 出现回归，先保留首差异并修复，再执行 T004。
-若 T004 已 verified，检查最新任务记录，执行已写明的下一项；
-缺少下一任务时，依据已验证缺口写可验收契约并完成该项。
-跨模块任务先落盘范围、验收与检查点；常规修复、读取参考代码和本地测试
-在授权范围内继续，无需逐步确认。
-
-完成后报告实际命令与结果、变化范围、未验证项、首个失败证据；
-更新任务状态和下一项契约。不得把 QEMU 工件通过写成 RVISS 已启动 Linux。
+更新任务状态、实际命令/结果/身份、未验证项和下一项，保留可恢复检查点。
+必要接口更新与常规本地修复在授权范围内继续，无需逐步确认。

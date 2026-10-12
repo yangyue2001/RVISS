@@ -88,6 +88,17 @@ TEST_DIR = $(if $(CONFIG_SHARE),$(BUILD_DIR)/tests-ref,$(BUILD_DIR))
 TEST_BINS = $(patsubst tests/unit/%.c,$(TEST_DIR)/%.test,$(TEST_SRCS))
 CORE_OBJS = $(filter-out $(OBJ_DIR)/src/main.o,$(OBJS))
 
+$(BUILD_DIR)/rviss_dut: tools/spike/dut.c tools/spike/case.h $(CORE_OBJS) | $(FIXDEP)
+	@$(CC) $(CFLAGS) -o $@ $< $(CORE_OBJS) $(filter-out -shared,$(LDFLAGS)) $(LIBS)
+	$(call call_fixdep, $(@:=.d), $@)
+
+-include $(BUILD_DIR)/rviss_dut.d
+
+check-diff: $(BUILD_DIR)/rviss_dut
+	@python3 tools/spike/check.py --dut $(BUILD_DIR)/rviss_dut
+
+.PHONY: check-diff
+
 # ref 对象可链接进测试可执行文件，但测试本身不能用 -shared 链接。
 $(TEST_DIR)/%.test: tests/unit/%.c $(CORE_OBJS) | $(FIXDEP)
 	@echo + LD $@

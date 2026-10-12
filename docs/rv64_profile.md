@@ -1,6 +1,6 @@
 # RVISS 单 hart RV64 profile v1
 
-状态：目标参数已固定（2026-10-12），实现能力以 README/T001/T003 的证据为准。
+状态：目标参数已固定（2026-10-12），实现能力以 README 和逐项任务证据为准。
 这是 RVISS 执行环境契约，不是 RVA 平台 profile 或规范认证声明。
 与固定 Spike 的配置存在差异时，先记录/测试合法策略再修订版本，不临时扩大 skip。
 
@@ -79,5 +79,9 @@ SHA256 403e524f2d3492d13bd4924d2aacdc3564d19159b89ba16de3516ff7f03200eb，
 是 x86-64 共享对象，来源 commit/profile/ABI 尚未确认，未加载或执行。
 本机 ibex/vendor/riscv-isa-sim 只有 helper/test 文件，不是完整 Spike 源码；
 其 git rev-parse 返回的是 Ibex 仓库提交，不能作为 Spike 版本。
-P2 必须取得可确认版本的完整 Spike 源码，核对 1.12、对齐、PMP/CSR 能力，
-再构建独立桥；本次不把现成 .so 或 spike pk 当作系统模式 oracle。
+T004 已取得官方 Spike da2f415bb62bec3e93b33b379d787b4262aade9f，归档 SHA256
+与源码核对见 docs/validation/t004_spike_manifest.json。独立进程 bridge 已通过
+29 cases / 343 events 的 I/RAM/同步异常差分和 3 种故意差异注入。
+本阶段关闭 PMP/异步设备，共同输入固定 mstatus.UXL/SXL=RV64；不比较 misa
+能力身份、mcycle 计时或 counter 写入。此边界见 T004，不代表目标 GC/Sv39/PMP
+已实现，也没有使用上述来源未确认 .so。

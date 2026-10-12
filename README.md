@@ -15,19 +15,25 @@ trace 与 checkpoint；当前实现和验收范围如下。
 minimal/ref/debug 源码隔离构建均通过，7 个 unit 共 729 checks；minimal/debug
 另通过 3 个汇编 smoke 和 14 项 CLI/UI 检查。异常不退休、失败 load/store
 不提交写入；timer 使用独立逻辑时间，中断单独记录。trace 开关的计数及 UART
-输出等价已验证。下一项为 [T004 最小 Spike 差分](docs/plans/t004_spike_minimal.md)。
+输出等价已验证。
+
+[T004 最小 Spike 差分](docs/plans/t004_spike_minimal.md) 已 verified：固定官方
+Spike da2f415bb62bec3e93b33b379d787b4262aade9f，29 cases / 343 events
+比较完整 GPR、PC、trap/priv CSR、退休和 RAM；3 种故意差异均捕获，重复执行一致。
+下一项为 T005 M 扩展。用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
+仍在执行，每个验证阶段提交 Git 后继续。
 
 | 能力 | 当前源码行为 | 验证范围 / 下一步 |
 | --- | --- | --- |
 | RV64I / Zifencei | 整数、访存、分支、fence/fence.i 执行函数存在；无缓存 | 位操作、部分译码、*W 运算及短汇编 smoke；完整一致性未验证 |
 | Zicsr / 特权 | 基础 CSR 访问表、权限/只读检查、部分 S 视图；trap 一律进 M，mret/sret 存在，WFI 为 NOP | CSR 29 checks；委派、WARL、counter 权限与 xRET 规则待完善 |
-| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003：正常访存、故障写回抑制、取指边界、对齐、计数和预算已测；独立 Spike 差分待 T004 |
+| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；完整特权/GC 尚待扩展 |
 | M/A/C/F/D | 无相应执行实现；16 位编码译码失败，misa 复位为 0 | 待实现及独立差分 |
 | MMU / PMP | RV64 集中访问规则，仅 Bare；有效非 Bare 访问返回 host error；旧直接翻译入口仍 panic，PMP/TLB 为占位 | M 访问忽略 satp、MPRV 数据访问路径已测；Sv39/PMP 未实现 |
 | 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | 新 cycle 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
-| difftest / 嵌入 API | ref 共享库可构建；多个 difftest 函数为空或部分实现，rviss_create 等只有声明 | 未验证 NEMU/RTL ABI；不能作为可用嵌入 API 宣称 |
+| difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | T004 只验收 I/RAM/同步异常；NEMU/RTL ABI 和 rviss_create 未验收 |
 | Linux 工件 | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | [T002](docs/plans/t002_linux_artifacts.md) 的 QEMU 验收已通过；RVISS 尚未启动 Linux |
 
 固定规范版本、目标参数与当前差异见 [RV64 profile](docs/rv64_profile.md)。
@@ -69,6 +75,16 @@ make CC=/usr/bin/gcc compiledb
 ```
 
 ## 当前平台和接口限制
+
+固定 Spike 差分入口（源码/库放 build/spike，不修改外部仓库）：
+
+```sh
+python3 tools/spike/build.py --jobs 4
+make CC=/usr/bin/gcc check-diff
+```
+
+29 个 case 在新进程重复运行并保存首差异；结果位于 build/difftest/。
+这个入口不验收 NEMU/RTL 共享库 ABI。
 
 minimal 板只映射以下地址，默认 RAM 为 128 MiB、复位 PC 为 0x80000000。
 Linux 的目标 RAM 为 256 MiB；完整 virt 装配仍待实现。

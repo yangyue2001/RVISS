@@ -1,0 +1,15 @@
+{
+  "commit": "da2f415bb62bec3e93b33b379d787b4262aade9f",
+  "archive_sha256": "1d82e498671cf82279c28d8e46c6fa85e3cd14b7c5c18e24707ed628c8b8c6b5",
+  "upstream": "https://github.com/riscv-software-src/riscv-isa-sim",
+  "source_modified": false,
+  "boost": false,
+  "compiler": "/usr/bin/g++",
+  "pmpregions": 0,
+  "misaligned": false,
+  "isa": "case input; initially rv64i_zicsr_zifencei",
+  "priv": "MSU",
+  "counters": "mcycle timing differs; counter writes excluded in T004",
+  "bridge_sha256": "037f3fd8d1d2a246f4cf42f0c1c79576ca295bb43da1fc2413dac572a90cbf99",
+  "configure_args": "'--prefix=/home/yang/work/ISS/build/spike/install --without-boost --without-boost-asio --without-boost-regex --enable-commitlog CXX=/usr/bin/g++ CC=/usr/bin/gcc'"
+}

@@ -1,0 +1,209 @@
+{
+  "status": "verified",
+  "cases": [
+    {
+      "case": "two-adds",
+      "events": 2,
+      "input_sha256": "dbc14a7499bf4fea4a82850058b4475d37bbd7fd59e6ccd4dfcc7561efe76c83"
+    },
+    {
+      "case": "integer-groups",
+      "events": 40,
+      "input_sha256": "87be198290dbfabffddfa84418cd16a875f5bbefc6515ef588765b3f3879ca1b"
+    },
+    {
+      "case": "control",
+      "events": 20,
+      "input_sha256": "2ca8aa49d8a765e29a466edbcff1a64ee8bdeb7ecc80e0f49cde935015e89f1e"
+    },
+    {
+      "case": "memory",
+      "events": 18,
+      "input_sha256": "6167f9f50c7c08651c8a701078f4be85d1722fc370e6ad9a9d9f9d1ea362bcf0"
+    },
+    {
+      "case": "illegal-32",
+      "events": 3,
+      "input_sha256": "fe7ff821b591b351550023d3d3b89f0239f615b7a76591ee33f4abc804afb159"
+    },
+    {
+      "case": "illegal-16",
+      "events": 3,
+      "input_sha256": "ba56a8f17ffdb8e1ae2ff0684df7396b24d9e721eef3d1fccc980734cd010bc5"
+    },
+    {
+      "case": "ecall-0",
+      "events": 3,
+      "input_sha256": "d619bf8941562dc894077d0b770ef5610cd41ae2d13ed5ff0cee104f58ac6882"
+    },
+    {
+      "case": "ecall-1",
+      "events": 3,
+      "input_sha256": "45970891a5059dd6444da015652605cf1cc08c6df1a6c0ad824112f72f373339"
+    },
+    {
+      "case": "ecall-3",
+      "events": 3,
+      "input_sha256": "732bedf23e2f244e6dcaa71818b3aff1d40509e603f0ddbec60f5f1367ead7b3"
+    },
+    {
+      "case": "ebreak",
+      "events": 3,
+      "input_sha256": "148ab9cf973974f3d7d011d44f639627482b582a28fbd722844149fcde77d849"
+    },
+    {
+      "case": "bad-csr",
+      "events": 3,
+      "input_sha256": "4d1fd5e6011f86bb2e072766e23dad76f57b565837e8d32b7445fa211d0f053d"
+    },
+    {
+      "case": "readonly-csr",
+      "events": 3,
+      "input_sha256": "dee93adf4b66acc750a373a71c92e86d35e8edc0cdcf3ececb2bba9963487973"
+    },
+    {
+      "case": "priv-csr",
+      "events": 3,
+      "input_sha256": "521178cc7c721ebf03207d8585b978b035c542739a36cbf25072b90480bdacc0"
+    },
+    {
+      "case": "load-unmapped",
+      "events": 3,
+      "input_sha256": "9c86228b96a3bccc6b11c73745d6e11ba6eab010ca0bfc0ba563d71c5af3caab"
+    },
+    {
+      "case": "load-zero",
+      "events": 3,
+      "input_sha256": "df2bb5126605b89ae04cae25ea68af3cf16037cee5bb32ba381558b105528b1f"
+    },
+    {
+      "case": "store-unmapped",
+      "events": 3,
+      "input_sha256": "fd4a1fb017c429ddd7f53bac1cf42d078b59d4633c9ddccdca1dd89492f32e5f"
+    },
+    {
+      "case": "load-misaligned",
+      "events": 3,
+      "input_sha256": "c1afa166ac56f2521b3f571c02014447841b37aa98cc4575b255e134ee2712cd"
+    },
+    {
+      "case": "store-misaligned",
+      "events": 3,
+      "input_sha256": "77ca68a5500d14729ac22a6a9e47325a81746827675ef1941aefc2b9c1576340"
+    },
+    {
+      "case": "misaligned-priority",
+      "events": 3,
+      "input_sha256": "400c14f42d76a06f4d317818acc400313262a55cd134b691047ce8cab3ec245a"
+    },
+    {
+      "case": "fetch-unmapped",
+      "events": 3,
+      "input_sha256": "4c081a52344218fbfb0fab30043b387ef52ad7b35bac43010a38648c0be5baf3"
+    },
+    {
+      "case": "jal-misaligned",
+      "events": 3,
+      "input_sha256": "69c1c1cfec54fe1032c2c49aa02d6d4a881c0b1d2095221b409808ac652b2050"
+    },
+    {
+      "case": "jalr-misaligned",
+      "events": 3,
+      "input_sha256": "488e908eb87db7df0833caa6704a6775e74d63b52ec67df61f5503d8e87c34b2"
+    },
+    {
+      "case": "branch-taken-misaligned",
+      "events": 3,
+      "input_sha256": "01f4dbb17d4b98452c6b02e0a53cc44e60357dcee971561f98b7fb51ec5d85ae"
+    },
+    {
+      "case": "branch-untaken-misaligned",
+      "events": 1,
+      "input_sha256": "d93f13084d9d47a3a85d8d2f55033ae8643b85fe281d860562d295b36c98d09d"
+    },
+    {
+      "case": "fetch-second-halfword",
+      "events": 1,
+      "input_sha256": "e0f7b155f117d99a145d4fafd294fabc709457dce1c65ce6ee891be0f7d1fc3d"
+    },
+    {
+      "case": "16-bit-at-boundary",
+      "events": 1,
+      "input_sha256": "8962bc46eaa0618d6290559c72683a0d904ed8acc82005dfcae2cf1005389014"
+    },
+    {
+      "case": "load-at-boundary",
+      "events": 1,
+      "input_sha256": "2d205c41858f163726f11d846bc4fcba53736ced0d65c890b07f841dc3f61e5c"
+    },
+    {
+      "case": "store-at-boundary",
+      "events": 1,
+      "input_sha256": "2dbc5dbe95636d31b53bd646c23000ff2b84c019f5418c4f67331af0ed833cdb"
+    },
+    {
+      "case": "seeded-integer",
+      "events": 201,
+      "input_sha256": "e97f354ddb093e2ad99aea6e798c0012742f4341faf35fd1f4648f524018ca01"
+    }
+  ],
+  "event_count": 343,
+  "reset_replay": true,
+  "injections": [
+    {
+      "kind": "gpr",
+      "first_event": 1,
+      "fields": [
+        "gpr"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-gpr-failure.json"
+    },
+    {
+      "kind": "store",
+      "first_event": 8,
+      "fields": [
+        "ram_hash"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-store-failure.json"
+    },
+    {
+      "kind": "trap",
+      "first_event": 1,
+      "fields": [
+        "csrs"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-trap-failure.json"
+    }
+  ],
+  "seconds": 0.2488002449972555,
+  "spike_manifest": {
+    "commit": "da2f415bb62bec3e93b33b379d787b4262aade9f",
+    "archive_sha256": "1d82e498671cf82279c28d8e46c6fa85e3cd14b7c5c18e24707ed628c8b8c6b5",
+    "upstream": "https://github.com/riscv-software-src/riscv-isa-sim",
+    "source_modified": false,
+    "boost": false,
+    "compiler": "/usr/bin/g++",
+    "pmpregions": 0,
+    "misaligned": false,
+    "isa": "case input; initially rv64i_zicsr_zifencei",
+    "priv": "MSU",
+    "counters": "mcycle timing differs; counter writes excluded in T004",
+    "bridge_sha256": "037f3fd8d1d2a246f4cf42f0c1c79576ca295bb43da1fc2413dac572a90cbf99",
+    "configure_args": "'--prefix=/home/yang/work/ISS/build/spike/install --without-boost --without-boost-asio --without-boost-regex --enable-commitlog CXX=/usr/bin/g++ CC=/usr/bin/gcc'"
+  },
+  "compared": [
+    "PC/raw/length/priv",
+    "full GPR",
+    "18 trap/priv CSR",
+    "store",
+    "full RAM hash",
+    "retirement"
+  ],
+  "excluded": [
+    "misa capability identity",
+    "mcycle timing policy",
+    "counter writes",
+    "async devices",
+    "GC/Sv39/PMP"
+  ]
+}
