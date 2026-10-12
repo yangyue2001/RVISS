@@ -25,7 +25,9 @@ minimal/M 各 8 unit（2394/2202 checks）、3 smoke、CLI/UI 14 checks 通过�
 I/M Spike 346 cases / 4359 events 及 UBSan 通过。
 [T006 A 扩展](docs/plans/t006_a_extension.md) 已 verified：22 指令、LRSC、AMO 与
 精确故障；I/M/A Spike 982 cases / 9172 events、UBSan、三配置回归通过。
-下一项为 T007 C。
+[T007 C 扩展](docs/plans/t007_c_extension.md) 已 verified：整数压缩、mixed 16/32、
+IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同其它用例
+50215 cases / 59406 events，另有三配置回归与 UBSan。下一项为 T008 CSR/trap。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 
@@ -34,9 +36,10 @@ I/M Spike 346 cases / 4359 events 及 UBSan 通过。
 | RV64I / Zifencei | 整数、访存、分支、fence/fence.i 执行函数存在；无缓存 | 位操作、部分译码、*W 运算及短汇编 smoke；完整一致性未验证 |
 | Zicsr / 特权 | 基础 CSR 访问表、权限/只读检查、部分 S 视图；trap 一律进 M，mret/sret 存在，WFI 为 NOP | CSR 29 checks；委派、WARL、counter 权限与 xRET 规则待完善 |
 | 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；完整特权/GC 尚待扩展 |
-| M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa WARL 待特权任务 |
+| M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa 对应编译支持位已固定 |
 | A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
-| C/F/D | 无相应执行实现；16 位编码译码失败，misa 复位为 0 | 待实现及独立差分 |
+| C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，D 压缩访存等 D 任务 |
+| F/D | 尚无执行实现 | 待实现及独立差分 |
 | MMU / PMP | RV64 集中访问规则，仅 Bare；有效非 Bare 访问返回 host error；旧直接翻译入口仍 panic，PMP/TLB 为占位 | M 访问忽略 satp、MPRV 数据访问路径已测；Sv39/PMP 未实现 |
 | 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |

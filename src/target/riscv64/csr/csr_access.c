@@ -64,6 +64,21 @@ void csr_reset(void) {
   /* 复位值：目前全是 0；有非零复位值的 CSR（如 mvendorid）将来在这里补 */
 }
 
+word_t riscv_misa_supported(void) {
+  word_t value = MISA_MXL_64 | MISA_I;
+#ifdef CONFIG_RV_M
+  value |= MISA_M;
+#endif
+#ifdef CONFIG_RV_A
+  value |= MISA_A;
+#endif
+#ifdef CONFIG_RV_C
+  value |= MISA_C;
+#endif
+  /* S/U、F/D 在相应完整语义任务验证后加入；不置虚假 H/V/G 位。 */
+  return value;
+}
+
 bool csr_read(word_t addr, word_t* val) {
   CsrEntry* e = csr_lookup(addr);
   if (e == NULL) return false;
@@ -84,6 +99,12 @@ bool csr_write(word_t addr, word_t val) {
     LogTrap("csr_write: %s 需要 %s 特权级，当前 %s", e->name,
             cpu_priv_name(csr_min_priv(addr)), cpu_priv_name(cpu.priv));
     return false;
+  }
+
+  if (addr == CSR_MISA) {
+    word_t supported = riscv_misa_supported();
+    cpu.misa = (supported & ~MISA_C) | (supported & val & MISA_C);
+    return true;
   }
 
   /* 只改 view_mask 允许的位：视图写（sstatus/sie/sip）因此不会碰 M 侧独有的位
@@ -112,7 +133,10 @@ void csr_execute(Decode* s, int op, bool immediate) {
     word_t newval = (op == CSR_OP_RW)   ? src
                     : (op == CSR_OP_RS) ? (old | src)
                                         : (old & ~src);
-    if (!csr_write(addr, newval)) {
+    /* 执行入口 snpc 已确定；清 C 导致下一条不满足 IALIGN=32 时抑制写。 */
+    bool suppress = addr == CSR_MISA && (old & MISA_C) &&
+                    !(newval & MISA_C) && (s->snpc & 3);
+    if (!suppress && !csr_write(addr, newval)) {
       riscv_exec_trap(s, EX_II, s->instr);
       return;
     }

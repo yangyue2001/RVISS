@@ -3,6 +3,8 @@
     .section .text.start, "ax"
     .globl _start
 _start:
+    li t0, 4
+    csrc misa, t0             # 本用例固定 IALIGN=32，保留原 12 个 fault 断言
     la t0, handler
     csrw mtvec, t0
     li s0, 0                  # 已处理异常数

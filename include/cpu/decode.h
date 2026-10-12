@@ -24,6 +24,7 @@ struct Decode {
   vaddr_t pc;     /* 本条指令地址 */
   vaddr_t snpc;   /* 顺序下一条地址（= pc + ilen） */
   uint32_t instr; /* 原始指令位（低 ilen 字节有效） */
+  uint32_t encoding; /* 执行操作数编码：C 展开为 32 位，原始 instr 保留 */
   uint8_t ilen;   /* 2 或 4 */
   uint8_t raw_bytes;
   bool instruction_valid;
@@ -57,5 +58,6 @@ bool riscv_decode(Decode* s); /* false：非法编码或取指故障，见 trap_
 void riscv_decode_init(void); /* 预编译所有 pattern */
 void riscv_exec_trap(Decode *s, word_t cause, vaddr_t tval);
 bool riscv_jump(Decode *s, vaddr_t target);
+bool riscv_expand_compressed(Decode *s);
 
 #endif /* RVISS_CPU_DECODE_H */

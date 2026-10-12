@@ -14,8 +14,7 @@ void cpu_reset(vaddr_t reset_pc) {
   cpu.priv = PRV_M; /* RISC-V 复位后进入 M 模式 */
   cpu.mhartid = 0;
 
-  /* TODO(M5)：按实际支持的扩展置 misa（I/M/A/F/D/C/V...） */
-  cpu.misa = 0;
+  cpu.misa = riscv_misa_supported();
 
 #ifdef CONFIG_RV_ZICSR
   csr_reset();

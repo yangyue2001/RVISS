@@ -1,0 +1,80 @@
+{
+  "status": "verified",
+  "profiles": {
+    "minimal": {
+      "units": 10,
+      "checks": 6800,
+      "smokes": 3,
+      "cli_checks": 14,
+      "diff_cases": 29,
+      "diff_events": 343
+    },
+    "mac": {
+      "units": 10,
+      "checks": 7211,
+      "smokes": 3,
+      "cli_checks": 14,
+      "diff_cases": 1063,
+      "diff_events": 10254
+    },
+    "c_only": {
+      "units": 10,
+      "checks": 7088,
+      "smokes": 3,
+      "cli_checks": 14,
+      "diff_cases": 110,
+      "diff_events": 1425
+    }
+  },
+  "exhaustive_c": {
+    "encodings": 49152,
+    "all_cases": 50215,
+    "events": 59406,
+    "report": "docs/validation/t007_exhaustive.json"
+  },
+  "ubsan": "test_c 469 checks and I/M/A/C 1063 cases / 10254 events passed without reports",
+  "commands": [
+    {
+      "command": "make CC=/usr/bin/gcc minimal_defconfig; make -j4 CC=/usr/bin/gcc check check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t007-minimal-sequential.log"
+    },
+    {
+      "command": "make CC=/usr/bin/gcc mac_defconfig; make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t007-mac check check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t007-mac-final.log"
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t007-mac/rviss_dut --suite mac --exhaustive-c",
+      "exit_code": 0,
+      "log": "build/spike/t007-c-exhaustive-first.log"
+    },
+    {
+      "command": "make CC=/usr/bin/gcc c_defconfig; make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t007-c check check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t007-c-only.log"
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t007-ubsan build/t007-ubsan/test_c.test check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t007-ubsan-diff.log"
+    },
+    {
+      "command": "build/t007-ubsan/test_c.test",
+      "exit_code": 0,
+      "log": "build/spike/t007-ubsan-run.log"
+    }
+  ],
+  "spec_blobs": {
+    "c.tex": "af8aca70af026605066b68450253d359a2f3101a",
+    "machine.tex": "adb789cb6cc9e9b8f54ce44295b4a961ab6ec0e0",
+    "rvc-instr-table.tex": "ab365df1b4459b20c7f82e8600f4b92ba5c48fc6"
+  },
+  "sha256": {
+    "build/t007-mac/rviss_dut": "0fe6c28b455ffc1b1817e4284788d4fbb8eb7d2a227154f78d3657784d89d53d",
+    "build/t007-c/rviss_dut": "854b5816fbdbbad5f9b5c9cd54211bf3933c30affeddee1b55892557b729a7c9",
+    "build/t007-ubsan/rviss_dut": "3eca25977cd8fe5835c964d14df0813327b4974740ce1902bd4493aae8e58821",
+    "configs/mac_defconfig": "97a89042aaa88fe493b8cbd592a142c010328519baefbded834edcf5402c0de1",
+    "configs/c_defconfig": "1401193f5b407a78dad0cacabfaff138a1218715706a4afa70d4b1e22c80a3a9"
+  }
+}

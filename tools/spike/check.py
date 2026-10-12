@@ -3,6 +3,7 @@
 from pathlib import Path
 import argparse
 import hashlib
+import itertools
 import json
 import random
 import subprocess
@@ -259,6 +260,56 @@ def a_cases():
     yield 'a-seeded',case_text(words,500,regs,extra_mem=[(BASE+3072,8,0x8000000080000000)],isa=isa)
 
 
+def c_cases():
+    isa='rv64ic_zicsr_zifencei'
+    registers={i:BASE+1024+16*i for i in range(1,32)}
+    words=[0x0001,0x0285,0x0281,0x3281,0x52fd,0x72fd,0x717d,0x0800,
+           0x907d,0x947d,0x987d,0x8c05,0x8c25,0x8c45,0x8c65,0x9c05,0x9c25,
+           0x12fe,0x829a,0x929a,0x5c64,0x7c64,0xdc64,0xfc64,0x52fe,0x72fe,
+           0xdf96,0xff96,0x8282,0x9082,0x9002,0xa009,0xc009,0xe009,
+           0,0x2001,0x6001,0x6101,0x4002,0x6002,0x8002,0x9c41,0x9c61,
+           0x2000,0xa000,0x2002,0xa002,0x0005,0x4001,0x6005,0x8006,0x9006,
+           0x0002,0x8001,0x8401]
+    for word in words:
+        yield f'c-single-{word:04x}',case_text([],1,registers,isa=isa,
+                                             extra_mem=[(BASE,2,word)])
+    for word in [0xc009,0xe009]:
+        for value in [0,1]:
+            yield f'c-branch-{word:04x}-{value}',case_text([],1,{8:value},isa=isa,
+                                                         extra_mem=[(BASE,2,word)])
+    for word in [0x5c64,0x7c64,0xdc64,0xfc64,0x52fe,0x72fe,0xdf96,0xff96]:
+        for address in [0x40000000,BASE+1025]:
+            yield f'c-memory-fault-{word:04x}-{address:x}',case_text([],1,
+                   {2:address,8:address,5:0xdeadbeef,9:0xdeadbeef},isa=isa,
+                   extra_mem=[(BASE,2,word)])
+    yield 'c-mixed-halfword-pc',case_text([],1,{5:42},pc=BASE+2,isa=isa,
+                                        extra_mem=[(BASE+2,4,0x00128293)])
+    yield 'c-fetch-last-halfword',case_text([],1,pc=BASE+124,size=126,isa=isa,
+                                         extra_mem=[(BASE+124,2,0x0001)])
+    yield 'c-fetch-second-halfword',case_text([],1,pc=BASE+126,size=128,isa=isa,
+                                           extra_mem=[(BASE+126,2,0x0013)])
+    for pc in [BASE,BASE+2]:
+        yield f'c-misa-clear-{pc:x}',case_text([],2,{5:4},pc=pc,isa=isa,
+               extra_mem=[(pc,4,0x3012b073),(pc+4,2,0x0001)])
+    rng=random.Random(0x43524956)
+    operations=['c.addi x5,1','c.addiw x6,-32','c.li x7,-1','c.lui x9,0xfffff',
+                'c.srli x10,63','c.srai x11,63','c.andi x12,-1',
+                'c.sub x13,x14','c.xor x14,x15','c.or x8,x9','c.and x10,x11',
+                'c.subw x12,x13','c.addw x14,x15','c.slli x16,63',
+                'c.mv x17,x18','c.add x19,x20','addi x21,x21,-2048']
+    source='.option rvc\n'+ '\n'.join(rng.choice(operations) for _ in range(1000))+'\n'
+    yield 'c-seeded-mixed',asm_case('c-seeded-mixed',source,1000,
+                                   {i:rng.getrandbits(64) for i in range(1,32)},isa=isa)
+
+
+def c_exhaustive():
+    registers={i:BASE+1024+16*i for i in range(1,32)}
+    for word in range(65536):
+        if word & 3 != 3:
+            yield f'c-exhaustive-{word:04x}',case_text([],1,registers,
+                   isa='rv64ic_zicsr_zifencei',extra_mem=[(BASE,2,word)])
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -272,16 +323,24 @@ def save_failure(name, path, dut, ref, difference, commands):
 
 
 def main():
+    global OUT
     parser=argparse.ArgumentParser()
     parser.add_argument('--dut',type=Path,default=ROOT/'build/rviss_dut')
     parser.add_argument('--ref',type=Path,default=ROOT/'build/spike/bridge')
-    parser.add_argument('--suite',choices=['i','m','a','ma'],default='i')
+    parser.add_argument('--suite',choices=['i','m','a','ma','c','mc','ac','mac'],default='i')
+    parser.add_argument('--exhaustive-c',action='store_true')
+    parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
+    OUT=args.out.resolve()
     args.dut=args.dut.resolve(); args.ref=args.ref.resolve()
     OUT.mkdir(parents=True,exist_ok=True)
     records=[]; event_count=0; started=time.monotonic()
-    suite = list(cases()) + (list(m_cases()) if args.suite in ['m','ma'] else [])
-    if args.suite in ['a','ma']: suite += list(a_cases())
+    suite = list(cases()) + (list(m_cases()) if 'm' in args.suite else [])
+    if 'a' in args.suite: suite += list(a_cases())
+    if 'c' in args.suite: suite += list(c_cases())
+    if args.exhaustive_c:
+        assert 'c' in args.suite
+        suite=itertools.chain(suite,c_exhaustive())
     for name,text in suite:
         path=OUT/(name+'.case');path.write_text(text)
         dut,dc=execute(args.dut,path); ref,rc=execute(args.ref,path)
@@ -293,6 +352,11 @@ def main():
             # 程序的 200 条 R/W 指令必须全部顺序执行，然后到达唯一的尾部循环。
             assert all(int(event['pc_before'], 16) == BASE + 4*i
                        and event['retired'] for i, event in enumerate(dut[1:])), name
+        if name == 'c-seeded-mixed':
+            pc=BASE
+            for event in dut[1:]:
+                assert event['retired'] and int(event['pc_before'],16)==pc,name
+                pc+=event['length']
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -311,12 +375,12 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
+                 exhaustive_c=args.exhaustive_c,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','18 trap/priv CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','counter writes','async devices',
-                           {'i':'GC/Sv39/PMP','m':'A/C/F/D/Sv39/PMP',
-                            'a':'M/C/F/D/Sv39/PMP','ma':'C/F/D/Sv39/PMP'}[args.suite]])
+                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39/PMP'])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
 

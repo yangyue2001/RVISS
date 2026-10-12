@@ -30,6 +30,13 @@ int main(int argc, char **argv) {
   if (!mem_init(c.base, c.size)) return 2;
   bus_init(c.base, c.size);
   cpu_reset(c.pc);
+  const char *isa_end = strchr(c.isa, '_');
+  if (!isa_end) isa_end = c.isa + strlen(c.isa);
+  bool requested_c = memchr(c.isa, 'c', isa_end - c.isa) != NULL;
+#ifndef CONFIG_RV_C
+  if (requested_c) case_error("DUT C disabled in build");
+#endif
+  if (!requested_c) cpu.misa &= ~MISA_C; /* 仅共同输入初始化，不在执行中同步 */
   engine_init();
   sim_reset();
   memcpy(mem_host_ptr(c.base), c.ram, c.size);

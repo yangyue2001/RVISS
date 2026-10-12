@@ -26,5 +26,6 @@ bool csr_read(word_t addr, word_t* val);
 bool csr_write(word_t addr, word_t val);
 
 void csr_reset(void);
+word_t riscv_misa_supported(void);
 
 #endif /* RVISS_RISCV64_CSR_H */

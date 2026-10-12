@@ -72,6 +72,9 @@ RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
 逐事件差分、3 种差异注入和原有回归通过。[T005](docs/plans/t005_m_extension.md)
 M 13 条指令已 verified，I/M Spike 346 cases / 4359 events、UBSan 和双配置回归通过。
 [T006](docs/plans/t006_a_extension.md) A 22 条指令已 verified：I/M/A Spike
-982 cases / 9172 events、UBSan、minimal/MA/A-only 回归通过。当前下一项 T007 C；
+982 cases / 9172 events、UBSan、minimal/MA/A-only 回归通过。
+[T007](docs/plans/t007_c_extension.md) 整数 C/IALIGN 已 verified，全部 49152 个
+16 位编码的 Spike 差分通过，含其它用例 50215 cases / 59406 events；三配置
+make check 和 UBSan 通过。当前下一项 T008 CSR/trap；
 后续 agent 应重确认状态，完成局部任务后继续总目标。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

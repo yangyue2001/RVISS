@@ -14,7 +14,7 @@ void riscv_exec_trap(Decode *s, word_t cause, vaddr_t tval) {
 }
 
 bool riscv_jump(Decode *s, vaddr_t target) {
-  if (target & 3) { /* C 实现前 IALIGN=32 */
+  if (target & ((cpu.misa & MISA_C) ? 1 : 3)) {
     riscv_exec_trap(s, EX_IAM, target);
     return false;
   }

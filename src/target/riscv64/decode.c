@@ -92,7 +92,7 @@ void riscv_decode_init(void) {
 }
 
 static void fill_operands(Decode* s, char fmt) {
-  const uint32_t i = s->instr;
+  const uint32_t i = s->encoding;
   s->rd = RD(i);
   s->rs1 = RS1(i);
   s->rs2 = RS2(i);
@@ -169,10 +169,10 @@ static bool fetch_halfword(Decode *s, vaddr_t addr, uint16_t *data) {
 }
 
 bool riscv_decode(Decode* s) {
-  /* 当前没有 C，IALIGN=32。错误的跳转在其执行处报告；这里也拒绝
+  /* IALIGN 随 misa.C；错误的跳转在其执行处报告；这里也拒绝
    * 调试/导入提供的非法 PC，避免宿主越界或错误执行。
    */
-  if (s->pc & 3) {
+  if (s->pc & ((cpu.misa & MISA_C) ? 1 : 3)) {
     riscv_exec_trap(s, EX_IAM, s->pc);
     return false;
   }
@@ -182,25 +182,25 @@ bool riscv_decode(Decode* s) {
   s->raw_bytes = 2;
 
   if (unlikely((s->instr & 0x3u) != 0x3u)) {
-    /* 压缩指令（RVC）：M5 实现。先如实报告译码失败。 */
     s->ilen = 2;
     s->instruction_valid = true;
     s->snpc = s->pc + 2;
-    return false;
+    if (!(cpu.misa & MISA_C) || !riscv_expand_compressed(s)) return false;
+  } else {
+    s->ilen = 4;
+    s->snpc = s->pc + 4;
+    if (!fetch_halfword(s, s->pc + 2, &high)) return false;
+    s->instr |= (uint32_t)high << 16;
+    s->raw_bytes = 4;
+    s->instruction_valid = true;
+    s->encoding = s->instr;
   }
-
-  s->ilen = 4;
-  s->snpc = s->pc + 4;
-  if (!fetch_halfword(s, s->pc + 2, &high)) return false;
-  s->instr |= (uint32_t)high << 16;
-  s->raw_bytes = 4;
-  s->instruction_valid = true;
 
   for (int i = 0; i < NR_INSTRS; i++) {
     const InstrEntry* e = &instr_table[i];
-    if (((s->instr >> e->shift) & e->mask) == e->key) {
+    if (((s->encoding >> e->shift) & e->mask) == e->key) {
       s->exec = e->exec;
-      s->mnemonic = e->name;
+      if (!s->mnemonic) s->mnemonic = e->name;
       fill_operands(s, e->fmt);
       return true;
     }

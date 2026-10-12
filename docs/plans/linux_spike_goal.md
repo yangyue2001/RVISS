@@ -30,6 +30,7 @@ T004 verified：固定 Spike 29 cases / 343 events、3 种差异注入、回归�
 T004 已提交 a82ef82；随机程序 handler 覆盖修复 d275906。T005 M verified：
 13 指令、I/M Spike 346 cases / 4359 events、UBSan、minimal/M 回归通过。
 T005 已提交 215ca1e。T006 A verified：22 指令、I/M/A Spike 982 / 9172、
-UBSan 与三配置回归通过；正在提交，随后 T007 C。
+UBSan 与三配置回归通过，提交 1710e50。T007 C verified：49152 编码全部 Spike
+差分通过（全部 50215 / 59406），三配置与 UBSan 通过；正在提交，随后 T008 CSR/trap。
 Git 写入受沙箱只读 .git 限制，已按工具权限
 流程授权。Linux 仍仅有 QEMU 工件验收，RVISS 尚未启动。

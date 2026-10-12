@@ -1,0 +1,70 @@
+{
+  "status": "verified",
+  "suite": "mac",
+  "event_count": 59406,
+  "reset_replay": true,
+  "exhaustive_c": true,
+  "injections": [
+    {
+      "kind": "gpr",
+      "first_event": 1,
+      "fields": [
+        "gpr"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-gpr-failure.json"
+    },
+    {
+      "kind": "store",
+      "first_event": 8,
+      "fields": [
+        "ram_hash"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-store-failure.json"
+    },
+    {
+      "kind": "trap",
+      "first_event": 1,
+      "fields": [
+        "csrs"
+      ],
+      "packet": "/home/yang/work/ISS/build/difftest/injected-trap-failure.json"
+    }
+  ],
+  "seconds": 322.24604830899625,
+  "spike_manifest": {
+    "commit": "da2f415bb62bec3e93b33b379d787b4262aade9f",
+    "archive_sha256": "1d82e498671cf82279c28d8e46c6fa85e3cd14b7c5c18e24707ed628c8b8c6b5",
+    "upstream": "https://github.com/riscv-software-src/riscv-isa-sim",
+    "source_modified": false,
+    "boost": false,
+    "compiler": "/usr/bin/g++",
+    "pmpregions": 0,
+    "misaligned": false,
+    "isa": "case input; initially rv64i_zicsr_zifencei",
+    "priv": "MSU",
+    "counters": "mcycle timing differs; counter writes excluded in T004",
+    "bridge_sha256": "037f3fd8d1d2a246f4cf42f0c1c79576ca295bb43da1fc2413dac572a90cbf99",
+    "configure_args": "'--prefix=/home/yang/work/ISS/build/spike/install --without-boost --without-boost-asio --without-boost-regex --enable-commitlog CXX=/usr/bin/g++ CC=/usr/bin/gcc'"
+  },
+  "compared": [
+    "PC/raw/length/priv",
+    "full GPR",
+    "18 trap/priv CSR",
+    "store",
+    "full RAM hash",
+    "retirement"
+  ],
+  "excluded": [
+    "misa capability identity",
+    "mcycle timing policy",
+    "counter writes",
+    "async devices",
+    "F/D/Sv39/PMP"
+  ],
+  "case_count": 50215,
+  "compressed_words": 49152,
+  "inputs_sha256": "64a29eacbc37c6c2ebd8af0833c3545b24b11f4817777dfdd1227ff811c5d0d5",
+  "full_records": "build/difftest/summary.json",
+  "command": "python3 tools/spike/check.py --dut build/t007-mac/rviss_dut --suite mac --exhaustive-c",
+  "dut_sha256": "0fe6c28b455ffc1b1817e4284788d4fbb8eb7d2a227154f78d3657784d89d53d"
+}

@@ -12,7 +12,7 @@
 #define MISA_D (1ull << 3)           /* double-precision FP */
 #define MISA_E (1ull << 4)           /* RV32E embedded base */
 #define MISA_F (1ull << 5)           /* single-precision FP */
-#define MISA_G (1ull << 6)           /* IMAFD + Zicsr + Zifencei */
+#define MISA_G (1ull << 6)           /* reserved：G 是 ISA 命名缩写，不是 misa 位 */
 #define MISA_H (1ull << 7)           /* hypervisor */
 #define MISA_I (1ull << 8)           /* base integer */
 #define MISA_J (1ull << 9)           /* reserved */
