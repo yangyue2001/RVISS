@@ -16,7 +16,7 @@ T008 CSR 检查点 verified：MAC/CSR 1741 / 11442、minimal/MAC 与 UBSan。
 T008 同步委派/xRET verified：MAC/CSR/priv 2195 / 12505、回归与 UBSan。
 T009 中断 verified：2652 / 13405、minimal/MAC 与 UBSan。
 T010 counter verified：3249 / 15178、12 unit 回归与 UBSan。
-T011 PMP verified：4378 / 16606、三配置与 UBSan。当前执行 T012 Sv39（缺契约时先补）。
+T011 PMP verified：4378 / 16606、三配置与 UBSan。T012 Sv39 verified：5267 / 17554、三配置与 UBSan。当前执行 T013 F/D。
 
 总路线：M → A → C → CSR/委派/xRET/counter → PMP/Sv39 → F/D →
 virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux PID 1/BusyBox/probe/重复 workload。

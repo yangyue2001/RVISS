@@ -36,6 +36,7 @@ typedef struct {
   bool reservation_valid;
   uint8_t pmp_count, pmpcfg[16];
   word_t pmpaddr[16];
+  bool sv39_supported; /* 初始化硬件能力；客户机不能改变 */
   word_t mip_software; /* SSIP/STIP/SEIP 软件存储；mip 是软件与 IRQ 线的可见 OR */
 } CPU_state;
 

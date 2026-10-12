@@ -37,11 +37,15 @@ config RV_C
 	  D 的压缩浮点访存在完成 D 扩展时接入。
 config RV_SV39
 	bool "Sv39 分页"
+	help
+	  Bare/Sv39、ASIDLEN=0、4K/2M/1G、PMP 页表保护与硬件 A/D 更新。
 config RV_SV48
 	bool "Sv48 分页"
 	depends on RV_SV39
 config RV_PMP
 	bool "PMP：物理内存保护"
+	help
+	  16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT；关闭时 0 entries。
 
 comment "阶段二：可选特性（未实现）"
 

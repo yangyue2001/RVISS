@@ -21,9 +21,9 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 | 参数 | 固定目标 | T003 后当前源码 |
 | --- | --- | --- |
 | CPU | RV64，小端，hartid=0，单 hart，复位进入 M；GPR 清零作为确定性 reset 策略 | 已有；现有测试只覆盖部分状态 |
-| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M/A/整数 C 通过 T005–T007；F/D 缺失，T010 basic counter CSR 已验证；misa 固定 RV64/I/已实现 M/A、可切换已编译 C，S/U 等待完整特权项 |
+| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M/A/整数 C 通过 T005–T007；F/D 缺失，T010 basic counter CSR 已验证；misa 固定 RV64/I/已实现 M/A、可切换已编译 C，T012 后 S/U 已宣告 |
 | 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | T008 CSR WARL/同步委派/xRET 权限已验证；T009 中断规则已验证；T010 counter 权限/写优先已验证 |
-| 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | 当前支持 Bare 与 T011 PMP；Sv39 未实现 |
+| 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | T012 Bare/Sv39、硬件 A/D、page/access 分类已验证；无 TLB |
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | T011 16-entry CSR/锁/优先级/边界和真实访问已验证，关闭配置 0 entries |
 | 指令对齐 | C 启用后 IALIGN=16；关闭 C 时 IALIGN=32 | T007 按 misa.C 动态处理 PC/跳转/取分支；混合取指、第二段 fault、增大 IALIGN 的 misa 写抑制已验证 |
 | 数据对齐 | RAM 的非自然对齐 load/store/LR/SC/AMO 抛 misaligned；在翻译前检查 | I 与 A 全宽检查已验证，原子只允许 RAM；LR 为 load fault，SC/AMO 为 store fault |
@@ -64,7 +64,7 @@ M HPM 选择硬连线零，无可写抑制或 Zihpm。RV64 *h CSR 非法。
 不支持长于 ILEN 的指令，结果 length 最多 4，valid 表示这些原始字节已取得，
 并非扩展已支持。错误 JAL/JALR 在写链接前 trap，仅取分支检查目标对齐。
 数据 misaligned 在翻译/映射检查前报告。中断在取指前选择独立边界；
-设备在事件结束 tick/update IRQ，下一边界响应。T008 已接入 M/S 委派与状态栈，T009 IRQ 全局权限/优先级已验证。有效非 Bare 访问报告 host error；T011 PMP 已验证，Sv39 等待 T012。
+设备在事件结束 tick/update IRQ，下一边界响应。T008 已接入 M/S 委派与状态栈，T009 IRQ 全局权限/优先级已验证。T011 PMP 与 T012 Sv39 已验证；不支持模式的 host 导入仍报 host error。
 
 ## 工具与独立参考
 
@@ -95,3 +95,9 @@ commit log，不依赖可写 guest minstret；显式初值用该版本公开 API
 T011 参考硬件输入支持 0/16 PMP，41 个 CSR（含 cfg0/2 和 addr0..15）完整比较。
 PMP 差分 4378 / 16606、UBSan、三配置回归通过；初值显式输入避免两端 reset
 许可策略差异。参考取指只观察实际 mmio_fetch/FETCH tracer，不主动翻译或预取。
+
+T012 Bare/Sv39 初始化能力明确，ASIDLEN=0，satp 只接受 MODE0/8，unsupported
+整写忽略；Sv39 硬件 Bare 时保留 PPN，旧 Bare-only 硬件读零。PTE 8-byte RAM
+访问走 S 权限 PMP；硬件 A/D 精确更新，最终显式数据 fault 可保留隐式更新。
+5267 / 17554、三配置、UBSan 通过。参考 Svadu/ADUE 只选相同 A/D 策略，
+共同程序不使用该扩展，RVISS 不宣告 Svadu。S/U misa 已在本阶段加入。

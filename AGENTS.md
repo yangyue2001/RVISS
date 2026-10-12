@@ -79,6 +79,6 @@ make check 和 UBSan 通过。T008 CSR 检查点通过：MAC/CSR 1741 / 11442，
 minimal/MAC 回归与 UBSan；同步委派/xRET 也 verified：2195 / 12505。
 T009 中断 verified：2652 / 13405、回归与 UBSan；
 T010 counter verified：3249 / 15178、12 unit 回归与 UBSan；
-T011 PMP verified：4378 / 16606、三配置与 UBSan；当前继续 T012 Sv39；
+T011 PMP verified：4378 / 16606、三配置与 UBSan；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；当前继续 T013 F/D；
 后续 agent 应重确认状态，完成局部任务后继续总目标。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

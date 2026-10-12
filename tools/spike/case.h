@@ -21,6 +21,7 @@ static const unsigned diff_csrs[] = {
 typedef struct {
   uint64_t base, size, pc, steps, priv;
   unsigned pmp_regions;
+  bool sv39;
   uint64_t gpr[32], csr[4096];
   bool csr_set[4096];
   struct {uint64_t event; unsigned bit; bool level;} irq[128];
@@ -89,7 +90,10 @@ static inline DiffCase load_case(const char *path) {
     } else {
       if (fscanf(file, "%127s", value) != 1) case_error(key);
       uint64_t v = strtoull(value, NULL, 0);
-      if (!strcmp(key, "pmp")) {
+      if (!strcmp(key, "mmu")) {
+        if(strcmp(value,"bare") && strcmp(value,"sv39")) case_error("mmu profile");
+        c.sv39=!strcmp(value,"sv39");
+      } else if (!strcmp(key, "pmp")) {
         if(v!=0 && v!=16) case_error("pmp profile");
         c.pmp_regions=v;
       } else if (!strcmp(key, "base")) c.base = v;

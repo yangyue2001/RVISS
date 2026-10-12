@@ -1,0 +1,89 @@
+{
+  "status": "verified",
+  "profiles": {
+    "sv39": {
+      "units": 14,
+      "checks": 24518,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "pmp": {
+      "units": 14,
+      "checks": 19095,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "minimal": {
+      "units": 14,
+      "checks": 17163,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t012-sv39 check build/t012-sv39/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t012-pmp check build/t012-pmp/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t012-minimal check build/t012-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t012-sv39/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --out build/t012-sv39/difftest-complete",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t012-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t012-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t012-ubsan/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --out build/t012-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t012-ubsan build/t012-ubsan/test_sv39.test build/t012-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t012-ubsan/test_sv39.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "spike": {
+    "sv39": "5267 cases / 17554 events",
+    "minimal": "2203 / 5255",
+    "ubsan": "5266 / 17550 full suite + additional 4-event root-switch (replay both processes); total 5267 / 17554"
+  },
+  "ubsan_unit": "5429 checks, no diagnostics",
+  "normative_source": {
+    "tag": "Priv-v1.12",
+    "supervisor_git_blob": "abc449e1120da5cd02b5ac73525eb09fbd5fa2dc"
+  },
+  "source_audit": "all 1639 Spike archive files byte-identical, no patches",
+  "first_failures": [
+    "docs/validation/t012_first_failure.json",
+    "docs/validation/t012_satp_failure.json"
+  ],
+  "choices": [
+    "No TLB; every access walks. Legal SFENCE satisfies conservative full invalidation",
+    "ASIDLEN=0, PA56, RAM-only PTE PMA, hardware A/D before final data PMP",
+    "S/U misa now advertised after privileged closure; unsupported paging still not advertised",
+    "Reference hardware A/D policy selected by initial Svadu/menvcfg.ADUE; no new shared guest instruction/CSR",
+    "Reference cap cleared before Sv39 enable; unsupported MODE writes retained in tests",
+    "Store PA observed from last actual successful callback, commit log excludes implicit A/D"
+  ],
+  "limits": [
+    "Single hart no concurrent RAM DMA",
+    "No F/D/full virt devices/RVISS Linux yet",
+    "Native checkpoint CPU layout changed; full checkpoint/ABI not claimed"
+  ]
+}

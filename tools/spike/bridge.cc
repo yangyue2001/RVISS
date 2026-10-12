@@ -17,8 +17,12 @@ class RamBus : public simif_t {
   uint64_t fetched_raw=0;
   unsigned fetched_length=0;
   bool fetch_complete=false;
+  bool wrote=false;
+  uint64_t last_store_addr=0, last_store_data=0;
+  unsigned last_store_length=0;
   void begin_event() {
     partial_bytes=0; fetched_raw=0; fetched_length=0; fetch_complete=false;
+    wrote=false;
   }
   explicit RamBus(DiffCase &c) : input(c) {
     config.isa = c.isa; config.priv = "MSU"; config.pmpregions = c.pmp_regions;
@@ -60,6 +64,8 @@ class RamBus : public simif_t {
   }
   bool mmio_store(reg_t address, size_t length, const uint8_t *bytes) override {
     if (!range(address, length)) return false;
+    wrote=true; last_store_addr=address; last_store_length=length; last_store_data=0;
+    for(unsigned i=0;i<length;i++) last_store_data|=uint64_t(bytes[i])<<(8*i);
     memcpy(input.ram + address - input.base, bytes, length); return true;
   }
   void proc_reset(unsigned) override {}
@@ -91,15 +97,21 @@ int main(int argc, char **argv) {
   if (argc != 2) return 2;
   DiffCase c = load_case(argv[1]);
   RamBus bus(c);
-  isa_parser_t isa(c.isa, "MSU");
+  // Newer Spike names the Priv1.12 hardware A/D choice Svadu + ADUE.
+  // Select that policy once; no new instruction encoding is used by shared cases.
+  std::string reference_isa=c.isa;
+  if(c.sv39) reference_isa+="_svadu";
+  isa_parser_t isa(reference_isa.c_str(), "MSU");
   FILE *commits = tmpfile();
   if (!commits) case_error("commit observation file");
   processor_t p(&isa, &bus.config, &bus, 0, false, commits, std::cerr);
-  // 本阶段固定 Bare、ASIDLEN=0；在 CSR 配置前选择独立参考能力。
-  p.set_mmu_capability(IMPL_MMU_SBARE);
+  // 初始化共同硬件输入；执行中不复制 DUT 状态。
+  p.set_mmu_capability(IMPL_MMU_SBARE); // 清除 constructor 默认 Sv57/48/39
+  if(c.sv39) p.set_mmu_capability(IMPL_MMU_SV39);
   p.set_impl(IMPL_MMU_ASID, false);
   bus.harts[0] = &p;
   auto *s = p.get_state();
+  if(c.sv39) p.put_csr(CSR_MENVCFG,MENVCFG_ADUE);
   FetchObserver fetch_observer(bus);
   p.get_mmu()->register_memtracer(&fetch_observer);
   s->pc = c.pc;
@@ -151,7 +163,11 @@ int main(int argc, char **argv) {
     if (!s->log_mem_write.empty()) {
       if (s->log_mem_write.size() != 1) case_error("multiple stores not in contract");
       const auto &write = s->log_mem_write[0];
-      r.store = true; r.store_addr = std::get<0>(write);
+      // PTE A/D 写先于显式数据写；实际 callback 的最后一次成功写给出 PA。
+      // commit log 区分显式写与单独的 A/D 副作用，无额外 translate。
+      if(!bus.wrote || bus.last_store_length!=std::get<2>(write) ||
+         bus.last_store_data!=std::get<1>(write)) case_error("actual store observation");
+      r.store = true; r.store_addr = bus.last_store_addr;
       r.store_data = std::get<1>(write); r.store_length = std::get<2>(write);
     }
     snapshot(p, r); emit_snapshot(&r, c.ram, c.size);

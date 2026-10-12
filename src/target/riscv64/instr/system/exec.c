@@ -8,6 +8,7 @@
 #include "csr.h"
 #include "encoding.h"
 #include "intr.h"
+#include "mmu.h"
 
 /*
  * 特权/系统指令语义。
@@ -44,9 +45,12 @@ void exec_wfi(Decode* s) {
 }
 
 void exec_sfence_vma(Decode* s) {
-  /* 当前 Bare-only profile 不提供地址翻译，SFENCE.VMA 尚不可执行。
-   * Sv39 接入后在本入口检查 S/TVM 并失效翻译缓存。 */
-  riscv_exec_trap(s, EX_II, s->instr);
+  if (!cpu.sv39_supported || cpu.priv < PRV_S ||
+      (cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_TVM))) {
+    riscv_exec_trap(s, EX_II, s->instr);
+    return;
+  }
+  isa_mmu_flush_tlb(); /* ASIDLEN=0，可保守失效所有地址；当前每次真实 walk */
 }
 
 /* ---------------- CSR 指令 ---------------- */

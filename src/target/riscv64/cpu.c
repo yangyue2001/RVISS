@@ -5,6 +5,7 @@
 #include "csr.h"
 #include "intr.h"
 #include "pmp.h"
+#include "mmu.h"
 
 /* 体系结构状态实例 */
 CPU_state cpu;
@@ -15,6 +16,7 @@ void cpu_reset(vaddr_t reset_pc) {
   cpu.priv = PRV_M; /* RISC-V 复位后进入 M 模式 */
   cpu.mhartid = 0;
 
+  riscv_mmu_reset();
   cpu.misa = riscv_misa_supported();
 
   csr_reset();

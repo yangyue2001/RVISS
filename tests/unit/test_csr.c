@@ -10,6 +10,7 @@
 #include "csr.h" /* target 私有：csr_read / csr_write */
 #include "test.h"
 #include "pmp.h"
+#include "mmu.h"
 
 /*
  * CSR 访问语义单测。
@@ -33,7 +34,7 @@ static StepResult instruction(unsigned address, unsigned funct3, unsigned rd, un
 
 static void setup(void) {
   cpu_reset(BASE);
-  riscv_pmp_set_regions(0); /* 本 fixture 固定 Bare、0 PMP entries */
+  riscv_pmp_set_regions(0); riscv_mmu_set_sv39(false); /* 本 fixture 固定 Bare、0 PMP entries */
   sim_reset();
   cpu.mtvec = BASE + 128;
   cpu.gpr[5] = 0xdeadbeef;

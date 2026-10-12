@@ -40,8 +40,6 @@ MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data);
 MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only);
 
 /* ---- 以下由 target/riscv64/mmu/ 实现 ---- */
-paddr_t isa_mmu_translate(vaddr_t addr, int len, int type);
 void    isa_mmu_flush_tlb(void);
-bool    isa_mmu_enabled(void);
 
 #endif /* RVISS_MEMORY_VADDR_H */

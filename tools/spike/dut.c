@@ -5,6 +5,7 @@
 #include "../../src/engine/engine.h"
 #include "csr.h"
 #include "pmp.h"
+#include "mmu.h"
 #include "case.h"
 
 static word_t input_time(void *opaque) { return *(uint64_t *)opaque; }
@@ -31,6 +32,7 @@ int main(int argc, char **argv) {
   device_set_time_reader(input_time,&clock);
   cpu_reset(c.pc);
   riscv_pmp_set_regions(c.pmp_regions);
+  riscv_mmu_set_sv39(c.sv39);
   const char *isa_end = strchr(c.isa, '_');
   if (!isa_end) isa_end = c.isa + strlen(c.isa);
   bool requested_c = memchr(c.isa, 'c', isa_end - c.isa) != NULL;

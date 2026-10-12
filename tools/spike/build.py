@@ -59,7 +59,9 @@ def main():
                     source_modified=False, boost=False, compiler='/usr/bin/g++',
                     pmpregions='case input: 0 or 16', pmp_granularity=4, misaligned=False, isa='case input; initially rv64i_zicsr_zifencei',
                     fetch_observer='actual mmio_fetch bytes plus FETCH memtracer; no speculative prefetch',
-                    priv='MSU', mmu='Bare', asid_bits=0, counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
+                    priv='MSU', mmu='case input: clear default with SBARE, then enable only Sv39 when selected', asid_bits=0,
+                    ad_policy='Sv39 reference uses Svadu plus initial menvcfg.ADUE=1 to select Priv1.12 hardware update; RVISS does not advertise Svadu',
+                    store_observer='actual last successful physical callback plus explicit commit log; implicit A/D writes included in RAM hash', counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
                     bridge_sha256=hashlib.sha256((OUT / 'bridge').read_bytes()).hexdigest(),
                     configure_args=(OBJ / 'config.status').read_text().split('ac_cs_config=')[1].splitlines()[0])
     (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

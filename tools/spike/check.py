@@ -8,6 +8,7 @@ import json
 import random
 import subprocess
 import time
+from sv39_cases import sv39_cases
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = 0x80000000
@@ -567,6 +568,7 @@ def main():
     parser.add_argument('--irq',action='store_true')
     parser.add_argument('--counters',action='store_true')
     parser.add_argument('--pmp',action='store_true')
+    parser.add_argument('--sv39',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -581,6 +583,7 @@ def main():
     if args.irq: suite += list(irq_cases())
     if args.counters: suite += list(counter_cases())
     if args.pmp: suite += list(pmp_cases())
+    if args.sv39: suite += list(sv39_cases(case_text,BASE))
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -629,6 +632,19 @@ def main():
         if name == 'pmp-fetch-second-half-denied':
             assert dut[1]['raw_bytes']==2 and dut[1]['length']==4 and not dut[1]['valid']
             assert int(dut[1]['csrs']['343'],16)==BASE+4
+        if name in ['sv39-change-leaf-sfence','sv39-switch-root-sfence']:
+            assert all(e['retired'] for e in dut[1:]),name
+            assert int(dut[-1]['gpr'][5],16)==42 and dut[-1]['retired_total']==4
+        if name == 'sv39-mret-delegate-sret':
+            assert [e['outcome'] for e in dut[1:]]==['retired','synchronous_trap','retired','retired','retired']
+            assert dut[-1]['privilege']==0 and int(dut[-1]['gpr'][5],16)==7
+            assert int(dut[-1]['pc'],16)==0x4208 and dut[-1]['retired_total']==4
+        if name == 'sv39-cross-fetch-11':
+            assert dut[1]['retired'] and int(dut[1]['gpr'][5],16)==7
+            assert int(dut[1]['pc'],16)==0x5002
+        if name.startswith('sv39-cross-fetch-') and name != 'sv39-cross-fetch-11':
+            assert dut[1]['raw_bytes']==2 and dut[1]['length']==4 and not dut[1]['valid']
+            assert int(dut[1]['csrs']['342'],16)==12 and int(dut[1]['csrs']['343'],16)==0x5000
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -647,12 +663,12 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,pmp_rules=args.pmp,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,pmp_rules=args.pmp,sv39_rules=args.sv39,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','41 trap/priv/counter/PMP CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','cycle values across trap/IRQ (different permitted timing policies)','full platform devices',
-                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39' + ('' if args.pmp else '/PMP')])
+                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D' + ('' if args.sv39 else '/Sv39') + ('' if args.pmp else '/PMP')])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
 

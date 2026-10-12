@@ -3,8 +3,9 @@
 #include <memory/paddr.h>
 #include <memory/vaddr.h>
 #include "pmp.h"
+#include "mmu.h"
 
-/* RV64 访问规则集中于此。当前只有 Bare；PMP/页表规则后续接在此路径。
+/* RV64 有效特权、对齐、翻译、PMP 访问规则集中于此。
  * 失败返回结构化结果，由指令边界统一写 trap CSR，不在内存层改 CPU。
  */
 static uint8_t effective_privilege(int type) {
@@ -38,15 +39,9 @@ MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only) {
   }
 
   uint8_t privilege=effective_privilege(type);
-  if (privilege != PRV_M && isa_mmu_enabled()) {
-    a.status = MEM_HOST_ERROR; /* Sv39/PMP 尚未实现：不能声称 page fault */
-    return a;
-  }
-
-  a.paddr = addr; /* Bare */
-  a.paddr_valid = true;
-  if (addr >= (UINT64_C(1) << 56) ||
-      (paddr_t)len > (UINT64_C(1) << 56) - addr ||
+  if (!riscv_mmu_translate(&a,privilege)) return a;
+  if (a.paddr >= (UINT64_C(1) << 56) ||
+      (paddr_t)len > (UINT64_C(1) << 56) - a.paddr ||
       (ram_only && !mem_in_ram(a.paddr, len)) ||
       !riscv_pmp_check(a.paddr,len,type,privilege)) {
     a.status = MEM_FAULT;

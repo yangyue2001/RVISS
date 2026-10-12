@@ -8,6 +8,7 @@
 #include "encoding.h"
 #include "intr.h"
 #include "pmp.h"
+#include "mmu.h"
 
 /* 地址/存储元信息来自唯一清单；有 WARL、别名或副作用的 CSR 显式处理。 */
 typedef struct {
@@ -68,7 +69,7 @@ void csr_reset(void) {
 }
 
 word_t riscv_misa_supported(void) {
-  word_t value = MISA_MXL_64 | MISA_I;
+  word_t value = MISA_MXL_64 | MISA_I | MISA_S | MISA_U;
 #ifdef CONFIG_RV_M
   value |= MISA_M;
 #endif
@@ -78,7 +79,7 @@ word_t riscv_misa_supported(void) {
 #ifdef CONFIG_RV_C
   value |= MISA_C;
 #endif
-  /* S/U、F/D 在相应完整语义任务验证后加入；不置虚假 H/V/G 位。 */
+  /* M/S/U CSR/委派/xRET/IRQ/counter/PMP/Sv39 已闭环；F/D 后续接入。 */
   return value;
 }
 
@@ -160,10 +161,7 @@ bool csr_write(word_t addr, word_t val) {
       break;
     }
     case CSR_MCOUNTEREN: case CSR_SCOUNTEREN: *e->field = val & 7; break;
-    case CSR_SATP:
-      /* 未实现分页：只接受 Bare。Bare 的非 MODE 字段选择硬连线 0。 */
-      if ((val >> 60) == 0) cpu.satp = 0;
-      break;
+    case CSR_SATP: cpu.satp = riscv_satp_value(val); break;
     default: if(e->field) *e->field = val & e->view_mask; break;
   }
   return true;
