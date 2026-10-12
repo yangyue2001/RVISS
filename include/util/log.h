@@ -5,8 +5,8 @@
 
 /*
  * 分类 + 分级日志。
- * 对比 NEMU：它的 Logti/Logm/Logtr 是一堆编译期开关；这里改成"分类(category) + 等级(level)"
- * 两个运行时维度，调 trace 时不用重新编译。
+ * 对比 NEMU：它的 Logti/Logm/Logtr 是一堆编译期开关；这里改成"分类(category) +
+ * 等级(level)" 两个运行时维度，调 trace 时不用重新编译。
  */
 
 typedef enum {
@@ -29,11 +29,11 @@ typedef enum {
   LOG_CAT_NR
 } LogCategory;
 
-void log_init(const char *path); /* path == NULL 时输出到 stdout */
+void log_init(const char* path); /* path == NULL 时输出到 stdout */
 void log_close(void);
 void log_set_level(LogLevel level);
 void log_set_category(LogCategory cat, bool enable);
-void log_printf(LogCategory cat, LogLevel level, const char *fmt, ...)
+void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...)
     __attribute__((format(printf, 3, 4)));
 
 /*
@@ -43,38 +43,45 @@ void log_printf(LogCategory cat, LogLevel level, const char *fmt, ...)
  * 运行时仍可用 --log-level / -t 做二次过滤。
  */
 
+/*
+ * 统一的日志后端。普通日志通过 RVISS_DEBUG_LOG 受 CONFIG_DEBUG 控制；
+ * trace 日志直接使用 RVISS_LOG，因此 CONFIG_TRACE_* 仍可独立控制它们。
+ * 关闭时参数不会被求值，保持原有宏的零开销语义。
+ */
+#define RVISS_LOG(cat, level, ...) \
+  log_printf((cat), (level), __VA_ARGS__)
+
 #ifdef CONFIG_DEBUG
-#define Log(...)       log_printf(LOG_CAT_GENERAL,   LOG_INFO,  __VA_ARGS__)
-#define Logw(...)      log_printf(LOG_CAT_GENERAL,   LOG_WARN,  __VA_ARGS__)
-#define Loge(...)      log_printf(LOG_CAT_GENERAL,   LOG_ERROR, __VA_ARGS__)
-#define LogTrap(...)   log_printf(LOG_CAT_TRAP,      LOG_DEBUG, __VA_ARGS__)
-#define LogDevice(...) log_printf(LOG_CAT_DEVICE,    LOG_DEBUG, __VA_ARGS__)
-#define LogDiff(...)   log_printf(LOG_CAT_DIFFTEST,  LOG_DEBUG, __VA_ARGS__)
-#else /* !CONFIG_DEBUG */
-#define Log(...)       ((void)0)
-#define Logw(...)      ((void)0)
-#define Loge(...)      ((void)0)
-#define LogTrap(...)   ((void)0)
-#define LogDevice(...) ((void)0)
-#define LogDiff(...)   ((void)0)
-#endif /* CONFIG_DEBUG */
+#define RVISS_DEBUG_LOG(...) RVISS_LOG(__VA_ARGS__)
+#else
+#define RVISS_DEBUG_LOG(...) ((void)0)
+#endif
+
+#define Log(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_INFO, __VA_ARGS__)
+#define Logw(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_WARN, __VA_ARGS__)
+#define Loge(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_ERROR, __VA_ARGS__)
+#define LogTrap(...) RVISS_DEBUG_LOG(LOG_CAT_TRAP, LOG_DEBUG, __VA_ARGS__)
+#define LogDevice(...) \
+  RVISS_DEBUG_LOG(LOG_CAT_DEVICE, LOG_DEBUG, __VA_ARGS__)
+#define LogDiff(...) \
+  RVISS_DEBUG_LOG(LOG_CAT_DIFFTEST, LOG_DEBUG, __VA_ARGS__)
 
 #if defined(CONFIG_TRACE_INST) || defined(CONFIG_TRACE_INST_DASM)
-#define LogInstr(...)  log_printf(LOG_CAT_INSTR, LOG_TRACE, __VA_ARGS__)
+#define LogInstr(...) RVISS_LOG(LOG_CAT_INSTR, LOG_TRACE, __VA_ARGS__)
 #else
-#define LogInstr(...)  ((void)0)
+#define LogInstr(...) ((void)0)
 #endif
 
 #ifdef CONFIG_TRACE_MEM
-#define LogMem(...)    log_printf(LOG_CAT_MEM, LOG_TRACE, __VA_ARGS__)
+#define LogMem(...) RVISS_LOG(LOG_CAT_MEM, LOG_TRACE, __VA_ARGS__)
 #else
-#define LogMem(...)    ((void)0)
+#define LogMem(...) ((void)0)
 #endif
 
 #ifdef CONFIG_TRACE_MMU
-#define LogTlb(...)    log_printf(LOG_CAT_TRANSLATE, LOG_TRACE, __VA_ARGS__)
+#define LogTlb(...) RVISS_LOG(LOG_CAT_TRANSLATE, LOG_TRACE, __VA_ARGS__)
 #else
-#define LogTlb(...)    ((void)0)
+#define LogTlb(...) ((void)0)
 #endif
 
 #endif /* RVISS_UTIL_LOG_H */
