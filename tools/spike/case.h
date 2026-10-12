@@ -20,6 +20,8 @@ typedef struct {
   uint64_t base, size, pc, steps, priv;
   uint64_t gpr[32], csr[4096];
   bool csr_set[4096];
+  struct {uint64_t event; unsigned bit; bool level;} irq[128];
+  unsigned irq_count;
   char isa[128];
   uint8_t *ram;
 } DiffCase;
@@ -38,6 +40,16 @@ static inline DiffCase load_case(const char *path) {
   while (fscanf(file, "%31s", key) == 1) {
     if (!strcmp(key, "isa")) {
       if (fscanf(file, "%127s", c.isa) != 1) case_error("isa");
+    } else if (!strcmp(key, "irq")) {
+      uint64_t event;
+      unsigned bit, level;
+      if (fscanf(file, "%" SCNu64 " %u %u", &event, &bit, &level) != 3 ||
+          c.irq_count == 128 || !event || event > 100000 || level > 1 ||
+          (bit != 1 && bit != 3 && bit != 5 && bit != 7 && bit != 9 && bit != 11))
+        case_error("irq");
+      c.irq[c.irq_count].event=event;
+      c.irq[c.irq_count].bit=bit;
+      c.irq[c.irq_count++].level=level;
     } else if (!strcmp(key, "gpr") || !strcmp(key, "csr")) {
       unsigned index;
       if (fscanf(file, "%u %127s", &index, value) != 2) case_error(key);

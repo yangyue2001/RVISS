@@ -389,6 +389,53 @@ def priv_cases(compressed_capable=False):
             f'csr 770 256\ncsr 261 {handler:#x}\ncsr 773 {BASE+3072:#x}\n'
 
 
+def irq_cases():
+    isa='rv64i_zicsr_zifencei_zicntr'
+    def make(words,steps=2,priv=3,status=0,enable=0,delegation=0,events=(),pc=BASE,mem=()):
+        extra=[(BASE+2048+4*i,4,0x13) for i in range(32)]+ \
+              [(BASE+3072+4*i,4,0x13) for i in range(32)]+list(mem)
+        text=case_text(words,steps,{5:0xdeadbeef,6:8},priv=priv,pc=pc,isa=isa,extra_mem=extra)
+        text+=f'csr 768 {0xa00000000|status:#x}\ncsr 772 {enable}\ncsr 771 {delegation}\n'
+        text+=f'csr 773 {BASE+2048:#x}\ncsr 261 {BASE+3072:#x}\n'
+        return text+''.join(f'irq {event} {bit} {level}\n' for event,bit,level in events)
+    bits=[1,3,5,7,9,11]
+    for priv in [0,1,3]:
+        for bit in bits:
+            for status in [0,2,8,10]:
+                for enabled in [False,True]:
+                    for delegated in [False,True]:
+                        yield f'irq-matrix-{priv}-{bit}-{status}-{enabled}-{delegated}',make(
+                            [0x13,0x13],priv=priv,status=status,enable=(1<<bit) if enabled else 0,
+                            delegation=(1<<bit) if delegated else 0,events=[(1,bit,1),(2,bit,0)])
+    for priv in [0,1,3]:
+        for a,b in itertools.combinations(bits,2):
+            mask=(1<<a)|(1<<b)
+            for delegation in sorted(set([0,0x222,mask&0x222,1<<a&0x222,1<<b&0x222])):
+                yield f'irq-priority-{priv}-{a}-{b}-{delegation}',make([0x13,0x13],priv=priv,
+                    status=10,enable=mask,delegation=delegation,
+                    events=[(1,a,1),(1,b,1),(2,a,0),(2,b,0)])
+    yield 'irq-fetch-preempted',make([],steps=1,priv=0,enable=0x80,pc=0x40000000,events=[(1,7,1)])
+    for bit in bits:
+        for priv in [0,1,3]:
+            for delegated in [0,0x222]:
+                text=make([0x13],steps=1,priv=priv,status=10,enable=1<<bit,delegation=delegated)
+                if bit in [1,5,9]:
+                    yield f'irq-software-{bit}-{priv}-{delegated}',text+f'csr 836 {1<<bit}\n'
+    yield 'irq-target-priority',make([0x13],steps=1,priv=1,status=2,enable=0x202,delegation=0x200,
+                                     events=[(1,1,1),(1,9,1)])
+    yield 'irq-enable-next-boundary',make([0x30032073,0x00108093],steps=3,enable=0x80,
+                                         events=[(1,7,1),(3,7,0)])
+    yield 'irq-cancel-before-enabled',make([0x30032073,0x00108093],steps=2,enable=0x80,
+                                          events=[(1,7,1),(2,7,0)])
+    yield 'irq-mret-boundary',make([0x30200073,0x00108093],steps=3,enable=0x80,
+                                  events=[(1,7,1),(3,7,0)])+f'csr 833 {BASE+4:#x}\n'
+    yield 'irq-nested-return',make([0x00108093],steps=5,priv=0,enable=0x280,delegation=0x200,
+        events=[(1,9,1),(2,9,0),(2,7,1),(3,7,0)],
+        mem=[(BASE+2048,4,0x30200073),(BASE+3072,4,0x10200073)])
+    yield 'irq-wfi-wake',make([0x10500073,0x00108093],steps=3,enable=0x80,status=8,
+                             events=[(2,7,1),(3,7,0)])
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -410,6 +457,7 @@ def main():
     parser.add_argument('--exhaustive-c',action='store_true')
     parser.add_argument('--csr',action='store_true')
     parser.add_argument('--priv',action='store_true')
+    parser.add_argument('--irq',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -421,6 +469,7 @@ def main():
     if 'c' in args.suite: suite += list(c_cases())
     if args.csr: suite += list(csr_cases())
     if args.priv: suite += list(priv_cases('c' in args.suite))
+    if args.irq: suite += list(irq_cases())
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -447,6 +496,14 @@ def main():
         if name == 'priv-nested-m-s-u-return':
             assert dut[-1]['privilege']==0 and int(dut[-1]['gpr'][1],16)==1
             assert dut[-1]['retired_total']==9
+        if name == 'irq-target-priority':
+            assert dut[1]['privilege']==3 and int(dut[1]['csrs']['342'],16)==(1<<63)|1
+        if name == 'irq-nested-return':
+            assert [e['outcome'] for e in dut[1:]]==['interrupt','interrupt','retired','retired','retired']
+            assert dut[-1]['privilege']==0 and int(dut[-1]['gpr'][1],16)==1
+            assert dut[-1]['retired_total']==3
+        if name == 'irq-cancel-before-enabled':
+            assert dut[-1]['retired_total']==2 and int(dut[-1]['gpr'][1],16)==1
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -465,11 +522,11 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','21 trap/priv CSR','store','full RAM hash','retirement'],
-                 excluded=['misa capability identity','mcycle timing policy','counter writes','async devices',
+                 excluded=['misa capability identity','mcycle timing policy','counter writes','full platform devices',
                            '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39/PMP'])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')

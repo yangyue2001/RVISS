@@ -66,6 +66,10 @@ int main(int argc, char **argv) {
   initial.outcome = "initial"; initial.pc_before = s->pc; initial.privilege_before = s->prv;
   snapshot(p, initial); emit_snapshot(&initial, c.ram, c.size);
   for (uint64_t i = 0; i < c.steps; i++) {
+    for (unsigned j=0;j<c.irq_count;j++) if(c.irq[j].event==i+1) {
+      reg_t mask=reg_t(1)<<c.irq[j].bit;
+      s->mip->backdoor_write_with_mask(mask,c.irq[j].level?mask:0);
+    }
     DiffSnapshot r = {};
     r.seq = i + 1; r.pc_before = s->pc; r.privilege_before = s->prv;
     // 捕获 reference 自己取到的指令；若取指不全，仅记录实际 RAM 字节。
@@ -84,6 +88,13 @@ int main(int argc, char **argv) {
     p.step(1); // 该版本 trap 时返回，不继续执行 handler。
     r.retired = s->minstret->read() == before + 1;
     r.outcome = r.retired ? "retired" : "synchronous_trap";
+    if (!r.retired) {
+      reg_t cause=p.get_csr(s->prv==PRV_M?CSR_MCAUSE:CSR_SCAUSE,insn_t(0),false,true);
+      if (cause >> 63) {
+        r.outcome="interrupt";
+        r.raw=0; r.length=0; r.raw_bytes=0; r.valid=false;
+      }
+    }
     if (!s->log_mem_write.empty()) {
       if (s->log_mem_write.size() != 1) case_error("multiple stores not in contract");
       const auto &write = s->log_mem_write[0];

@@ -1,0 +1,59 @@
+{
+  "status": "verified",
+  "profiles": {
+    "minimal": {
+      "units": 11,
+      "checks": 15909,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "mac": {
+      "units": 11,
+      "checks": 16333,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t009-minimal check build/t009-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t009-mac check build/t009-mac/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t009-minimal/rviss_dut --suite i --csr --priv --irq --out build/t009-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t009-mac/rviss_dut --suite mac --csr --priv --irq --out build/t009-mac/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t009-ubsan/rviss_dut --suite mac --csr --priv --irq --out build/t009-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t009-ubsan build/t009-ubsan/test_intr.test build/t009-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t009-ubsan/test_intr.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "4420 interrupt checks + 2652 cases / 13405 events; no reports",
+  "first_semantic_failure": null,
+  "limitations": [
+    "Spike SEIP B/E distinction unavailable: no software writes under external SEIP high in common cases; DUT unit covers B|E/RMW independently",
+    "Bare-only; no PLIC/UART/Linux boot acceptance yet",
+    "Spike prefetch observer only used with pure Bare RAM in this stage; must re-evaluate before Sv39/MMIO profiles",
+    "Guest cycle timing not compared; counters next T010"
+  ]
+}

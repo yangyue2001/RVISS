@@ -1,6 +1,6 @@
 # T009：中断全局权限、委派与边界优先级
 
-状态：pending。依赖 T008 trap/xRET 检查点，属于持续 Linux/Spike 目标。
+状态：verified（2026-10-12）。依赖 T008 trap/xRET verified（27fcd99），属于持续 Linux/Spike 目标。
 
 固定 Priv-v1.12。边界上的 mie&mip：目标 M 在低于 M 或 MIE=1 时可响应；
 已委派给 S 的位在 M 被屏蔽，在 U 或 SIE=1 的 S 可响应。目标 M 的中断优先于 S，
@@ -21,3 +21,20 @@ T008 unit 已检验 RVISS 的 B|E/RMW。共同硬件 SEIP 用例要求 B=0、线
 设备或 PLIC 功能已通过。实际 virt 设备和完整 Linux 在后续任务。
 
 下一项 T010 guest counter/权限/mcountinhibit；随后 PMP/Sv39、F/D 与平台。
+
+
+## 实际验证
+
+中断 unit 4420 checks：全部位、目标、全局权限、单独使能、deleg、电平取消；
+纯中断不取指/访问数据、尝试/退休保持 0，事件/逻辑时间递增。旧预算/CLINT
+执行路径回归保留。MAC 差分 2652 cases / 13405 events，minimal 1606 / 3482；
+新增硬件电平、软件 pending、target priority、enable/ret 边界、取消、无映射
+fetch 抢先、U→S→M 中断后 MRET/SRET 返回、WFI 唤醒都匹配。
+两个 profile 各 11 unit，minimal 15909 / MAC 16333 checks，各 3 smoke 和 CLI/UI 14；
+UBSan intr 4420 + MAC 差分通过，无报告。重放及 3 种故意差异捕获通过。
+实际命令、身份、范围限制见 docs/validation/t009_checks.json 与差分摘要。
+
+无新增首语义差异。独立桥接使用 Spike 公开 MIP 输入接口，分类实际 trap cause，
+不复制中断选择算法。IRQ 前工具的取指仅限当前无副作用 Bare RAM profile；
+Sv39 前必须重新检查，不能借工具预取改变 A/D 位或设备读行为。
+提交后继续 T010 counter，再 PMP/Sv39 和 Linux 所需剩余功能。

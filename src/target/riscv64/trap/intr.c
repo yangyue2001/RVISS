@@ -54,7 +54,7 @@ IrqLine* cpu_irq_input(int mip_bit) {
 
 void riscv_intr_reset(void) { hw_pending = 0; }
 
-/* 中断优先级：M 模式高到低；S 模式在 M3（陷阱委派）之后生效 */
+/* 同一目标级的优先顺序；目标 M 必须整体优先于目标 S。 */
 static const int intr_priority[] = {
     IRQ_MEIP, IRQ_MSIP, IRQ_MTIP, IRQ_SEIP, IRQ_SSIP, IRQ_STIP,
 };
@@ -67,16 +67,16 @@ word_t riscv_query_intr(void) {
    */
   cpu_sync_irq_inputs();
 
-  if (!(cpu.mstatus & MSTATUS_MIE)) {
-    return 0;
-  }
-
   const word_t pending = cpu.mip & cpu.mie;
+  word_t eligible = 0;
+  if (cpu.priv < PRV_M || (cpu.priv == PRV_M && (cpu.mstatus & MSTATUS_MIE)))
+    eligible = pending & ~cpu.mideleg;
+  if (!eligible && (cpu.priv < PRV_S ||
+      (cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_SIE))))
+    eligible = pending & cpu.mideleg;
   for (size_t i = 0; i < ARRLEN(intr_priority); i++) {
     const int line = intr_priority[i];
-    if (pending & (1ull << line)) {
-      return IRQ_BIT | (word_t)line;
-    }
+    if (eligible & (1ull << line)) return IRQ_BIT | (word_t)line;
   }
   return 0;
 }

@@ -45,14 +45,20 @@ int main(int argc, char **argv) {
   snapshot(&initial);
   emit_snapshot(&initial, mem_host_ptr(c.base), c.size);
   for (uint64_t i = 0; i < c.steps; i++) {
+    for (unsigned j=0;j<c.irq_count;j++) if(c.irq[j].event==i+1) {
+      IrqLine *line=cpu_irq_input(c.irq[j].bit);
+      if(c.irq[j].level) irq_raise(line); else irq_lower(line);
+    }
     StepResult r;
     if (!engine_step(&r)) return 3;
-    if (r.outcome != STEP_RETIRED && r.outcome != STEP_SYNCHRONOUS_TRAP) return 3;
+    if (r.outcome != STEP_RETIRED && r.outcome != STEP_SYNCHRONOUS_TRAP &&
+        r.outcome != STEP_INTERRUPT) return 3;
     DiffSnapshot s = {.seq = i + 1, .pc_before = r.pc_before,
         .privilege_before = r.privilege_before, .raw = r.raw_instruction,
         .length = r.instruction_length, .raw_bytes = r.raw_bytes,
         .valid = r.instruction_valid, .retired = r.retired,
-        .outcome = r.retired ? "retired" : "synchronous_trap"};
+        .outcome = r.retired ? "retired" : r.outcome == STEP_INTERRUPT ?
+                    "interrupt" : "synchronous_trap"};
     if (r.memory.write_performed) {
       s.store = true; s.store_addr = r.memory.paddr; s.store_length = r.memory.length;
       s.store_data = r.memory.data;

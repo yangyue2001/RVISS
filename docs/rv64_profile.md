@@ -22,7 +22,7 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 | --- | --- | --- |
 | CPU | RV64，小端，hartid=0，单 hart，复位进入 M；GPR 清零作为确定性 reset 策略 | 已有；现有测试只覆盖部分状态 |
 | ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M/A/整数 C 通过 T005–T007；F/D 和 counter CSR 缺失；misa 固定 RV64/I/已实现 M/A、可切换已编译 C，S/U 等待完整特权项 |
-| 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | T008 CSR WARL/同步委派/xRET 权限已验证；异步 IRQ/counter 待 T009/T010 |
+| 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | T008 CSR WARL/同步委派/xRET 权限已验证；T009 中断规则已验证；counter 待 T010 |
 | 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | 当前只支持 Bare；Sv39/PMP 未实现 |
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | 占位 |
 | 指令对齐 | C 启用后 IALIGN=16；关闭 C 时 IALIGN=32 | T007 按 misa.C 动态处理 PC/跳转/取分支；混合取指、第二段 fault、增大 IALIGN 的 misa 写抑制已验证 |

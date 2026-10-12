@@ -34,6 +34,7 @@ UBSan 与三配置回归通过，提交 1710e50。T007 C verified：49152 编码
 差分通过（全部 50215 / 59406），三配置与 UBSan 通过；提交 fd23733。
 T008 CSR 检查点 verified：MAC/CSR 1741 / 11442、minimal/MAC 回归与 UBSan；
 CSR 提交 65847b2；同步委派/xRET 也 verified，MAC/CSR/priv 2195 / 12505，
-minimal/MAC 回归与 UBSan。下一项 T009 中断，然后 counter、PMP/Sv39。
+minimal/MAC 回归与 UBSan，提交 27fcd99。T009 中断 verified：2652 / 13405、
+minimal/MAC 回归与 UBSan，下一项 T010 counter，然后 PMP/Sv39。
 Git 写入受沙箱只读 .git 限制，已按工具权限
 流程授权。Linux 仍仅有 QEMU 工件验收，RVISS 尚未启动。

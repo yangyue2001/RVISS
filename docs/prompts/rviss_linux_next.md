@@ -14,7 +14,8 @@ UBSan 与三配置回归通过。T007 C verified：全部 49152 个 16 位编码
 差分通过，总计 50215 / 59406，三配置回归与 UBSan 通过。
 T008 CSR 检查点 verified：MAC/CSR 1741 / 11442、minimal/MAC 与 UBSan。
 T008 同步委派/xRET verified：MAC/CSR/priv 2195 / 12505、回归与 UBSan。
-当前执行 T009 中断（docs/plans/t009_interrupts.md），然后 T010 counter。
+T009 中断 verified：2652 / 13405、minimal/MAC 与 UBSan。
+当前执行 T010 counter（缺契约时先补），然后 PMP/Sv39。
 
 总路线：M → A → C → CSR/委派/xRET/counter → PMP/Sv39 → F/D →
 virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux PID 1/BusyBox/probe/重复 workload。
