@@ -33,11 +33,18 @@ def main():
              '-o', str(archive)], 'download')
     assert hashlib.sha256(archive.read_bytes()).hexdigest() == ARCHIVE_SHA256
     if not SOURCE.exists():
+        root = OUT.resolve()
         with tarfile.open(archive) as tar:
             for member in tar.getmembers():
-                target = (OUT / member.name).resolve()
-                if not target.is_relative_to(OUT.resolve()) or member.issym() or member.islnk():
+                target = OUT / member.name
+                if not target.resolve().is_relative_to(root):
                     raise RuntimeError('unsafe source archive member')
+                if member.issym() or member.islnk():
+                    # 固定归档含库内相对链接（spike_dasm → fesvr）；
+                    # 只拒绝解析后逃出输出目录的链接。
+                    base = target.parent if member.issym() else OUT
+                    if not (base / member.linkname).resolve().is_relative_to(root):
+                        raise RuntimeError('unsafe source archive link')
             tar.extractall(OUT)
     OBJ.mkdir(exist_ok=True)
     # 不生成大体积 debug 信息；首次人工构建的 -g 对象已 strip-debug 后归档。
