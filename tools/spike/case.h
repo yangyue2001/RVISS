@@ -12,12 +12,15 @@
 
 static const unsigned diff_csrs[] = {
   0x300, 0x302, 0x303, 0x304, 0x344, 0x305, 0x341, 0x342, 0x343, 0x340,
-  0x306, 0x105, 0x141, 0x142, 0x143, 0x140, 0x180, 0x106, 0x100, 0x104, 0x144, 0xb02, 0x320
+  0x306, 0x105, 0x141, 0x142, 0x143, 0x140, 0x180, 0x106, 0x100, 0x104, 0x144, 0xb02, 0x320, 0x3a0, 0x3a2,
+  0x3b0, 0x3b1, 0x3b2, 0x3b3, 0x3b4, 0x3b5, 0x3b6, 0x3b7,
+  0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be, 0x3bf
 };
 #define DIFF_CSR_COUNT (sizeof(diff_csrs) / sizeof(diff_csrs[0]))
 
 typedef struct {
   uint64_t base, size, pc, steps, priv;
+  unsigned pmp_regions;
   uint64_t gpr[32], csr[4096];
   bool csr_set[4096];
   struct {uint64_t event; unsigned bit; bool level;} irq[128];
@@ -28,6 +31,11 @@ typedef struct {
   char isa[128];
   uint8_t *ram;
 } DiffCase;
+
+/* 初始 PMP 地址先于 cfg，避免锁定位让共同地址输入被初始化写拒绝。 */
+static inline bool case_pmp_cfg(unsigned addr) {
+  return addr>=0x3a0 && addr<0x3b0 && !(addr&1);
+}
 
 static inline void case_error(const char *reason) {
   fprintf(stderr, "invalid diff case: %s\n", reason);
@@ -81,7 +89,10 @@ static inline DiffCase load_case(const char *path) {
     } else {
       if (fscanf(file, "%127s", value) != 1) case_error(key);
       uint64_t v = strtoull(value, NULL, 0);
-      if (!strcmp(key, "base")) c.base = v;
+      if (!strcmp(key, "pmp")) {
+        if(v!=0 && v!=16) case_error("pmp profile");
+        c.pmp_regions=v;
+      } else if (!strcmp(key, "base")) c.base = v;
       else if (!strcmp(key, "size")) {
         if (c.ram || !v || v > 65536) case_error("size");
         c.size = v;

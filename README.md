@@ -32,7 +32,8 @@ IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同
 [T009 中断](docs/plans/t009_interrupts.md) 已 verified：MAC/CSR/priv/IRQ
 2652 cases / 13405 events，minimal/MAC 回归与 UBSan。
 [T010 counter](docs/plans/t010_counters.md) verified：3249 / 15178，12 unit、
-CLINT 同源 time 与 UBSan。下一项 T011 PMP，再 Sv39、F/D 和 Linux。
+CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378 / 16606、三配置与 UBSan。
+下一项 T012 Sv39，再 F/D 和 Linux。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 
@@ -45,7 +46,7 @@ CLINT 同源 time 与 UBSan。下一项 T011 PMP，再 Sv39、F/D 和 Linux。
 | A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
 | C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，D 压缩访存等 D 任务 |
 | F/D | 尚无执行实现 | 待实现及独立差分 |
-| MMU / PMP | RV64 集中访问规则，仅 Bare；有效非 Bare 访问返回 host error；旧直接翻译入口仍 panic，PMP/TLB 为占位 | M 访问忽略 satp、MPRV 数据访问路径已测；Sv39/PMP 未实现 |
+| MMU / PMP | RV64 集中访问规则、Bare、16-entry PMP（OFF/TOR/NA4/NAPOT） | M 访问忽略 satp、MPRV 数据访问路径已测；PMP 已经真实路径/Spike 验证，Sv39 未实现 |
 | 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |

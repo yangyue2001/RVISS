@@ -7,6 +7,7 @@
 #include "csr.h"
 #include "encoding.h"
 #include "intr.h"
+#include "pmp.h"
 
 /* 地址/存储元信息来自唯一清单；有 WARL、别名或副作用的 CSR 显式处理。 */
 typedef struct {
@@ -19,14 +20,20 @@ typedef struct {
 #define CSR_ENTRY_VIEW(_n, _a, _f, _m) {_a, &cpu._f, _m},
 #define CSR_ENTRY_COMPUTED(_n, _a) {_a, NULL, CSR_MASK_ALL},
 #define CSR_ENTRY_HPM(_i) {CSR_MHPMCOUNTER3+_i-3, NULL, 0}, {CSR_MHPMEVENT3+_i-3, NULL, 0},
+#define CSR_ENTRY_PMP(_i) {CSR_PMPADDR0+_i,NULL,CSR_MASK_ALL},
+#define CSR_ENTRY_PMPCFG(_i) {CSR_PMPCFG0+_i,NULL,CSR_MASK_ALL},
 static CsrEntry csr_table[] = {RVISS_CSRS_OWNED(CSR_ENTRY_OWNED)
                              RVISS_CSRS_VIEW(CSR_ENTRY_VIEW)
                              RVISS_CSRS_COMPUTED(CSR_ENTRY_COMPUTED)
-                             RVISS_HPM_INDICES(CSR_ENTRY_HPM)};
+                             RVISS_HPM_INDICES(CSR_ENTRY_HPM)
+                             RVISS_PMP_INDICES(CSR_ENTRY_PMP)
+                             RVISS_PMPCFG_INDICES(CSR_ENTRY_PMPCFG)};
 #undef CSR_ENTRY_OWNED
 #undef CSR_ENTRY_VIEW
 #undef CSR_ENTRY_COMPUTED
 #undef CSR_ENTRY_HPM
+#undef CSR_ENTRY_PMP
+#undef CSR_ENTRY_PMPCFG
 
 static CsrEntry *csr_lookup(word_t addr) {
   for (size_t i = 0; i < ARRLEN(csr_table); i++) {
@@ -77,6 +84,7 @@ word_t riscv_misa_supported(void) {
 
 static bool csr_allowed(word_t addr, bool write) {
   if (!csr_lookup(addr) || cpu.priv < ((addr >> 8) & 3)) return false;
+  if (riscv_pmp_csr(addr) && !cpu.pmp_count) return false;
   if (write && ((addr >> 10) & 3) == 3) return false;
   if (addr >= CSR_CYCLE && addr <= CSR_INSTRET && cpu.priv < PRV_M) {
     word_t enable=1ull<<(addr-CSR_CYCLE);
@@ -91,6 +99,7 @@ static bool csr_allowed(word_t addr, bool write) {
 bool csr_peek(word_t addr, word_t *val) {
   CsrEntry *e = csr_lookup(addr);
   if (!e) return false;
+  if(riscv_pmp_csr(addr)) { *val=riscv_pmp_read(addr); return true; }
   switch (addr) {
     case CSR_TIME: *val = device_time(); break;
     case CSR_MCOUNTINHIBIT: *val = 0; break;
@@ -117,6 +126,7 @@ bool csr_read(word_t addr, word_t *val) {
 bool csr_write(word_t addr, word_t val) {
   if (!csr_allowed(addr, true)) return false;
   CsrEntry *e = csr_lookup(addr);
+  if(riscv_pmp_csr(addr)) { riscv_pmp_write(addr,val); return true; }
   switch (addr) {
     case CSR_MCOUNTINHIBIT: break;
     case CSR_MISA: {

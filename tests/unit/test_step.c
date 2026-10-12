@@ -9,12 +9,14 @@
 
 #include "../../src/engine/engine.h"
 #include "test.h"
+#include "pmp.h"
 
 #define BASE UINT64_C(0x80000000)
 #define HANDLER (BASE + 64)
 
 static void setup(uint32_t instruction) {
   cpu_reset(BASE);
+  riscv_pmp_set_regions(0); /* 本 fixture 固定 Bare、0 PMP entries */
   cpu.misa &= ~MISA_C; /* T003 的固定 I profile；C 行为另由 test_c 验证 */
   cpu.mtvec = HANDLER;
   cpu.gpr[5] = 0xdeadbeef;

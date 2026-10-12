@@ -4,6 +4,7 @@
 #include <util/state.h>
 #include "../../src/engine/engine.h"
 #include "csr.h"
+#include "pmp.h"
 #include "case.h"
 
 static word_t input_time(void *opaque) { return *(uint64_t *)opaque; }
@@ -29,6 +30,7 @@ int main(int argc, char **argv) {
   uint64_t clock=c.time_value;
   device_set_time_reader(input_time,&clock);
   cpu_reset(c.pc);
+  riscv_pmp_set_regions(c.pmp_regions);
   const char *isa_end = strchr(c.isa, '_');
   if (!isa_end) isa_end = c.isa + strlen(c.isa);
   bool requested_c = memchr(c.isa, 'c', isa_end - c.isa) != NULL;
@@ -40,7 +42,8 @@ int main(int argc, char **argv) {
   sim_reset();
   memcpy(mem_host_ptr(c.base), c.ram, c.size);
   memcpy(cpu.gpr, c.gpr, sizeof(c.gpr));
-  for (unsigned i = 0; i < 4096; i++) {
+  for(unsigned phase=0;phase<2;phase++) for (unsigned i = 0; i < 4096; i++) {
+    if (case_pmp_cfg(i)!=(phase==1)) continue;
     if (c.csr_set[i] && !csr_write(i, c.csr[i])) case_error("DUT initial CSR");
   }
   cpu.priv = c.priv;

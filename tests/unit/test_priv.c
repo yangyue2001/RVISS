@@ -6,6 +6,7 @@
 #include "../../src/engine/engine.h"
 #include "csr.h"
 #include "test.h"
+#include "pmp.h"
 
 #define BASE UINT64_C(0x80000000)
 #define MTVEC (BASE+128)
@@ -14,6 +15,7 @@
 
 static void setup(uint32_t raw) {
   cpu_reset(BASE);
+  riscv_pmp_set_regions(0); /* 本 fixture 固定 Bare、0 PMP entries */
   sim_reset();
   cpu.mtvec=MTVEC; cpu.stvec=STVEC;
   cpu.mepc=BASE+64; cpu.sepc=BASE+96;

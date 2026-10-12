@@ -57,7 +57,7 @@ def main():
     manifest = dict(commit=COMMIT, archive_sha256=ARCHIVE_SHA256,
                     upstream='https://github.com/riscv-software-src/riscv-isa-sim',
                     source_modified=False, boost=False, compiler='/usr/bin/g++',
-                    pmpregions=0, misaligned=False, isa='case input; initially rv64i_zicsr_zifencei',
+                    pmpregions='case input: 0 or 16', pmp_granularity=4, misaligned=False, isa='case input; initially rv64i_zicsr_zifencei',
                     fetch_observer='actual mmio_fetch bytes plus FETCH memtracer; no speculative prefetch',
                     priv='MSU', mmu='Bare', asid_bits=0, counters='mcycle event policy differs; retirement observed from actual commit log, independent guest minstret; mcountinhibit read-only zero',
                     bridge_sha256=hashlib.sha256((OUT / 'bridge').read_bytes()).hexdigest(),

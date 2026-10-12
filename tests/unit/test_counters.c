@@ -7,13 +7,15 @@
 #include "../../src/engine/engine.h"
 #include "csr.h"
 #include "test.h"
+#include "pmp.h"
 
 #define BASE UINT64_C(0x80000000)
 
 static word_t clock_read(void *opaque) { return *(word_t *)opaque; }
 
 static void setup(void) {
-  cpu_reset(BASE); sim_reset(); cpu.mtvec=BASE+384;
+  cpu_reset(BASE);
+  riscv_pmp_set_regions(0); /* 本 fixture 固定 Bare、0 PMP entries */ sim_reset(); cpu.mtvec=BASE+384;
   cpu.instret=17; cpu.cycle=23; cpu.gpr[5]=0xdeadbeef; cpu.gpr[6]=0;
 }
 
@@ -116,7 +118,8 @@ static void test_clint_time(void) {
   CHECK(paddr_write(0x0200bff8,8,200));
   CHECK(instruction(CSR_TIME,2,5,0).retired); CHECK_EQ(cpu.gpr[5],200);
   CHECK_EQ(sim.logical_ticks,131); CHECK_EQ(sim.instret,4);
-  cpu_reset(BASE); clint_reset(&clint); CHECK_EQ(device_time(),0);
+  cpu_reset(BASE);
+  riscv_pmp_set_regions(0); /* 本 fixture 固定 Bare、0 PMP entries */ clint_reset(&clint); CHECK_EQ(device_time(),0);
   bus_init(BASE,512); CHECK_EQ(device_time(),0); /* 清掉局部实例回调 */
 #endif
 }

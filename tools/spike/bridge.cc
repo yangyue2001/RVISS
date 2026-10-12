@@ -21,7 +21,7 @@ class RamBus : public simif_t {
     partial_bytes=0; fetched_raw=0; fetched_length=0; fetch_complete=false;
   }
   explicit RamBus(DiffCase &c) : input(c) {
-    config.isa = c.isa; config.priv = "MSU"; config.pmpregions = 0;
+    config.isa = c.isa; config.priv = "MSU"; config.pmpregions = c.pmp_regions;
     config.misaligned = false; config.trigger_count = 0;
     config.mem_layout.clear(); // 实际地址范围由下面 checked RAM callback 定义。
   }
@@ -104,7 +104,8 @@ int main(int argc, char **argv) {
   p.get_mmu()->register_memtracer(&fetch_observer);
   s->pc = c.pc;
   for (unsigned i = 0; i < 32; i++) s->XPR.write(i, c.gpr[i]);
-  for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) {
+  for(unsigned phase=0;phase<2;phase++) for (unsigned i = 0; i < 4096; i++) if (c.csr_set[i]) {
+    if (case_pmp_cfg(i)!=(phase==1)) continue;
     p.put_csr(i, c.csr[i]);
     // 该版本写 API 为即将发生的退休预减 1；初始化没有写指令，恢复共同输入。
     if (i==CSR_MINSTRET) s->minstret->bump(1);

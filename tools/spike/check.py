@@ -478,6 +478,71 @@ def counter_cases():
             'time 0 42\ntime 2 0x123456789abcdef0\ntime 3 0xffffffffffffffff\ntime 4 0\n'
 
 
+def pmp_cases():
+    isa='rv64imac_zicsr_zifencei_zicntr'
+    data=BASE+1024; addr_mask=(1<<54)-1
+    def csr(address,function=2,rd=5,rs1=0):
+        return (address<<20)|(rs1<<15)|(function<<12)|(rd<<7)|0x73
+    def make(words,steps=None,priv=3,regs=None,initial=None,status=0,pc=BASE,mem=(),fallback=True):
+        supplied=dict(initial or {})
+        initial={0x3a0:0,0x3a2:0,**{0x3b0+i:0 for i in range(16)}}
+        initial.update(supplied)
+        if fallback: initial.update({0x3bf:addr_mask,0x3a2:0x1f00000000000000})
+        registers={5:0xdeadbeef,6:data,7:1}; registers.update(regs or {})
+        text=case_text(words,len(words) if steps is None else steps,registers,priv=priv,pc=pc,isa=isa,
+                       extra_mem=[(data,8,0x1122334455667788)]+list(mem))
+        return text+f'pmp 16\ncsr 768 {0xa00000000|status:#x}\n'+ \
+            ''.join(f'csr {address} {value:#x}\n' for address,value in sorted(initial.items()))
+    for register in [0x3a0,0x3a2]:
+        for value in range(256):
+            repeated=sum(value<<(8*i) for i in range(8))
+            initial={0x3b0+i:(data+16*i)>>2 for i in range(16)}
+            yield f'pmp-cfg-warl-{register:x}-{value:x}',make([csr(register,1,5,6)],
+                regs={6:repeated},initial=initial,fallback=False)
+    for index in range(64):
+        for value in [0,1,addr_mask,(1<<64)-1]:
+            yield f'pmp-addr-warl-{index}-{value:x}',make(
+                [csr(0x3b0+index,1,5,6),csr(0x3b0+index,2,7)],regs={6:value},fallback=False)
+    for address in list(range(0x3a0,0x3b0))+[0x3b0,0x3bf,0x3c0,0x3ef]:
+        for priv in [0,1,3]:
+            yield f'pmp-csr-permission-{address:x}-{priv}',make([csr(address)],priv=priv)
+    for locked in [0x80,0x89,0x90,0x9f]:
+        words=[csr(0x3b0,1,5,6),csr(0x3a0,1,5,8),csr(0x3b0,1,5,7),
+               csr(0x3a0,1,5,9),csr(0x3b0,2,10)]
+        start=BASE+2048 if locked==0x89 else BASE
+        yield f'pmp-lock-{locked:x}',make([],steps=len(words),pc=start,
+            mem=[(start+4*i,4,word) for i,word in enumerate(words)],
+            regs={6:data>>2,7:(data+64)>>2,8:locked,9:0})
+    yield 'pmp-next-tor-lock',make([csr(0x3b0,1,5,6),csr(0x3b1,1,5,6),csr(0x3b0,2,7),csr(0x3b1,2,8)],
+              regs={6:0},initial={0x3b0:data>>2,0x3b1:(data+16)>>2,0x3a0:0x8900})
+    ops=[('load',0x00033283),('store',0x00733023),('lr',0x100332af),('amo',0x007332af)]
+    for priv in [0,1,3]:
+        for lock in [0,0x80]:
+            for permission in range(8):
+                initial={0x3b0:(data>>2)|1,0x3a0:0x18|lock|permission}
+                for name,raw in ops:
+                    yield f'pmp-access-{priv}-{lock}-{permission}-{name}',make([raw],priv=priv,initial=initial)
+                if permission&1:
+                    yield f'pmp-sc-{priv}-{lock}-{permission}',make([0x100332af,0x187332af],
+                            priv=priv,initial=initial)
+    for mode,initial in [('off',{0x3a0:0}),('na4',{0x3b0:(data+4)>>2,0x3a0:0x17}),
+            ('tor',{0x3b0:data>>2,0x3b1:(data+16)>>2,0x3a0:0xf00}),
+            ('tor-empty',{0x3b0:data>>2,0x3b1:data>>2,0x3a0:0xf00}),
+            ('tor-reversed',{0x3b0:data>>2,0x3b1:(data-4)>>2,0x3a0:0xf00}),
+            ('napot-all',{0x3b0:addr_mask,0x3a0:0x1f})]:
+        for priv in [0,1,3]:
+            for name,raw in ops:
+                yield f'pmp-mode-{mode}-{priv}-{name}',make([raw],priv=priv,initial=initial)
+    for previous in [0,1,3]:
+        yield f'pmp-mprv-{previous}',make([0x00033283],status=0x20000|(previous<<11),
+                    initial={0x3b0:data>>2,0x3a0:0x10})
+    for priv in [0,1,3]:
+        yield f'pmp-reset-off-fetch-{priv}',make([0x13],priv=priv,fallback=False)
+    yield 'pmp-locked-fetch-denied',make([0x13],initial={0x3b0:BASE>>2,0x3a0:0x91})
+    yield 'pmp-fetch-second-half-denied',make([],steps=1,priv=1,pc=BASE+2,
+            initial={0x3b0:(BASE+4)>>2,0x3a0:0x11},mem=[(BASE+2,4,0x00100013)])
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -501,6 +566,7 @@ def main():
     parser.add_argument('--priv',action='store_true')
     parser.add_argument('--irq',action='store_true')
     parser.add_argument('--counters',action='store_true')
+    parser.add_argument('--pmp',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -514,6 +580,7 @@ def main():
     if args.priv: suite += list(priv_cases('c' in args.suite))
     if args.irq: suite += list(irq_cases())
     if args.counters: suite += list(counter_cases())
+    if args.pmp: suite += list(pmp_cases())
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -553,6 +620,15 @@ def main():
             assert dut[-1]['retired_total']==500 and int(dut[-1]['csrs']['b02'],16)==1
         if name == 'counter-time-input':
             assert [int(dut[-1]['gpr'][i],16) for i in [5,6,7,8]]==[42,0x123456789abcdef0,(1<<64)-1,0]
+        if name.startswith('pmp-lock-'):
+            assert all(e['retired'] for e in dut[1:]),name
+            assert int(dut[-1]['csrs']['3b0'],16)==(BASE+1024)>>2,name
+        if name == 'pmp-next-tor-lock':
+            assert all(e['retired'] for e in dut[1:])
+            assert [int(dut[-1]['gpr'][i],16) for i in [7,8]]==[(BASE+1024)>>2,(BASE+1040)>>2]
+        if name == 'pmp-fetch-second-half-denied':
+            assert dut[1]['raw_bytes']==2 and dut[1]['length']==4 and not dut[1]['valid']
+            assert int(dut[1]['csrs']['343'],16)==BASE+4
         # 新进程重复执行，比较完整初始状态和全部事件，不能复用缓存状态。
         again,_=execute(args.dut,path); ref_again,_=execute(args.ref,path)
         assert again==dut and ref_again==ref
@@ -571,12 +647,12 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,priv_rules=args.priv,irq_rules=args.irq,counter_rules=args.counters,pmp_rules=args.pmp,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
-                 compared=['PC/raw/length/priv','full GPR','23 trap/priv CSR','store','full RAM hash','retirement'],
+                 compared=['PC/raw/length/priv','full GPR','41 trap/priv/counter/PMP CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','cycle values across trap/IRQ (different permitted timing policies)','full platform devices',
-                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39/PMP'])
+                           '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39' + ('' if args.pmp else '/PMP')])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
 

@@ -10,6 +10,7 @@
 #include "csr.h"  /* target 私有头：MSTATUS_* 位（测试允许看内部） */
 #include "intr.h" /* target 私有头：riscv_query_intr / riscv_intr_reset */
 #include "test.h"
+#include "pmp.h"
 
 /*
  * 中断输入线单元测试。
@@ -31,7 +32,7 @@ static void test_privilege_matrix(void) {
   for(unsigned p=0;p<3;p++) for(unsigned i=0;i<6;i++)
   for(unsigned delegated=0;delegated<2;delegated++) for(unsigned ie=0;ie<4;ie++)
   for(unsigned enabled=0;enabled<2;enabled++) {
-    cpu_reset(BASE); sim_reset(); cpu.mtvec=BASE+64; cpu.stvec=BASE+128;
+    cpu_reset(BASE); riscv_pmp_set_regions(0); sim_reset(); cpu.mtvec=BASE+64; cpu.stvec=BASE+128;
     cpu.priv=levels[p]; cpu.mstatus|=((ie&1)?MSTATUS_MIE:0)|((ie&2)?MSTATUS_SIE:0);
     cpu.mideleg=delegated?(SIE_MASK&(1ull<<bits[i])):0;
     cpu.mie=enabled?(1ull<<bits[i]):0;

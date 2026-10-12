@@ -1,0 +1,99 @@
+{
+  "status": "verified",
+  "profiles": {
+    "pmp": {
+      "units": 13,
+      "checks": 19089,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "mac": {
+      "units": 13,
+      "checks": 17581,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "minimal": {
+      "units": 13,
+      "checks": 17157,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "spike": {
+    "pmp": {
+      "cases": 4378,
+      "events": 16606,
+      "report": "docs/validation/t011_pmp_spike.json"
+    },
+    "mac": {
+      "cases": 3249,
+      "events": 15178,
+      "report": "docs/validation/t011_mac_spike.json"
+    },
+    "minimal": {
+      "cases": 2203,
+      "events": 5255,
+      "report": "docs/validation/t011_minimal_spike.json"
+    },
+    "ubsan": {
+      "cases": 4378,
+      "events": 16606,
+      "report": "docs/validation/t011_ubsan_spike.json"
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t011-pmp check build/t011-pmp/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t011-mac check build/t011-mac/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t011-minimal check build/t011-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t011-pmp/rviss_dut --suite mac --csr --priv --irq --counters --pmp --out build/t011-pmp/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t011-mac/rviss_dut --suite mac --csr --priv --irq --counters --out build/t011-mac/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t011-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t011-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t011-ubsan/rviss_dut --suite mac --csr --priv --irq --counters --pmp --out build/t011-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t011-ubsan build/t011-ubsan/test_pmp.test build/t011-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t011-ubsan/test_pmp.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "1518 PMP checks and 4378 cases / 16606 events, no diagnostics",
+  "first_difference": "docs/validation/t011_first_failure.json",
+  "tool_run_failure": {
+    "command": "python3 tools/spike/check.py --dut build/t011-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t011-minimal/difftest",
+    "exit_code": 1,
+    "reason": "reference bridge relink raced process start; PermissionError; same command rerun after completed link passed"
+  },
+  "limits": [
+    "PTE implicit access permissions deferred T012",
+    "Sv39/F/D/full virt devices/RVISS Linux not implemented",
+    "Native checkpoint layout changed; old ABI not claimed"
+  ]
+}
