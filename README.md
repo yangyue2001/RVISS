@@ -22,7 +22,10 @@ Spike da2f415bb62bec3e93b33b379d787b4262aade9f，29 cases / 343 events
 比较完整 GPR、PC、trap/priv CSR、退休和 RAM；3 种故意差异均捕获，重复执行一致。
 [T005 M 扩展](docs/plans/t005_m_extension.md) 已 verified：13 指令、配置关闭时非法，
 minimal/M 各 8 unit（2394/2202 checks）、3 smoke、CLI/UI 14 checks 通过；
-I/M Spike 346 cases / 4359 events 及 UBSan 通过。下一项为 T006 A。
+I/M Spike 346 cases / 4359 events 及 UBSan 通过。
+[T006 A 扩展](docs/plans/t006_a_extension.md) 已 verified：22 指令、LRSC、AMO 与
+精确故障；I/M/A Spike 982 cases / 9172 events、UBSan、三配置回归通过。
+下一项为 T007 C。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 
@@ -32,11 +35,12 @@ I/M Spike 346 cases / 4359 events 及 UBSan 通过。下一项为 T006 A。
 | Zicsr / 特权 | 基础 CSR 访问表、权限/只读检查、部分 S 视图；trap 一律进 M，mret/sret 存在，WFI 为 NOP | CSR 29 checks；委派、WARL、counter 权限与 xRET 规则待完善 |
 | 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；完整特权/GC 尚待扩展 |
 | M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa WARL 待特权任务 |
-| A/C/F/D | 无相应执行实现；16 位编码译码失败，misa 复位为 0 | 待实现及独立差分 |
+| A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
+| C/F/D | 无相应执行实现；16 位编码译码失败，misa 复位为 0 | 待实现及独立差分 |
 | MMU / PMP | RV64 集中访问规则，仅 Bare；有效非 Bare 访问返回 host error；旧直接翻译入口仍 panic，PMP/TLB 为占位 | M 访问忽略 satp、MPRV 数据访问路径已测；Sv39/PMP 未实现 |
 | 设备 | UART 输出；CLINT 每 128 个平台逻辑 tick 推进 mtime；PLIC pending/claim 恒为 0 | UART、MTIP、中断独立事件及时间不受 guest counter 写入影响已测；UART 输入/PLIC/设备合法宽度待实现 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
-| checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | 新 cycle 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
+| checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
 | difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | T004 只验收 I/RAM/同步异常；NEMU/RTL ABI 和 rviss_create 未验收 |
 | Linux 工件 | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | [T002](docs/plans/t002_linux_artifacts.md) 的 QEMU 验收已通过；RVISS 尚未启动 Linux |
 

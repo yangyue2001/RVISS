@@ -21,12 +21,12 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 | 参数 | 固定目标 | T003 后当前源码 |
 | --- | --- | --- |
 | CPU | RV64，小端，hartid=0，单 hart，复位进入 M；GPR 清零作为确定性 reset 策略 | 已有；现有测试只覆盖部分状态 |
-| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M 13 指令已通过 T005；A/F/D/C 和 counter CSR 缺失；misa=0，完整能力 WARL 待特权项 |
+| ISA | I/M/A/F/D/C + Zicsr/Zifencei，另提供 Zicntr | I/CSR 部分实现，M 13 指令与 A 22 指令通过 T005/T006；F/D/C 和 counter CSR 缺失；misa=0，完整能力 WARL 待特权项 |
 | 特权 | M/S/U；无 H、V、Sstc、AIA、Sv48、Zihpm | M trap 骨架；委派/权限未完整 |
 | 地址空间 | Bare/Sv39，ASIDLEN=0，物理地址宽度 56 位；硬件更新 PTE A/D | 当前只支持 Bare；Sv39/PMP 未实现 |
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | 占位 |
 | 指令对齐 | C 启用后 IALIGN=16；C 实现前 IALIGN=32 | PC/JAL/JALR/取分支检查 IALIGN=32；16 位分段取指，第二段 fault 精确保留 epc/tval；C 未实现 |
-| 数据对齐 | RAM 的非自然对齐 load/store/LR/SC/AMO 抛 misaligned；在翻译前检查 | I load/store 在翻译前拒绝非自然对齐，含 MMIO；LR/SC/AMO 未实现 |
+| 数据对齐 | RAM 的非自然对齐 load/store/LR/SC/AMO 抛 misaligned；在翻译前检查 | I 与 A 全宽检查已验证，原子只允许 RAM；LR 为 load fault，SC/AMO 为 store fault |
 | MMIO | 只接受设备声明的 offset/宽度，未映射产生 access fault；不支持 AMO | 全访问区间及 callback 存在性已检查；未映射显式 fault，设备内部 offset/宽度规则仍未完成 |
 | 平台 | 固定 Linux virt，RAM 256 MiB；地址、IRQ 和 DTB 见 linux_boot_baseline.md | minimal 默认 RAM 128 MiB，基本地址相同，设备功能与 finisher 不完整 |
 

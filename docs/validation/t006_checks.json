@@ -1,0 +1,70 @@
+{
+  "status": "verified",
+  "minimal": {
+    "units": 9,
+    "checks": 6619,
+    "smokes": 3,
+    "cli_checks": 14,
+    "difftest_cases": 29,
+    "events": 343
+  },
+  "ma": {
+    "units": 9,
+    "checks": 6742,
+    "smokes": 3,
+    "cli_checks": 14,
+    "difftest_cases": 982,
+    "events": 9172
+  },
+  "a_only": {
+    "units": 9,
+    "checks": 6934,
+    "smokes": 3,
+    "cli_checks": 14,
+    "difftest_cases": 665,
+    "events": 5156
+  },
+  "ubsan": "test_a 4540 checks and I/M/A 982 cases / 9172 events passed, no report",
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc check check-diff (minimal)",
+      "exit_code": 0,
+      "log": "build/spike/t006-minimal-final.log"
+    },
+    {
+      "command": "make CC=/usr/bin/gcc ma_defconfig; make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t006-ma check",
+      "exit_code": 0,
+      "log": "build/spike/t006-ma-check-final.log"
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t006-ma check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t006-ma-diff-final.log"
+    },
+    {
+      "command": "make CC=/usr/bin/gcc a_defconfig; make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t006-a check check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t006-a-only-check.log"
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t006-ubsan build/t006-ubsan/test_a.test check-diff",
+      "exit_code": 0,
+      "log": "build/spike/t006-ubsan-diff.log"
+    },
+    {
+      "command": "build/t006-ubsan/test_a.test",
+      "exit_code": 0,
+      "log": "build/spike/t006-ubsan-run-final.log"
+    }
+  ],
+  "first_failures": [
+    "CONFIG_RV_A disabled test constants unused under Werror (build/spike/t006-minimal-check.log)",
+    "AMO test output rd=x10 overwrote its own address-base input (docs/validation/t006_first_generator_failure.json)"
+  ],
+  "sha256": {
+    "build/t006-ma/rviss_dut": "cd1fd00a2ee1679f91ce248b9a3f73fa85825c7538863344c630afa4195b258d",
+    "build/t006-a/rviss_dut": "e110cbde4d1c318c165f95791b30dbf08b0637af3da0054c880e9c707d45330f",
+    "build/t006-ubsan/rviss_dut": "f4deecf344dba877c8b5d4d0c3b1c0b45c672da6bc4e58eda41ab7f3bcfabaf1",
+    "configs/ma_defconfig": "c4ba76947c23bc7240a36adfa76f37ec6b3c61048263b4772780812db97a2998"
+  }
+}

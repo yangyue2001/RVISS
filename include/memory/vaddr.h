@@ -24,6 +24,7 @@ typedef struct {
   vaddr_t vaddr;
   paddr_t paddr;
   bool paddr_valid, mmio;
+  bool write_performed; /* SC 失败虽完成权限检查，却没有实际 store */
   word_t data;
   MemStatus status;
   word_t cause;
@@ -35,6 +36,8 @@ MemAccess vaddr_read(vaddr_t addr, int len);
 MemAccess vaddr_write(vaddr_t addr, int len, word_t data);
 
 MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data);
+/* target 原子路径使用：只检查/翻译，不读数据或写 RAM/MMIO。 */
+MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only);
 
 /* ---- 以下由 target/riscv64/mmu/ 实现 ---- */
 paddr_t isa_mmu_translate(vaddr_t addr, int len, int type);

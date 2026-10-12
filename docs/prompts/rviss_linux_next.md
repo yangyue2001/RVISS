@@ -9,7 +9,8 @@ origin=git@github.com:yangyue2001/RVISS.git。局部 verified 不等于总目标
 3 smoke、CLI/UI 14 checks；T004 固定官方 Spike 29 cases / 343 events、重复
 reset 执行和 3 种故意差异捕获通过。T002 仅是固定 Linux 工件的 QEMU 验收，
 RVISS 还未启动 Linux。T005 M verified：13 指令、I/M Spike 346 cases / 4359 events、
-UBSan、minimal/M 回归通过。当前下一项 T006 A（docs/plans/t006_a_extension.md）。
+UBSan、minimal/M 回归通过。T006 A verified：22 指令、I/M/A Spike 982 / 9172、
+UBSan 与三配置回归通过。当前下一项 T007 C（docs/plans/t007_c_extension.md）。
 
 总路线：M → A → C → CSR/委派/xRET/counter → PMP/Sv39 → F/D →
 virt/UART/PLIC/CLINT/finisher → 固定 OpenSBI/Linux PID 1/BusyBox/probe/重复 workload。

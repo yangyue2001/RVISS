@@ -95,7 +95,7 @@ $(BUILD_DIR)/rviss_dut: tools/spike/dut.c tools/spike/case.h $(CORE_OBJS) | $(FI
 -include $(BUILD_DIR)/rviss_dut.d
 
 check-diff: $(BUILD_DIR)/rviss_dut
-	@python3 tools/spike/check.py --dut $(BUILD_DIR)/rviss_dut $(if $(CONFIG_RV_M),--suite m,)
+	@python3 tools/spike/check.py --dut $(BUILD_DIR)/rviss_dut $(if $(CONFIG_RV_A),--suite $(if $(CONFIG_RV_M),ma,a),$(if $(CONFIG_RV_M),--suite m,))
 
 .PHONY: check-diff
 

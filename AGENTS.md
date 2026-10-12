@@ -71,6 +71,7 @@ RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
 [T004](docs/plans/t004_spike_minimal.md) 已 verified：固定 Spike 29 cases / 343 events
 逐事件差分、3 种差异注入和原有回归通过。[T005](docs/plans/t005_m_extension.md)
 M 13 条指令已 verified，I/M Spike 346 cases / 4359 events、UBSan 和双配置回归通过。
-当前下一项为 T006 A 扩展；
+[T006](docs/plans/t006_a_extension.md) A 22 条指令已 verified：I/M/A Spike
+982 cases / 9172 events、UBSan、minimal/MA/A-only 回归通过。当前下一项 T007 C；
 后续 agent 应重确认状态，完成局部任务后继续总目标。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

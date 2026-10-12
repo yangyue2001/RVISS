@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
         .length = r.instruction_length, .raw_bytes = r.raw_bytes,
         .valid = r.instruction_valid, .retired = r.retired,
         .outcome = r.retired ? "retired" : "synchronous_trap"};
-    if (r.memory.valid && r.memory.status == MEM_OK && r.memory.type == MEM_TYPE_WRITE) {
+    if (r.memory.write_performed) {
       s.store = true; s.store_addr = r.memory.paddr; s.store_length = r.memory.length;
       s.store_data = r.memory.data;
     }

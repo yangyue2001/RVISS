@@ -14,9 +14,9 @@ static uint8_t effective_privilege(int type) {
   return cpu.priv;
 }
 
-MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data) {
+MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only) {
   MemAccess a = {.valid = true, .type = type, .length = len,
-                 .vaddr = addr, .data = data};
+                 .vaddr = addr};
   if ((len != 1 && len != 2 && len != 4 && len != 8) ||
       type < MEM_TYPE_IFETCH || type > MEM_TYPE_WRITE) {
     a.status = MEM_HOST_ERROR; /* 非法宿主调用，不能制造客户机异常 */
@@ -43,19 +43,32 @@ MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data) {
 
   a.paddr = addr; /* Bare */
   a.paddr_valid = true;
+  if (addr >= (UINT64_C(1) << 56) ||
+      (paddr_t)len > (UINT64_C(1) << 56) - addr ||
+      (ram_only && !mem_in_ram(a.paddr, len))) {
+    a.status = MEM_FAULT;
+    a.cause = access_cause;
+    a.tval = addr;
+  }
+  return a;
+}
+
+MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data) {
+  MemAccess a = isa_mem_prepare(addr, len, type, false);
+  if (a.status != MEM_OK) return a;
+  a.data = data;
   bool ok = false;
-  if (addr < (UINT64_C(1) << 56) &&
-      (paddr_t)len <= (UINT64_C(1) << 56) - addr) {
-    if (type == MEM_TYPE_WRITE) {
-      a.data &= UINT64_MAX >> (64 - len * 8);
-      ok = paddr_try_write(a.paddr, len, a.data, &a.mmio);
-    } else {
-      ok = paddr_try_read(a.paddr, len, &a.data, &a.mmio);
-    }
+  if (type == MEM_TYPE_WRITE) {
+    a.data &= UINT64_MAX >> (64 - len * 8);
+    ok = paddr_try_write(a.paddr, len, a.data, &a.mmio);
+    a.write_performed = ok;
+  } else {
+    ok = paddr_try_read(a.paddr, len, &a.data, &a.mmio);
   }
   if (!ok) {
     a.status = MEM_FAULT;
-    a.cause = access_cause;
+    a.cause = type == MEM_TYPE_IFETCH ? EX_IAF :
+              type == MEM_TYPE_READ ? EX_LAF : EX_SAF;
     a.tval = addr;
   }
   return a;

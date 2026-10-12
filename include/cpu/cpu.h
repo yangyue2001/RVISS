@@ -32,6 +32,10 @@ typedef struct {
   uint8_t  priv;    /* 当前特权级 */
   uint64_t instret; /* 客户机退休计数；当前尚未接入 counter CSR */
   uint64_t cycle;   /* 客户机逻辑周期；不驱动平台时间/预算 */
+  /* 单 hart LR/SC；与 CSR/累计计数分开，reset 使 reservation 失效。 */
+  paddr_t reservation_addr;
+  uint8_t reservation_length;
+  bool reservation_valid;
 } CPU_state;
 
 extern CPU_state cpu;

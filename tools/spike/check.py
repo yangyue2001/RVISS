@@ -201,6 +201,64 @@ def m_cases():
     yield 'm-seeded', case_text(words,1000,{i:rng.getrandbits(64) for i in range(1,32)},isa=isa)
 
 
+def a_cases():
+    isa='rv64ima_zicsr_zifencei'
+    def encode(op, length=8, rd=5, order=0, rs1=6, rs2=7):
+        return (op << 27) | (order << 25) | ((0 if op == 2 else rs2) << 20) | \
+               (rs1 << 15) | ((2 if length == 4 else 3) << 12) | (rd << 7) | 0x2f
+    ops=[0,1,4,8,12,16,20,24,28]
+    values=[0,1,2,(1<<64)-1,1<<63,(1<<63)-1,0x80000000,0x7fffffff,
+            0xffffffff80000000,0x1234567880000003]
+    for length in [4,8]:
+        for i,a in enumerate(values):
+            for j,b in enumerate(values):
+                words=[]; memory=[]
+                for n,op in enumerate(ops):
+                    # 每个 AMO 获得独立已初始化 word；addi 设置相应地址。
+                    words.extend([((16*n) << 20) | (31 << 15) | (6 << 7) | 0x13,
+                                  encode(op,length,8+n,(i+j+n)%4)])
+                    memory.append((BASE+1024+16*n,length,a & ((1<<(8*length))-1)))
+                yield f'a-boundary-{length}-{i}-{j}',case_text(words,len(words),
+                       {7:b,31:BASE+1024},extra_mem=memory,isa=isa)
+        for op in ops:
+            for order in range(4):
+                for rd in [0,5,6,7]:
+                    yield f'a-alias-{length}-{op}-{order}-{rd}',case_text(
+                          [encode(op,length,rd,order)],1,{6:BASE+1024,7:(1<<64)-1},
+                          extra_mem=[(BASE+1024,length,0x80000003)],isa=isa)
+        for order in range(4):
+            initial={6:BASE+1024,7:0x1234567887654321}
+            memory=[(BASE+1024,8,0x8000000000000003),(BASE+1032,8,99)]
+            sequences={
+                'lr-sc':[encode(2,length,5,order),encode(3,length,5,order),encode(3,length,5)],
+                'lr-zero-sc':[encode(2,length,0,order),encode(3,length,7,order)],
+                'lr-rd-address':[encode(2,length,6,order),encode(3,length,5,order,rs1=10)],
+                'sc-alone':[encode(3,length,5,order)],
+                'different-address':[encode(2,length),0x00830313,encode(3,length)],
+                'lr-replaced':[encode(2,length),0x00830313,encode(2,length),
+                               0xff830313,encode(3,length)],
+                'own-store':[encode(2,length),0x00732023 if length==4 else 0x00733023,
+                             encode(3,length)],
+            }
+            for name,words in sequences.items():
+                yield f'a-{name}-{length}-{order}',case_text(words,len(words),
+                      initial | {10:BASE+1024},extra_mem=memory,isa=isa)
+        for op in ops+[2,3]:
+            for name,addr in [('misaligned',BASE+1025),('unmapped',0x40000000),
+                              ('boundary',BASE+4096),('mmio',0x10000000)]:
+                yield f'a-fault-{length}-{op}-{name}',case_text([encode(op,length)],3,
+                       {5:0xdeadbeef,6:addr,7:0x1234},isa=isa)
+    for name,word in [('lr-rs2',encode(2,4)|(7<<20)),('unknown',encode(5)),
+                      ('bad-width',(encode(0)&~0x7000)|0x1000)]:
+        yield 'a-illegal-'+name,case_text([word],3,isa=isa)
+    rng=random.Random(0x41524956)
+    destinations=[i for i in range(32) if i!=6]
+    words=[encode(rng.choice(ops),rng.choice([4,8]),rng.choice(destinations),rng.randrange(4),
+                  rs2=rng.randrange(32)) for _ in range(500)]
+    regs={i:rng.getrandbits(64) for i in range(1,32)};regs[6]=BASE+3072
+    yield 'a-seeded',case_text(words,500,regs,extra_mem=[(BASE+3072,8,0x8000000080000000)],isa=isa)
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -217,12 +275,13 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--dut',type=Path,default=ROOT/'build/rviss_dut')
     parser.add_argument('--ref',type=Path,default=ROOT/'build/spike/bridge')
-    parser.add_argument('--suite',choices=['i','m'],default='i')
+    parser.add_argument('--suite',choices=['i','m','a','ma'],default='i')
     args=parser.parse_args()
     args.dut=args.dut.resolve(); args.ref=args.ref.resolve()
     OUT.mkdir(parents=True,exist_ok=True)
     records=[]; event_count=0; started=time.monotonic()
-    suite = list(cases()) + (list(m_cases()) if args.suite == 'm' else [])
+    suite = list(cases()) + (list(m_cases()) if args.suite in ['m','ma'] else [])
+    if args.suite in ['a','ma']: suite += list(a_cases())
     for name,text in suite:
         path=OUT/(name+'.case');path.write_text(text)
         dut,dc=execute(args.dut,path); ref,rc=execute(args.ref,path)
@@ -230,7 +289,7 @@ def main():
         if difference:
             packet=save_failure(name,path,dut,ref,difference,[dc,rc])
             raise AssertionError(f'{name}: first event {difference}; {packet}')
-        if name in ['seeded-integer', 'm-seeded']:
+        if name in ['seeded-integer', 'm-seeded', 'a-seeded'] or name.startswith('a-boundary-'):
             # 程序的 200 条 R/W 指令必须全部顺序执行，然后到达唯一的尾部循环。
             assert all(int(event['pc_before'], 16) == BASE + 4*i
                        and event['retired'] for i, event in enumerate(dut[1:])), name
@@ -256,7 +315,8 @@ def main():
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
                  compared=['PC/raw/length/priv','full GPR','18 trap/priv CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','counter writes','async devices',
-                           'A/C/F/D/Sv39/PMP' if args.suite == 'm' else 'GC/Sv39/PMP'])
+                           {'i':'GC/Sv39/PMP','m':'A/C/F/D/Sv39/PMP',
+                            'a':'M/C/F/D/Sv39/PMP','ma':'C/F/D/Sv39/PMP'}[args.suite]])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     print(f'Spike difftest: {len(records)} cases / {event_count} events passed; 3 injected differences captured.')
 
