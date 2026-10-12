@@ -1,0 +1,7 @@
+{
+  "status": "verified",
+  "normalized_output_equal": true,
+  "excluded_output": "host wall-clock performance summary only",
+  "normalized_sha256": "ed32d1419922d3f5276f0f7909ec51490ddebee02251c1adce0bef2ecd510331",
+  "input_sha256": "d15b44589c26b16e003758af667578f7e9352840ce8df1a326e6eea1eae06efe"
+}

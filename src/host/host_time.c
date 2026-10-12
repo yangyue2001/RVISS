@@ -3,6 +3,9 @@
 #include <util/log.h>
 
 #include <stdio.h>
+#include <poll.h>
+#include <unistd.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/time.h>
 
@@ -58,4 +61,14 @@ bool host_read_file(const char *path, void **buf, size_t *size) {
   *buf = p;
   *size = (size_t)sz;
   return true;
+}
+
+int host_stdin_read(uint8_t *bytes, unsigned capacity) {
+  if (!capacity) return 0;
+  struct pollfd fd = {.fd=STDIN_FILENO, .events=POLLIN};
+  int ready = poll(&fd, 1, 0);
+  if (ready < 0) return errno == EINTR ? 0 : -1;
+  if (!ready || !(fd.revents & (POLLIN | POLLHUP))) return 0;
+  ssize_t n = read(STDIN_FILENO, bytes, capacity);
+  return n < 0 ? ((errno == EINTR || errno == EAGAIN) ? 0 : -1) : (int)n;
 }

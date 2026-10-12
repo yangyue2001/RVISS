@@ -34,7 +34,7 @@ IALIGN 与 misa.C。全部 49152 个 16 位编码与 Spike 比较通过；连同
 [T010 counter](docs/plans/t010_counters.md) verified：3249 / 15178，12 unit、
 CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378 / 16606、三配置与 UBSan。
 [T012 Sv39](docs/plans/t012_sv39.md) verified：5267 / 17554、三配置与 UBSan。
-[T013 F/D](docs/plans/t013_fp.md) verified：GC 17141 / 83079、F-only 7558 / 47058，三配置与 UBSan。下一项设备与 Linux。
+[T013 F/D](docs/plans/t013_fp.md) verified：GC 17141 / 83079、F-only 7558 / 47058，三配置与 UBSan。[T014设备](docs/plans/t014_devices.md) verified，固定Linux已进入PID1、BusyBox，真实UART完成1轮并正常关机与整机重放；下一项100/1000验收。
 用户授权的 [Linux/Spike 总目标](docs/plans/linux_spike_goal.md)
 仍在执行，每个验证阶段提交 Git 后继续。
 

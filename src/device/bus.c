@@ -33,6 +33,8 @@ static struct {
   void *opaque;
 } tick_handlers[MAX_TICK_HANDLERS];
 static int nr_tick_handlers;
+static struct { DeviceDeadlineFn fn; void *opaque; } deadline_handlers[MAX_TICK_HANDLERS];
+static int nr_deadline_handlers;
 static word_t (*time_reader)(void *);
 static void *time_opaque;
 
@@ -48,6 +50,7 @@ void bus_init(paddr_t ram_base, size_t ram_size) {
   nr_maps = 0;
   device_set_time_reader(NULL,NULL);
   nr_tick_handlers = 0;
+  nr_deadline_handlers = 0;
   memset(maps, 0, sizeof(maps));
   memset(tick_handlers, 0, sizeof(tick_handlers));
   bus_ram_base = ram_base;
@@ -114,6 +117,7 @@ static const MapEntry *map_find(paddr_t addr, int len) {
 bool mmio_dispatch_read(paddr_t addr, int len, word_t *data) {
   const MapEntry *m = map_find(addr, len);
   if (m == NULL || m->region->read == NULL) return false;
+  if (m->region->accepts && !m->region->accepts(m->region->opaque, addr - m->base, len, false)) return false;
   *data = m->region->read(m->region->opaque, addr - m->base, len);
   return true;
 }
@@ -121,6 +125,7 @@ bool mmio_dispatch_read(paddr_t addr, int len, word_t *data) {
 bool mmio_dispatch_write(paddr_t addr, int len, word_t data) {
   const MapEntry *m = map_find(addr, len);
   if (m == NULL || m->region->write == NULL) return false;
+  if (m->region->accepts && !m->region->accepts(m->region->opaque, addr - m->base, len, true)) return false;
   m->region->write(m->region->opaque, addr - m->base, len, data);
   return true;
 }
@@ -137,6 +142,21 @@ bool device_register_tick(DeviceTickFn fn, void *opaque) {
   tick_handlers[nr_tick_handlers].opaque = opaque;
   nr_tick_handlers++;
   return true;
+}
+
+bool device_register_deadline(DeviceDeadlineFn fn, void *opaque) {
+  if (fn == NULL || nr_deadline_handlers >= MAX_TICK_HANDLERS) return false;
+  deadline_handlers[nr_deadline_handlers++] = (typeof(deadline_handlers[0])){fn, opaque};
+  return true;
+}
+
+uint64_t devices_next_deadline(void) {
+  uint64_t next = UINT64_MAX;
+  for (int i = 0; i < nr_deadline_handlers; i++) {
+    uint64_t candidate = deadline_handlers[i].fn(deadline_handlers[i].opaque);
+    if (candidate < next) next = candidate;
+  }
+  return next;
 }
 
 void devices_tick(uint64_t logical_ticks) {

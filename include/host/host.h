@@ -9,6 +9,12 @@
  */
 
 uint64_t host_time_us(void);
+/* Nonblocking pipe/terminal input; 0=no data/EOF, -1=host error. */
+int host_stdin_read(uint8_t *bytes, unsigned capacity);
+bool host_uart_input_init(const char *record, const char *replay);
+int host_uart_input(uint64_t event, uint8_t *bytes, unsigned capacity);
+bool host_uart_replaying(void);
+void host_uart_input_close(void);
 
 void *host_mmap_anon(size_t size); /* 匿名映射，失败返回 NULL */
 int   host_munmap(void *addr, size_t size);

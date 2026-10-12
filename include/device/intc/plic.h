@@ -1,27 +1,17 @@
 #ifndef RVISS_DEVICE_INTC_PLIC_H
 #define RVISS_DEVICE_INTC_PLIC_H
-
-#include <common.h>
 #include <device/device.h>
-#include <device/irq.h>
-
-/*
- * PLIC（最小实现）：单上下文（hart0 / M 模式）所需的
- * priority / pending / enable / threshold / claim-complete。
- * TODO(M4)：多上下文（每 hart 的 M/S 各一个）、优先级仲裁、真实的 claim 语义。
- */
-
-#define PLIC_NR_SOURCES 8
+#define PLIC_NR_SOURCES 32 /* ID0 reserved; sources1..31 */
+#define PLIC_NR_CONTEXTS 2
 
 typedef struct {
   MmioRegion mmio;
-  IrqLine *meip_irq; /* 输出线：有可响应的外部中断时拉高（板子接到 CPU 的 MEIP） */
+  IrqLine *meip_irq, *seip_irq;
   uint32_t priority[PLIC_NR_SOURCES];
-  uint32_t enable_bits;
-  uint32_t threshold;
+  uint32_t enable_bits[PLIC_NR_CONTEXTS], threshold[PLIC_NR_CONTEXTS];
+  uint32_t levels, pending, busy;
 } PlicState;
-
 void plic_init(PlicState *s);
 void plic_reset(PlicState *s);
-
-#endif /* RVISS_DEVICE_INTC_PLIC_H */
+void plic_set_source(PlicState *s, unsigned source, bool level);
+#endif

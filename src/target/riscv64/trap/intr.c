@@ -81,6 +81,11 @@ word_t riscv_query_intr(void) {
   return 0;
 }
 
+bool riscv_wait_resume(void) {
+  cpu_sync_irq_inputs();
+  return (cpu.mip & cpu.mie) != 0;
+}
+
 void cpu_sync_irq_inputs(void) {
   cpu.mip = (cpu.mip & ~hw_mask & ~SIE_MASK) |
             (cpu.mip_software & SIE_MASK) | hw_pending;

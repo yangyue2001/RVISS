@@ -33,6 +33,7 @@ struct Decode {
   vaddr_t trap_tval;
   bool counter_write_cycle, counter_write_instret;
   bool fp_register_write;
+  bool wait_request;
   MemAccess memory;
   uint8_t rd, rs1, rs2;
   EHelper exec; /* 执行入口 */

@@ -69,6 +69,7 @@ static void print_summary(uint64_t us) {
       sim.halt_pc, sim.halt_code);
   Log("retired=%lu attempts=%lu events=%lu logical_ticks=%lu",
       sim.instret, sim.attempts, sim.event_seq, sim.logical_ticks);
+  Log("idle advances=%lu ticks=%lu", sim.idle_advances, sim.idle_ticks);
   if (sim.state == SIM_ABORTED || sim.state == SIM_STOPPED) engine_dump_recent();
   if (us > 0) {
     Log("host time = %lu us, speed = %llu instr/s", us,
@@ -101,6 +102,7 @@ int monitor_run(void) {
   }
 
   print_summary(t1 - t0);
+  host_uart_input_close();
   log_close();
   return sim_exit_code();
 }

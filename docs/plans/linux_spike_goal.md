@@ -37,6 +37,6 @@ CSR 提交 65847b2；同步委派/xRET 也 verified，MAC/CSR/priv 2195 / 12505�
 minimal/MAC 回归与 UBSan，提交 27fcd99。T009 中断 verified：2652 / 13405、
 minimal/MAC 回归与 UBSan，提交 ccc1005。T010 counter verified：3249 / 15178，
 12 unit 回归与 UBSan；提交 f274d04。T011 PMP verified：4378 / 16606、
-三配置回归与 UBSan，观察检查点提交 f32eb90；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079，含8192压缩FP编码；三配置与 UBSan。下一项 T014 设备。
+三配置回归与 UBSan，观察检查点提交 f32eb90；T012 Sv39 verified：5267 / 17554、三配置与 UBSan；T013 F/D verified：17141 / 83079，含8192压缩FP编码；三配置与 UBSan。T014设备 verified，固定Linux1轮与输入重放/正常关机通过。下一项T015性能检查点/100/1000验收。
 Git 写入受沙箱只读 .git 限制，已按工具权限
-流程授权。Linux 仍仅有 QEMU 工件验收，RVISS 尚未启动。
+流程授权。RVISS 已完成固定 Linux PID1/probe/BusyBox/1轮与正常关机，整机输入重放通过；三次100轮与1000轮长跑尚待验证。

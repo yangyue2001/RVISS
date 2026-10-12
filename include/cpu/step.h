@@ -20,6 +20,7 @@ typedef struct {
   uint64_t event_seq, retired_total;
   StepOutcome outcome;
   bool instruction_attempted, retired;
+  bool wait_request; /* legal WFI completed; board may advance idle time */
   vaddr_t pc_before, pc_after;
   uint8_t privilege_before, privilege_after;
   uint32_t raw_instruction;
@@ -42,5 +43,6 @@ typedef struct {
 /* target 执行一个事件；计数、设备时间和预算由引擎管理。 */
 void riscv_step(StepResult *result);
 void riscv_update_counters(const StepResult *result);
+bool riscv_wait_resume(void); /* any individually enabled IRQ, global enables ignored */
 
 #endif /* RVISS_CPU_STEP_H */

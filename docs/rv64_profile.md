@@ -27,8 +27,8 @@ M/S/U、CSR/trap、Sv39/PMP 固定为
 | PMP | 16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT，reset OFF | T011 16-entry CSR/锁/优先级/边界和真实访问已验证，关闭配置 0 entries |
 | 指令对齐 | C 启用后 IALIGN=16；关闭 C 时 IALIGN=32 | T007 按 misa.C 动态处理 PC/跳转/取分支；混合取指、第二段 fault、增大 IALIGN 的 misa 写抑制已验证 |
 | 数据对齐 | RAM 的非自然对齐 load/store/LR/SC/AMO 抛 misaligned；在翻译前检查 | I 与 A 全宽检查已验证，原子只允许 RAM；LR 为 load fault，SC/AMO 为 store fault |
-| MMIO | 只接受设备声明的 offset/宽度，未映射产生 access fault；不支持 AMO | 全访问区间及 callback 存在性已检查；未映射显式 fault，设备内部 offset/宽度规则仍未完成 |
-| 平台 | 固定 Linux virt，RAM 256 MiB；地址、IRQ 和 DTB 见 linux_boot_baseline.md | minimal 默认 RAM 128 MiB，基本地址相同，设备功能与 finisher 不完整 |
+| MMIO | 只接受设备声明的 offset/宽度，未映射产生 access fault；不支持 AMO | 全访问区间及 callback 存在性已检查；未映射显式 fault，T014 offset/width在副作用前检查 |
+| 平台 | 固定 Linux virt，RAM 256 MiB；地址、IRQ 和 DTB 见 linux_boot_baseline.md | minimal 默认 RAM 128 MiB，基本地址相同，T014 UART/PLIC M/S/CLINT/shutdown已验证，runtime --memory 256M匹配固定DTB |
 
 csr_machine.h / csr_supervisor.h 中其它扩展的位宏只是一组既有编码定义，
 不代表支持这些扩展；WARL/可见位须按本 profile 显式处理。
@@ -57,7 +57,7 @@ engine_exec(n)、si n、--max-instr n 和 difftest_exec(n) 均为指令尝试预
 T010 已接入 mcycle/minstret、cycle/instret/time、权限和写优先；time 是板级
 CLINT mtime 回调，guest 写不影响平台时间/预算/累计退休。mcountinhibit 与
 M HPM 选择硬连线零，无可写抑制或 Zihpm。RV64 *h CSR 非法。
-自定义 nemu_trap 成功执行时计入退休；WFI 仍为 NOP，无 wait outcome。
+自定义 nemu_trap 成功执行时计入退休；T014 WFI正常退休后可确定性快进设备deadline；任何individually enabled IRQ阻止等待。
 
 本轮异常策略：ECALL tval=0；EBREAK tval=故障 PC；非法指令/CSR tval 为已取得的
 原始低 ILEN=32 位（16 位编码用低 16 位）；地址 fault tval 为故障虚拟地址。
@@ -106,4 +106,12 @@ T013 实现 F/D 2.2 与压缩 D 访存，F-only FLEN32、D FLEN64/NaN boxing，
 FCSR 别名与 FS 权限/dirty、五个 rm 与动态 frm。保留 rm/frm trap，无目的写。
 固定 Spike 与 RVISS 共用来源的 SoftFloat 算术由独立 IEEE 边界 unit 补充覆盖。
 GC 17141 / 83079、F-only7558 / 47058、三配置与 UBSan通过，工具增加全FPR
-及44个CSR比较和FPR差异注入。设备与 Linux 尚待 T014。
+及44个CSR比较和FPR差异注入。T014设备与固定Linux1轮/正常关机已通过；100/1000仍待T015。
+
+T014 UART字节offset0..7、DLAB、16-byte FIFO四trigger/timeout、IER/IIR/LSR/
+MSR/loopback；TX即时就绪THRE/TEMT，未模拟电气时序/奇偶与framing fault。
+PLIC31sources/M0/S1，claim不受threshold、priority/tie、level gateway和enabled
+complete；CLINT32/64半寄存器精确。5555正常关机/3333失败，7777 reboot尚未实现。
+WFI仅逻辑时间/设备fastforward，不增加事件/尝试/退休/guest counters；记录
+idle_ticks/advances。真实UART输入可按event精确记录/重放，整机1轮输出与计数
+重放等价。固定Linux实际进入PID1/BusyBox/probe并1轮正常关机；不等于长期验收。

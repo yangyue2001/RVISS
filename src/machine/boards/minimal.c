@@ -19,4 +19,5 @@ const MachineConfig machine_minimal = {
     .clint_base = 0x02000000ull,
     .uart_base  = 0x10000000ull,
     .plic_base  = 0x0c000000ull,
+    .test_base  = 0x00100000ull,
 };

@@ -18,6 +18,7 @@ typedef struct {
   paddr_t clint_base;
   paddr_t uart_base;
   paddr_t plic_base;
+  paddr_t test_base;
 } MachineConfig;
 
 extern const MachineConfig machine_minimal;

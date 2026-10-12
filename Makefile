@@ -54,6 +54,7 @@ SRCS-y += src/device/bus.c
 SRCS-$(CONFIG_HAS_CLINT)     += src/device/timer/clint.c
 SRCS-$(CONFIG_HAS_UART16550) += src/device/char/uart16550.c
 SRCS-$(CONFIG_HAS_PLIC)      += src/device/intc/plic.c
+SRCS-$(CONFIG_HAS_TEST_FINISHER) += src/device/misc/test_finisher.c
 
 SRCS-y += $(shell find $(DIRS-y) -name "*.c")
 SRCS = $(SRCS-y)

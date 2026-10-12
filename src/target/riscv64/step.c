@@ -60,6 +60,7 @@ void riscv_step(StepResult *result) {
     } else {
       result->counter_write_cycle = s.counter_write_cycle;
       result->counter_write_instret = s.counter_write_instret;
+      result->wait_request = s.wait_request;
       result->retired = true;
       result->outcome = sim.state == SIM_HALTED ? STEP_HALTED : STEP_RETIRED;
       if (s.fp_register_write) {

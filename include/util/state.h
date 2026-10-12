@@ -20,6 +20,7 @@ typedef struct {
   uint64_t attempts;  /* 指令尝试：含同步异常，不含独立中断事件 */
   uint64_t event_seq; /* 每个执行边界的累计序号 */
   uint64_t logical_ticks; /* 平台时间源，与客户机 cycle/instret 独立 */
+  uint64_t idle_ticks, idle_advances; /* deterministic WFI time advances */
   uint64_t max_instr; /* 尝试上限；0 表示不限 */
   uint64_t max_events; /* 独立事件上限；0 表示不限 */
 } SimState;

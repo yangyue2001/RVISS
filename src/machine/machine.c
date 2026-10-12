@@ -5,6 +5,11 @@
 #include <memory/paddr.h>
 #include <util/log.h>
 #include <util/state.h>
+#include <util/config.h>
+#include <host/host.h>
+#ifdef CONFIG_HAS_TEST_FINISHER
+#include <device/misc/test_finisher.h>
+#endif
 
 #ifdef CONFIG_HAS_CLINT
 #include <device/timer/clint.h>
@@ -38,6 +43,31 @@ static Uart16550State uart;
 static PlicState plic;
 #endif
 
+#ifdef CONFIG_HAS_TEST_FINISHER
+static TestFinisherState finisher;
+static void finish_guest(void *opaque, int code) {
+  (void)opaque; sim_halt(cpu.pc, code);
+}
+#endif
+#ifdef CONFIG_HAS_UART16550
+static void uart_transmit(void *opaque, uint8_t byte) {
+  (void)opaque; putchar(byte); fflush(stdout);
+}
+static void uart_poll(void *opaque, uint64_t ticks) {
+  (void)opaque; (void)ticks;
+  if ((!rt_cfg.uart_stdin && !host_uart_replaying()) || (uart.mcr & 0x10)) return;
+  if (!host_uart_replaying() && sim.event_seq % 1024) return;
+  uint8_t bytes[16];
+  int n = host_uart_input(sim.event_seq, bytes, uart16550_capacity(&uart));
+  if (n < 0) { sim.state=SIM_ABORTED; Loge("UART host input failed"); return; }
+  for (int i=0; i<n; i++) uart16550_receive(&uart, bytes[i]);
+}
+#ifdef CONFIG_HAS_PLIC
+static void uart_irq(void *opaque, bool level) { plic_set_source(opaque, 10, level); }
+static IrqLine uart_output = {.set=uart_irq, .ctx=&plic};
+#endif
+#endif
+
 const MachineConfig *machine_get(void) {
   return &active;
 }
@@ -53,6 +83,9 @@ static void machine_build(const MachineConfig *cfg) {
 #endif
 #ifdef CONFIG_HAS_UART16550
   uart16550_init(&uart);
+  Assert(host_uart_input_init(rt_cfg.uart_record, rt_cfg.uart_replay), "UART input initialization failed");
+  uart.transmit=uart_transmit;
+  Assert(device_register_tick(uart_poll, NULL), "UART host input registration failed");
   Assert(mmio_map(&uart.mmio, cfg->uart_base), "UART 地址映射失败");
 #endif
 #ifdef CONFIG_HAS_PLIC
@@ -67,6 +100,15 @@ static void machine_build(const MachineConfig *cfg) {
 #endif
 #ifdef CONFIG_HAS_PLIC
   plic.meip_irq = cpu_irq_input(IRQ_MEIP);
+  plic.seip_irq = cpu_irq_input(IRQ_SEIP);
+#ifdef CONFIG_HAS_UART16550
+  uart.irq = &uart_output;
+#endif
+#endif
+#ifdef CONFIG_HAS_TEST_FINISHER
+  test_finisher_init(&finisher);
+  finisher.finish=finish_guest;
+  Assert(mmio_map(&finisher.mmio, cfg->test_base), "test finisher mapping failed");
 #endif
 }
 

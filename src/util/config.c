@@ -18,6 +18,9 @@ static void usage(const char* prog) {
   printf("  -b, --batch              批处理模式（不进交互调试器）\n");
   printf("  -n, --max-instr N        最多 N 次指令尝试（含异常，0=不限）\n");
   printf("      --max-events N       最多 N 个执行事件（含中断，0=不限）\n");
+  printf("      --uart-stdin         将批处理 stdin 接到客户机串口\n");
+  printf("      --uart-record FILE   记录串口输入的执行事件与字节\n");
+  printf("      --uart-replay FILE   按记录事件重放串口输入\n");
   printf("  -m, --memory SIZE        RAM 大小覆盖，如 128M / 1G\n");
   printf("  -l, --log FILE           日志输出到文件（默认 stdout）\n");
   printf(
@@ -66,9 +69,12 @@ void config_parse(int argc, char* argv[]) {
       .checkpoint_out = NULL,
   };
 
-  enum { OPT_CPT_IN = 1000, OPT_CPT_OUT, OPT_MAX_EVENTS };
+  enum { OPT_CPT_IN = 1000, OPT_CPT_OUT, OPT_MAX_EVENTS, OPT_UART_STDIN, OPT_UART_RECORD, OPT_UART_REPLAY };
 
   static const struct option table[] = {
+      {"uart-stdin", no_argument, NULL, OPT_UART_STDIN},
+      {"uart-record", required_argument, NULL, OPT_UART_RECORD},
+      {"uart-replay", required_argument, NULL, OPT_UART_REPLAY},
       {"batch", no_argument, NULL, 'b'},
       {"max-instr", required_argument, NULL, 'n'},
       {"max-events", required_argument, NULL, OPT_MAX_EVENTS},
@@ -85,6 +91,15 @@ void config_parse(int argc, char* argv[]) {
   int o;
   while ((o = getopt_long(argc, argv, "-bn:m:l:L:th", table, NULL)) != -1) {
     switch (o) {
+      case OPT_UART_STDIN:
+        rt_cfg.uart_stdin = true;
+        break;
+      case OPT_UART_RECORD:
+        rt_cfg.uart_record = optarg;
+        break;
+      case OPT_UART_REPLAY:
+        rt_cfg.uart_replay = optarg;
+        break;
       case 'b':
         rt_cfg.batch = true;
         break;
@@ -123,6 +138,13 @@ void config_parse(int argc, char* argv[]) {
         usage(argv[0]);
         exit(1);
     }
+  }
+  if (rt_cfg.uart_stdin && !rt_cfg.batch) {
+    fprintf(stderr, "--uart-stdin requires --batch\n"); exit(1);
+  }
+  if ((rt_cfg.uart_replay && (!rt_cfg.batch || rt_cfg.uart_stdin || rt_cfg.uart_record)) ||
+      (rt_cfg.uart_record && !rt_cfg.uart_stdin)) {
+    fprintf(stderr, "UART replay requires batch and exclusive input; recording requires --uart-stdin\n"); exit(1);
   }
 }
 

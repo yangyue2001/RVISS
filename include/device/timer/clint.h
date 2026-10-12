@@ -19,6 +19,7 @@ typedef struct {
   MmioRegion mmio;
   IrqLine *mtimer_irq; /* 输出线：mtime >= mtimecmp 时拉高（板子接到 CPU 的 MTIP） */
   IrqLine *msip_irq;   /* 输出线：MSIP 置位时拉高（板子接到 MSIP） */
+  uint64_t last_ticks;
   uint64_t mtime;
   uint64_t mtimecmp;
   uint32_t msip;
@@ -28,5 +29,6 @@ typedef struct {
 word_t clint_time(void *opaque);
 void clint_init(ClintState *s);
 void clint_reset(ClintState *s);
+uint64_t clint_next_tick(const ClintState *s);
 
 #endif /* RVISS_DEVICE_TIMER_CLINT_H */

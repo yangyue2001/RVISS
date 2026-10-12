@@ -25,6 +25,7 @@ typedef struct MmioRegion {
   paddr_t size; /* 设备只回答"我多大"；地址由板子决定 */
   word_t (*read)(void *opaque, paddr_t offset, int len);
   void   (*write)(void *opaque, paddr_t offset, int len, word_t data);
+  bool (*accepts)(void *opaque, paddr_t offset, int len, bool write);
   void   *opaque; /* 指向设备实例（如 ClintState） */
 } MmioRegion;
 
@@ -44,7 +45,10 @@ bool mmio_dispatch_write(paddr_t addr, int len, word_t data);
  * 于是引擎完全不知道"机器上有什么设备"。
  */
 typedef void (*DeviceTickFn)(void *opaque, uint64_t logical_ticks);
+typedef uint64_t (*DeviceDeadlineFn)(void *opaque);
 bool device_register_tick(DeviceTickFn fn, void *opaque);
+bool device_register_deadline(DeviceDeadlineFn fn, void *opaque);
 void devices_tick(uint64_t logical_ticks);
+uint64_t devices_next_deadline(void);
 
 #endif /* RVISS_DEVICE_DEVICE_H */

@@ -1,0 +1,68 @@
+{
+  "status": "verified",
+  "profiles": {
+    "gc": {
+      "units": 17,
+      "checks": 25676,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "minimal": {
+      "units": 17,
+      "checks": 17678,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t014-verify check build/t014-verify/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t014-minimal check build/t014-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t014-verify/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --out build/t014-verify/difftest-final",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t014-minimal/rviss_dut --suite i --csr --priv --irq --counters --out build/t014-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t014-ubsan build/t014-ubsan/test_devices.test build/t014-ubsan/test_uart_input.test",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t014-ubsan/test_devices.test",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t014-ubsan/test_uart_input.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/linux/run_rviss.py --rviss build/t014-verify/rviss --boots 1 --rounds 1 --timeout 300 --max-instr 500000000",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/linux/run_rviss.py --rviss build/t014-verify/rviss --boots 1 --rounds 1 --timeout 300 --max-instr 500000000 --replay build/linux/logs/rviss_1_1.input",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "476 device +32 input checks, no diagnostics",
+  "spike": "GC8949/74887 and minimal2203/5255, reset replay and injections passed",
+  "linux": "Fixed FW_PAYLOAD PID1/FP/A/MMU/probe/initial10 rounds/BusyBox UART/extra1 round/SBI shutdown and exact deterministic replay passed",
+  "limits": [
+    "3 cold boots100 and long1000 not yet executed",
+    "UART functional immediate TX; no electric waveform/parity/framing fault injection",
+    "Test finisher5555/3333 implemented,7777 reboot not implemented/tested",
+    "Full checkpoint/RTL ABI/H not claimed"
+  ],
+  "normative_plic": {
+    "blob": "a850f76c96457d28fef115e6617dd1e34db5e11c",
+    "sha256": "7209e2d8b8266a642954d90a71a661146327c620c4d2ac959c27aa338ae1176a"
+  }
+}

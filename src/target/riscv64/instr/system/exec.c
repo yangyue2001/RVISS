@@ -39,9 +39,11 @@ void exec_sret(Decode* s) {
 }
 
 void exec_wfi(Decode* s) {
-  /* 允许的 WFI 采用规范许可的 NOP；TW 拦截时选择超时 0。 */
+  /* TW 选择超时0；正常退休后引擎可等待下一个确定性设备事件。 */
   if (cpu.priv == PRV_U || (cpu.priv != PRV_M && (cpu.mstatus & MSTATUS_TW)))
     riscv_exec_trap(s, EX_II, s->instr);
+  else
+    s->wait_request = true;
 }
 
 void exec_sfence_vma(Decode* s) {

@@ -1,61 +1,86 @@
-#include <common.h>
 #include <device/intc/plic.h>
-#include <util/log.h>
 
-/*
- * PLIC（最小实现）：单上下文（hart0 / M 模式）。
- * 寄存器：priority[source] / pending / enable / threshold / claim-complete。
- * TODO(M4)：多上下文、优先级仲裁、外部中断源、真实的 claim 语义；
- *           有中断挂起时应通过 s->meip_irq 拉高 CPU 的 MEIP 线。
- */
+static unsigned select_irq(const PlicState *s, unsigned context) {
+  unsigned best = 0;
+  const uint32_t candidates = s->pending & s->enable_bits[context];
+  for (unsigned id = 1; id < PLIC_NR_SOURCES; id++)
+    if ((candidates & (UINT32_C(1) << id)) && s->priority[id] > s->priority[best]) best = id;
+  return best;
+}
 
-#define PLIC_SIZE 0x400000
-
-#define PLIC_PRIORITY_BASE 0x000000
-#define PLIC_PENDING_BASE  0x001000
-#define PLIC_ENABLE_BASE   0x002000
-#define PLIC_THRESHOLD     0x200000
-#define PLIC_CLAIM         0x200004
-
-static word_t plic_read(void *opaque, paddr_t off, int len) {
-  PlicState *s = opaque;
-  (void)len;
-  if (off >= PLIC_PRIORITY_BASE && off < PLIC_PRIORITY_BASE + 4u * PLIC_NR_SOURCES) {
-    return s->priority[(off - PLIC_PRIORITY_BASE) / 4];
+static void update(PlicState *s) {
+  IrqLine *lines[] = {s->meip_irq, s->seip_irq};
+  for (unsigned c = 0; c < PLIC_NR_CONTEXTS; c++) {
+    const unsigned id = select_irq(s, c);
+    if (id && s->priority[id] > s->threshold[c]) irq_raise(lines[c]);
+    else irq_lower(lines[c]);
   }
-  if (off == PLIC_PENDING_BASE) return 0; /* 骨架：无外部中断源挂起 */
-  if (off == PLIC_ENABLE_BASE)  return s->enable_bits;
-  if (off == PLIC_THRESHOLD)    return s->threshold;
-  if (off == PLIC_CLAIM)        return 0; /* 无中断可 claim */
+}
+
+void plic_set_source(PlicState *s, unsigned id, bool level) {
+  if (!id || id >= PLIC_NR_SOURCES) return;
+  const uint32_t bit = UINT32_C(1) << id;
+  if (level) {
+    s->levels |= bit;
+    if (!(s->busy & bit)) { s->pending |= bit; s->busy |= bit; }
+  } else s->levels &= ~bit; /* A forwarded request cannot be retracted. */
+  update(s);
+}
+
+static bool accepts(void *opaque, paddr_t off, int len, bool write) {
+  (void)opaque; (void)write;
+  if (len != 4 || (off & 3)) return false;
+  if (off < 4 * PLIC_NR_SOURCES || off == 0x1000) return true;
+  for (unsigned c = 0; c < PLIC_NR_CONTEXTS; c++)
+    if (off == 0x2000 + c * 0x80 || off == 0x200000 + c * 0x1000 ||
+        off == 0x200004 + c * 0x1000) return true;
+  return false;
+}
+
+static word_t read_reg(void *opaque, paddr_t off, int len) {
+  PlicState *s = opaque; (void)len;
+  if (off < 4 * PLIC_NR_SOURCES) return s->priority[off / 4];
+  if (off == 0x1000) return s->pending;
+  for (unsigned c = 0; c < PLIC_NR_CONTEXTS; c++) {
+    if (off == 0x2000 + c * 0x80) return s->enable_bits[c];
+    if (off == 0x200000 + c * 0x1000) return s->threshold[c];
+    if (off == 0x200004 + c * 0x1000) {
+      const unsigned id = select_irq(s, c); /* Claim ignores threshold. */
+      if (id) s->pending &= ~(UINT32_C(1) << id);
+      update(s);
+      return id;
+    }
+  }
   return 0;
 }
 
-static void plic_write(void *opaque, paddr_t off, int len, word_t data) {
-  PlicState *s = opaque;
-  (void)len;
-  if (off >= PLIC_PRIORITY_BASE && off < PLIC_PRIORITY_BASE + 4u * PLIC_NR_SOURCES) {
-    s->priority[(off - PLIC_PRIORITY_BASE) / 4] = (uint32_t)data;
-    return;
+static void write_reg(void *opaque, paddr_t off, int len, word_t data) {
+  PlicState *s = opaque; (void)len;
+  if (off < 4 * PLIC_NR_SOURCES) { if (off) s->priority[off / 4] = data & 7; }
+  for (unsigned c = 0; c < PLIC_NR_CONTEXTS; c++) {
+    if (off == 0x2000 + c * 0x80) s->enable_bits[c] = data & UINT32_C(0xfffffffe);
+    if (off == 0x200000 + c * 0x1000) s->threshold[c] = data & 7;
+    if (off == 0x200004 + c * 0x1000 && data > 0 && data < PLIC_NR_SOURCES) {
+      const uint32_t bit = UINT32_C(1) << data;
+      /* Spec requires enabled ID, not the last claim ID or claiming context. */
+      if (s->enable_bits[c] & bit) {
+        s->busy &= ~bit;
+        if (s->levels & bit) { s->busy |= bit; s->pending |= bit; }
+      }
+    }
   }
-  if (off == PLIC_ENABLE_BASE)  { s->enable_bits = (uint32_t)data; return; }
-  if (off == PLIC_THRESHOLD)    { s->threshold = (uint32_t)data; return; }
-  if (off == PLIC_CLAIM)        { /* complete：骨架无状态可清 */ return; }
-}
-
-void plic_init(PlicState *s) {
-  memset(s, 0, sizeof(*s));
-  s->mmio = (MmioRegion){
-      .name = "plic",
-      .size = PLIC_SIZE,
-      .read = plic_read,
-      .write = plic_write,
-      .opaque = s,
-  };
+  update(s);
 }
 
 void plic_reset(PlicState *s) {
   memset(s->priority, 0, sizeof(s->priority));
-  s->enable_bits = 0;
-  s->threshold = 0;
-  irq_lower(s->meip_irq);
+  memset(s->enable_bits, 0, sizeof(s->enable_bits));
+  memset(s->threshold, 0, sizeof(s->threshold));
+  s->levels = s->pending = s->busy = 0;
+  update(s);
+}
+void plic_init(PlicState *s) {
+  memset(s, 0, sizeof(*s));
+  s->mmio = (MmioRegion){.name="plic", .size=0x4000000, .accepts=accepts,
+      .read=read_reg, .write=write_reg, .opaque=s};
 }

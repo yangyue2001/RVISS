@@ -14,15 +14,21 @@ config HAS_CLINT
 	  mtime 由独立的平台逻辑 tick 驱动（每 128 ticks +1），不读宿主时钟。
 
 config HAS_UART16550
-	bool "UART 16550（串口输出）"
+	bool "UART 16550（串口）"
 	default y
 	help
-	  写 THR 即输出到宿主 stdout，裸机程序打印用。
+	  DLAB/FIFO/IRQ/loopback，板级接 stdin/stdout。
 
 config HAS_PLIC
 	bool "PLIC（平台级中断控制器）"
 	default y
 	help
-	  目前是最小实现（单上下文），完整仲裁见 M4。
+	  两个 M/S 上下文，sources1..31，priority/claim/complete。
+
+config HAS_TEST_FINISHER
+	bool "SiFive test finisher（关机）"
+	default y
+	help
+	  固定 virt syscon 写5555成功、3333失败。
 
 endmenu

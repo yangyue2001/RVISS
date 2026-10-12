@@ -89,6 +89,17 @@ static void complete_event(StepResult *r) {
   }
   devices_tick(sim.logical_ticks);
   cpu_sync_irq_inputs();
+  if (r->outcome == STEP_HALTED) sim.halt_pc = r->pc_before;
+  if (r->wait_request && sim_running() && !riscv_wait_resume()) {
+    const uint64_t deadline = devices_next_deadline();
+    if (deadline > sim.logical_ticks && deadline != UINT64_MAX) {
+      devices_tick(deadline);
+      sim.idle_ticks += deadline - sim.logical_ticks;
+      sim.idle_advances++;
+      sim.logical_ticks = deadline;
+      cpu_sync_irq_inputs();
+    }
+  }
   r->event_seq = sim.event_seq;
   r->retired_total = sim.instret;
 
