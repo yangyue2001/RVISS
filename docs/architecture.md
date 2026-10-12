@@ -206,7 +206,7 @@ ISS/
 |---|---|
 | 加一条 RV64I 指令 | `instr/i/instr.def` 加一行 + `instr/i/exec.c` 实现 `exec_<名字>` |
 | 加一个扩展（如 M 扩展） | 新建 `instr/m/{instr.def,exec.c}`，在 `decode.c` 的两处 include 加上 |
-| 加一个 CSR | **只改 `include/cpu/csr-list.h`**：地址常量 + 清单一行（存储成员、访问表、日志名、特权/只读判定全自动生成） |
+| 加一个 CSR | `include/cpu/csr_list.h` 管理地址/存储；WARL、别名、权限例外和副作用在 csr_access.c 显式实现并验证 |
 | 加一个设备 | 写 `src/device/xxx.c` 实现 `MmioRegion`，在 `device.h` 声明 init，在 `machine.c` 里实例化 |
 | 加一块板子 | `machine/boards/` 加一个 `MachineConfig`，在 monitor 里选择 |
 | 加一种 trace | 见 `docs/trace_and_uarch_plan.md`：core 只发事件，收集器是订阅者 |
@@ -225,7 +225,7 @@ ISS/
 | `utils.h` 杂物袋 | log/state/config 分文件 | 依赖清晰 |
 | 一条指令改三处 | `instr.def` 单一事实来源 | 可维护性 |
 | opcode 两级译码表 | 扁平表（一条指令一个完整模式） | 可读性优先；表大了再换 hash |
-| `priv.c` 4000 行 switch | CSR 表驱动 + 少量副作用钩子 | 加 CSR = 加一行 |
+| `priv.c` 4000 行 switch | CSR 表驱动 + 少量副作用钩子 | 清单管理元信息，显式处理非平凡语义 |
 | `cpu-exec.c` 混入 tcache/checkpoint/profiling | 引擎循环保持纯净 | 关注点分离 |
 | Kconfig 全量编译期配置 | 板级默认编译期（Kconfig）+ 运行期覆盖（命令行） | 兼顾"板子定义清晰"与"一套二进制多种跑法" |
 | 宿主时钟驱动设备 | 指令数驱动 | 确定性 |

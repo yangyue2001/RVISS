@@ -52,6 +52,9 @@ int main(int argc, char **argv) {
   isa_parser_t isa(c.isa, "MSU");
   FILE *commits = fopen("/dev/null", "w");
   processor_t p(&isa, &bus.config, &bus, 0, false, commits, std::cerr);
+  // 本阶段固定 Bare、ASIDLEN=0；在 CSR 配置前选择独立参考能力。
+  p.set_mmu_capability(IMPL_MMU_SBARE);
+  p.set_impl(IMPL_MMU_ASID, false);
   bus.harts[0] = &p;
   auto *s = p.get_state();
   s->pc = c.pc;

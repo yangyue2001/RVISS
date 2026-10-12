@@ -11,14 +11,9 @@ static void snapshot(DiffSnapshot *s) {
   s->privilege = cpu.priv;
   s->retired_total = sim.instret;
   for (unsigned i = 0; i < 32; i++) s->gpr[i] = cpu.gpr[i];
-  /* 原始状态读取，不通过客户机权限，不改变运行中特权。 */
+  /* 体系结构可见状态；只读 peek 不通过客户机权限，不改变运行中特权。 */
   for (unsigned i = 0; i < DIFF_CSR_COUNT; i++) {
-    switch (diff_csrs[i]) {
-#define RAW_CSR(n,a,m) case a: s->csr[i] = cpu.n; break;
-      RVISS_CSRS_OWNED(RAW_CSR)
-#undef RAW_CSR
-      default: case_error("snapshot CSR");
-    }
+    if (!csr_peek(diff_csrs[i], &s->csr[i])) case_error("snapshot CSR");
   }
 }
 

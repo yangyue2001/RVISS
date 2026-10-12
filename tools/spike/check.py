@@ -310,6 +310,37 @@ def c_exhaustive():
                    isa='rv64ic_zicsr_zifencei',extra_mem=[(BASE,2,word)])
 
 
+def csr_cases():
+    isa='rv64i_zicsr_zifencei_zicntr'
+    def encode(address,function,rd=5,rs1=6):
+        return (address<<20)|(rs1<<15)|(function<<12)|(rd<<7)|0x73
+    addresses=[0x300,0x302,0x303,0x304,0x344,0x305,0x341,0x342,0x343,0x340,
+               0x306,0x105,0x141,0x142,0x143,0x140,0x180,0x106,0x100,0x104,0x144]
+    for address in addresses:
+        for function in [1,2,3,5,6,7]:
+            for value in [0,(1<<64)-1,0x5555555555555555,0xaaaaaaaaaaaaaaaa]:
+                words=[encode(address,function),encode(address,2,7,0)]
+                yield f'csr-value-{address:x}-{function}-{value:x}',case_text(words,2,{6:value},isa=isa)
+    for priv in [0,1,3]:
+        for address in [0x340,0x140,0xf14,0xfff]:
+            for function in [1,2,3,5,6,7]:
+                for rs1 in [0,6]:
+                    yield f'csr-permission-{priv}-{address:x}-{function}-{rs1}',case_text(
+                        [encode(address,function,5,rs1)],1,{5:0xdeadbeef,6:0},priv=priv,isa=isa)
+    for function in [1,2,3,5,6,7]:
+        for rd in [0,5,6]:
+            yield f'csr-alias-{function}-{rd}',case_text([encode(0x340,function,rd)],1,
+                    {5:0xdeadbeef,6:0x1234},isa=isa)+'csr 832 7\n'
+    for delegation in [0,2,0x222]:
+        for address in [0x104,0x144]:
+            words=[encode(address,1),encode(address,2,7,0)]
+            yield f'csr-view-{address:x}-{delegation:x}',case_text(words,2,{6:(1<<64)-1},isa=isa)+ \
+                f'csr 771 {delegation}\ncsr 772 0xaaa\ncsr 836 0x222\n'
+    for function in [1,2,3,5,6,7]:
+        yield f'csr-tvm-{function}',case_text([encode(0x180,function)],1,
+                {5:0xdeadbeef},priv=1,isa=isa)+'csr 768 0xa00100000\n'
+
+
 def save_failure(name, path, dut, ref, difference, commands):
     index, fields = difference
     packet = dict(case=name, input=path.read_text(), commands=commands,
@@ -329,6 +360,7 @@ def main():
     parser.add_argument('--ref',type=Path,default=ROOT/'build/spike/bridge')
     parser.add_argument('--suite',choices=['i','m','a','ma','c','mc','ac','mac'],default='i')
     parser.add_argument('--exhaustive-c',action='store_true')
+    parser.add_argument('--csr',action='store_true')
     parser.add_argument('--out',type=Path,default=OUT)
     args=parser.parse_args()
     OUT=args.out.resolve()
@@ -338,6 +370,7 @@ def main():
     suite = list(cases()) + (list(m_cases()) if 'm' in args.suite else [])
     if 'a' in args.suite: suite += list(a_cases())
     if 'c' in args.suite: suite += list(c_cases())
+    if args.csr: suite += list(csr_cases())
     if args.exhaustive_c:
         assert 'c' in args.suite
         suite=itertools.chain(suite,c_exhaustive())
@@ -375,10 +408,10 @@ def main():
         injections.append(dict(kind=kind,first_event=difference[0],fields=difference[1],packet=str(packet)))
         print('injected',kind,'captured at event',difference[0],flush=True)
     summary=dict(status='verified',suite=args.suite,cases=records,event_count=event_count,reset_replay=True,
-                 exhaustive_c=args.exhaustive_c,
+                 exhaustive_c=args.exhaustive_c,csr_rules=args.csr,
                  injections=injections,seconds=time.monotonic()-started,
                  spike_manifest=json.loads((ROOT/'build/spike/manifest.json').read_text()),
-                 compared=['PC/raw/length/priv','full GPR','18 trap/priv CSR','store','full RAM hash','retirement'],
+                 compared=['PC/raw/length/priv','full GPR','21 trap/priv CSR','store','full RAM hash','retirement'],
                  excluded=['misa capability identity','mcycle timing policy','counter writes','async devices',
                            '/'.join(ext.upper() for ext in 'mac' if ext not in args.suite) + '/F/D/Sv39/PMP'])
     (OUT/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')

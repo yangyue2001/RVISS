@@ -36,6 +36,7 @@ typedef struct {
   paddr_t reservation_addr;
   uint8_t reservation_length;
   bool reservation_valid;
+  word_t mip_software; /* SSIP/STIP/SEIP 软件存储；mip 是软件与 IRQ 线的可见 OR */
 } CPU_state;
 
 extern CPU_state cpu;

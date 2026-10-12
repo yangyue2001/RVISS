@@ -16,9 +16,7 @@ void cpu_reset(vaddr_t reset_pc) {
 
   cpu.misa = riscv_misa_supported();
 
-#ifdef CONFIG_RV_ZICSR
   csr_reset();
-#endif
   riscv_intr_reset(); /* 清空设备中断线电平快照（否则复用 CPU 时会残留） */
   Log("cpu reset: pc = " FMT_WORD ", priv = M", reset_pc);
 }

@@ -39,7 +39,7 @@ int main(void) {
   CHECK(!(cpu.mip & (1ull << IRQ_MTIP)));
 
   /* 未接线的位不受影响：软件写 mip 的其他位应保留 */
-  cpu.mip |= 1ull << IRQ_SEIP;
+  CHECK(csr_write(CSR_MIP, 1ull << IRQ_SEIP));
   CHECK(cpu.mip & (1ull << IRQ_SEIP));
 
   cpu_reset(0x80000000ull); /* 复位应清掉设备线快照 */

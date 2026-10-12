@@ -92,6 +92,7 @@ void difftest_csrcpy(void* csrs, bool direction) {
   cpu.mtvec = r->mtvec;
   cpu.mie = r->mie;
   cpu.mip = r->mip;
+  cpu.mip_software = r->mip & SIE_MASK;
   cpu.mscratch = r->mscratch;
   cpu.medeleg = r->medeleg;
   cpu.mideleg = r->mideleg;

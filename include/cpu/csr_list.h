@@ -12,9 +12,7 @@
  *   1. CPU_state 的存储成员         —— include/cpu/cpu.h
  *   2. CSR 访问表（地址/掩码/名字） —— src/target/riscv64/csr/csr_access.c
  *
- * 于是"加一个 CSR" = 在本文件里加两行（地址常量 + 清单一行），其余全自动。
- * 对照 NEMU：加一个 CSR 要改 CSRS 列表宏、写位域 union、在 csr_read/csr_write
- * 两个 switch 各加一个 case（三处）；这里只有一处。
+ * 清单统一维护地址和存储；WARL、别名与副作用在访问实现中显式处理。
  *
  * 两条设计决定（都学自 NEMU 里更稳的做法）：
  *   - **特权级与只读属性不写进表**：RISC-V 把它们编码在 CSR 地址位里
@@ -71,9 +69,15 @@ enum {
 /* ---------------- 视图掩码 ---------------- */
 #define CSR_MASK_ALL (~0ull)
 #define SSTATUS_MASK \
-  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_SUM | MSTATUS_MXR)
+  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_SUM | MSTATUS_MXR | MSTATUS_UXL | MSTATUS_SD)
+#define SSTATUS_WRITABLE_MASK \
+  (MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP | MSTATUS_FS | MSTATUS_SUM | MSTATUS_MXR)
+#define MSTATUS_WRITABLE_MASK \
+  (SSTATUS_WRITABLE_MASK | MSTATUS_MIE | MSTATUS_MPIE | MSTATUS_MPP | MSTATUS_MPRV | MSTATUS_TVM | MSTATUS_TW | MSTATUS_TSR)
 #define SIE_MASK ((1ull << IRQ_SSIP) | (1ull << IRQ_STIP) | (1ull << IRQ_SEIP))
 #define SIP_MASK SIE_MASK
+#define MIE_MASK (SIE_MASK | MIP_MSIP | MIP_MTIP | MIP_MEIP)
+#define MEDELEG_MASK UINT64_C(0xb3ff) /* 0..9,12,13,15；M ECALL/保留位不可委派 */
 
 /* ---------------- ★ 清单 ★ ----------------
  *
@@ -85,10 +89,10 @@ enum {
  *
  * 顺序 = CPU_state 里成员的顺序（改动顺序会改变结构体布局）。
  *
- * 加一个 CSR 的完整步骤（只在本文件内）：
+ * 新增 CSR 元信息：
  *   ① 在上面 enum 里加地址常量
  *   ② 在 RVISS_CSRS_OWNED 里加一行
- * 存储成员、访问表条目、日志名、特权/只读判定全部自动获得。
+ * 存储成员与表条目自动生成；非平凡规则还须实现访问处理和测试。
  */
 
 #define RVISS_CSRS_OWNED(f)                                                   \

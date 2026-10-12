@@ -1,0 +1,64 @@
+{
+  "status": "CSR checkpoint verified; T008 trap/xRET still active",
+  "profiles": {
+    "minimal": {
+      "units": 10,
+      "checks": 6950,
+      "smokes": 3,
+      "cli_checks": 14
+    },
+    "mac": {
+      "units": 10,
+      "checks": 7364,
+      "smokes": 3,
+      "cli_checks": 14
+    }
+  },
+  "commands": [
+    {
+      "command": "make CC=/usr/bin/gcc BUILD_DIR=build/t008-minimal check build/t008-minimal/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "make CC=/usr/bin/gcc BUILD_DIR=build/t008-mac check build/t008-mac/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-minimal/rviss_dut --suite i --csr --out build/t008-minimal/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-mac/rviss_dut --suite mac --csr --out build/t008-mac/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/check.py --dut build/t008-ubsan/rviss_dut --suite mac --csr --out build/t008-ubsan/difftest",
+      "exit_code": 0
+    },
+    {
+      "command": "make -j4 CC='/usr/bin/gcc -fsanitize=undefined -fno-sanitize-recover=all' BUILD_DIR=build/t008-ubsan build/t008-ubsan/test_csr.test build/t008-ubsan/rviss_dut",
+      "exit_code": 0
+    },
+    {
+      "command": "build/t008-ubsan/test_csr.test",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 tools/spike/build.py --jobs 4",
+      "exit_code": 0
+    }
+  ],
+  "ubsan": "181 CSR checks + 1741 cases / 11442 events, no reports",
+  "first_failure": "t008_csr_first_failure.json; Spike capability numeric 0 was Sv32; fixed explicit IMPL_MMU_SBARE",
+  "rules_spec": {
+    "tag": "Priv-v1.12",
+    "machine_blob": "adb789cb6cc9e9b8f54ce44295b4a961ab6ec0e0",
+    "supervisor_blob": "abc449e1120da5cd02b5ac73525eb09fbd5fa2dc"
+  },
+  "limitations": [
+    "No complete M/S/U delegation/xRET/interrupt/counter yet",
+    "No Sv39/FP/Linux boot yet",
+    "No read-side-effect CSR in this profile: RW read suppression inspected in code; not validated against a side-effecting CSR",
+    "Snapshot ABI/checkpoint incomplete; native CPU layout changed with software pending storage"
+  ]
+}
