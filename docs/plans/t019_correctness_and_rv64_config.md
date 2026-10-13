@@ -1,6 +1,7 @@
 # T019：核心边界加固与 RV64 Linux/OpenSBI 配置
 
-状态：active（2026-10-13；配置、镜像边界、AMO 和 checkpoint 切片已完成）。
+状态：complete（2026-10-13；配置、镜像边界、AMO 和 checkpoint 切片已完成；ABI
+完整实现仍是后续独立任务）。
 
 ## 目标
 
