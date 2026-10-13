@@ -11,24 +11,29 @@ config HAS_CLINT
 	bool "CLINT（mtime/mtimecmp/msip）"
 	default y
 	help
+	  对应 OpenSBI generic 的 CONFIG_FDT_TIMER_MTIMER 和 CONFIG_FDT_IPI_MSWI。
 	  mtime 由独立的平台逻辑 tick 驱动（每 128 ticks +1），不读宿主时钟。
 
 config HAS_UART16550
 	bool "UART 16550（串口）"
 	default y
 	help
+	  对应 OpenSBI 的 CONFIG_FDT_SERIAL_UART8250/CONFIG_SERIAL_UART8250，
+	  以及 Linux 的 CONFIG_SERIAL_8250、CONFIG_SERIAL_OF_PLATFORM。
 	  DLAB/FIFO/IRQ/loopback，板级接 stdin/stdout。
 
 config HAS_PLIC
 	bool "PLIC（平台级中断控制器）"
 	default y
 	help
+	  对应 OpenSBI 的 CONFIG_FDT_IRQCHIP_PLIC/CONFIG_IRQCHIP_PLIC。
 	  两个 M/S 上下文，sources1..31，priority/claim/complete。
 
 config HAS_TEST_FINISHER
 	bool "SiFive test finisher（关机）"
 	default y
 	help
+	  对应 OpenSBI 的 CONFIG_FDT_REGMAP_SYSCON 和 CONFIG_FDT_RESET_SYSCON；
 	  固定 virt syscon 写5555成功、3333失败。
 
 endmenu

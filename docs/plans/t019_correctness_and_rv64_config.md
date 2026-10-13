@@ -1,6 +1,6 @@
 # T019：核心边界加固与 RV64 Linux/OpenSBI 配置
 
-状态：active（2026-10-13）。
+状态：active（2026-10-13；配置切片已完成，边界切片进行中）。
 
 ## 目标
 
@@ -62,3 +62,11 @@
 - `include/rviss.h` 中的原生 `rviss_*` API 仍没有完整实现；共享库 difftest 的多个
   高级 hook 仍是骨架，不能因本任务的回归通过而宣称 ABI 完整。
 - checkpoint 当前仍不保存设备和模拟器运行时状态；本任务只修复校验边界并提高失败可见性。
+
+## 配置切片验证
+
+- `make CC=/usr/bin/gcc linux_rv64gc_defconfig` 成功生成 `CONFIG_RV64_LINUX=y`、
+  `CONFIG_MSIZE=0x10000000`、UART/CLINT/PLIC/test-finisher、M/A/F/D/C、PMP 和
+  Sv39；配置中没有 RV32、Sv48、V、H 或 Sstc 能力。
+- `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-config check`：17 个单元、25,676
+  项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
