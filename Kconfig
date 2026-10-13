@@ -133,6 +133,8 @@ config RV64_LINUX
 	select HAS_PLIC
 	select HAS_TEST_FINISHER
 	select RV_ZICSR
+	select RV_ZIFENCEI
+	select RV_ZICNTR
 	select RV_M
 	select RV_A
 	select RV_C

@@ -267,3 +267,55 @@ make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check-diff DIFF_SUITE=a
 文档阶段完成后，RVISS 仍只宣称 I/M/A/F/D/C、Zicsr、现有 Zicntr、Sv39、PMP 和
 固定 M/S/U 单 hart 能力。Linux 的 Z*、PBMT、Svnapot、Sstc、V、Supm 和 RVA23
 必需但未实现的部分保持 blocked；后续每个能力单独更新此状态和证据。
+
+## 阶段 1a：Zifencei/Zicntr 配置切片（verified，2026-10-13）
+
+已完成的代码行为：
+
+- 新增 `RV_ZIFENCEI`，默认配置打开；`fence.i` 只在该能力存在时进入译码表，
+  关闭时同一编码走非法指令异常。当前顺序功能模型没有译码缓存，所以合法的
+  `fence.i` 退休时不需要额外宿主缓存操作。
+- 新增 `RV_ZICNTR`，默认配置打开；关闭时 `mcycle/minstret/cycle/time/instret`
+  及计数器控制 CSR 访问失败并产生非法指令，内部计数器仍与引擎预算保持分离。
+  这没有把 HPM CSR 宣称为 `Zihpm`。
+- `RV64_LINUX`、`gc_defconfig` 和固定 Linux RV64GC defconfig 显式选择这两个已
+  实现能力；未实现的 PBMT、Svnapot、Z* cache block、V、Sstc 等仍没有假开关。
+- 解码和计数器单测分别覆盖能力开启/关闭；关闭测试通过临时修改 `.config` 后
+  使用独立 `BUILD_DIR` 构建，完成后工作区配置恢复为 `gc_defconfig`/Linux profile
+  验证配置，不把临时配置写入 defconfig。
+
+实际验证：
+
+```text
+make CC=/usr/bin/gcc linux_rv64gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-zic check
+  19 个单元、25,844 checks，3 个 smoke，CLI/UI 14 checks，全部通过
+
+make CC=/usr/bin/gcc gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check
+  19 个单元、25,844 checks，3 个 smoke，CLI/UI 14 checks，全部通过
+
+gc_defconfig + CONFIG_RV_ZICNTR=n
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zicntr check
+  19 个单元、24,663 checks，3 个 smoke，CLI/UI 14 checks，全部通过；
+  test_counters 的关闭路径 57 checks 验证所有计数/计时 CSR 非法
+
+gc_defconfig + CONFIG_RV_ZIFENCEI=n
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zifencei check
+  19 个单元、24,662 checks，3 个 smoke，CLI/UI 14 checks，全部通过；
+  test_decode 的关闭路径验证 fence.i 不再译码
+
+make CC=/usr/bin/gcc linux_rv64gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-linux check
+python3 tools/linux/run_rviss.py --rviss build/t020-linux/rviss --out build/linux \
+  --boots 1 --rounds 1 --timeout 180 --max-instr 4000000000
+  Linux PID1/BusyBox smoke 正常关机，203,623,674 retired，exit 0，
+  log SHA256=e779038f8f740b11376761ef5f93ccfa6300b09505abc65eb83232c0faaa0662
+
+make CC=/usr/bin/gcc gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check-diff DIFF_SUITE=a
+  Spike 对拍 665 cases / 5,156 events 通过，3 种故意差异全部捕获
+```
+
+本切片尚未实现 Linux `RISCV_*_UNALIGNED_ACCESS` 的可选仿真，也未改变当前严格
+非对齐 trap 行为；PBMT/Svnapot/Sstc/RVA23 仍按上面的阶段计划执行。

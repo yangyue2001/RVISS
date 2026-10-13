@@ -12,7 +12,9 @@
 
 #define BASE UINT64_C(0x80000000)
 
+#ifdef CONFIG_RV_ZICNTR
 static word_t clock_read(void *opaque) { return *(word_t *)opaque; }
+#endif
 
 static void setup(void) {
   cpu_reset(BASE);
@@ -29,6 +31,7 @@ static StepResult instruction(unsigned csr,unsigned fn,unsigned rd,unsigned rs1)
   return execute((csr<<20)|(rs1<<15)|(fn<<12)|(rd<<7)|0x73);
 }
 
+#ifdef CONFIG_RV_ZICNTR
 static void test_writes(void) {
   setup(); cpu.gpr[6]=UINT64_MAX;
   StepResult r=instruction(CSR_MINSTRET,1,5,6);
@@ -124,9 +127,30 @@ static void test_clint_time(void) {
   bus_init(BASE,512); CHECK_EQ(device_time(),0); /* 清掉局部实例回调 */
 #endif
 }
+#else
+static void test_counters_disabled(void) {
+  const unsigned counters[] = {CSR_MCYCLE, CSR_MINSTRET, CSR_CYCLE,
+                               CSR_TIME, CSR_INSTRET, CSR_MCOUNTINHIBIT,
+                               CSR_MCOUNTEREN, CSR_SCOUNTEREN};
+  for (size_t i = 0; i < ARRLEN(counters); i++) {
+    setup();
+    word_t value = 0;
+    CHECK(!csr_read(counters[i], &value));
+    CHECK(!csr_write(counters[i], UINT64_MAX));
+    StepResult r = instruction(counters[i], 2, 5, 0);
+    CHECK(!r.retired && r.trap.valid);
+    CHECK_EQ(r.trap.cause, 2);
+    CHECK_EQ(cpu.gpr[5], UINT64_C(0xdeadbeef));
+  }
+}
+#endif
 
 int main(void) {
   CHECK(mem_init(BASE,512)); bus_init(BASE,512); engine_init();
+#ifdef CONFIG_RV_ZICNTR
   test_writes(); test_permissions(); test_zero_hpm(); test_clint_time();
+#else
+  test_counters_disabled();
+#endif
   mem_shutdown(); TEST_MAIN_END();
 }

@@ -44,6 +44,27 @@ static CsrEntry *csr_lookup(word_t addr) {
   return NULL;
 }
 
+static bool csr_counter_access_enabled(word_t addr) {
+#ifdef CONFIG_RV_ZICNTR
+  (void)addr;
+  return true;
+#else
+  switch (addr) {
+    case CSR_MCYCLE:
+    case CSR_MINSTRET:
+    case CSR_CYCLE:
+    case CSR_TIME:
+    case CSR_INSTRET:
+    case CSR_MCOUNTINHIBIT:
+    case CSR_MCOUNTEREN:
+    case CSR_SCOUNTEREN:
+      return false;
+    default:
+      return true;
+  }
+#endif
+}
+
 /* RV64、little endian、无 VS/XS。S 实现保留 FS 以允许软件模拟浮点。 */
 word_t csr_status_value(word_t val) {
   val &= MSTATUS_WRITABLE_MASK;
@@ -92,6 +113,7 @@ word_t riscv_misa_supported(void) {
 
 static bool csr_allowed(word_t addr, bool write) {
   if (!csr_lookup(addr) || cpu.priv < ((addr >> 8) & 3)) return false;
+  if (!csr_counter_access_enabled(addr)) return false;
   if (riscv_pmp_csr(addr) && !cpu.pmp_count) return false;
   if (addr>=CSR_FFLAGS && addr<=CSR_FCSR && !riscv_fp_enabled(false)) return false;
   if (write && ((addr >> 10) & 3) == 3) return false;

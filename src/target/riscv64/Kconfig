@@ -15,6 +15,22 @@ config RV_ZICSR
 	help
 	  关掉后 csrrw/csrrs/csrrc 等指令变成非法指令。
 
+config RV_ZIFENCEI
+	bool "Zifencei（指令流同步）"
+	default y
+	help
+	  提供 fence.i 指令。当前 RVISS 是有序功能模型，没有译码缓存，
+	  因此 fence.i 的执行效果是合法退休但不需要刷新宿主缓存；关闭后
+	  该编码变成非法指令。该开关与 Linux 的 Zifencei ISA 身份保持一致。
+
+config RV_ZICNTR
+	bool "Zicntr（基础计数器与计时器）"
+	default y
+	help
+	  提供 cycle/time/instret 及对应机器级计数器 CSR。RVISS 的客户机
+	  计数器仍与引擎事件、退休预算和平台逻辑时间分开；关闭后这些
+	  CSR 不可访问。Zihpm 高性能计数器不因该选项被宣称支持。
+
 comment "Linux 必需扩展（能力以验证任务为准）"
 
 config RV_M

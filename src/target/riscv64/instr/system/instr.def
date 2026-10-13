@@ -25,6 +25,11 @@ INSTR(csrrsi,     "??????? ????? ????? 110 ????? 1110011", 'Z')
 INSTR(csrrci,     "??????? ????? ????? 111 ????? 1110011", 'Z')
 #endif /* CONFIG_RV_ZICSR */
 
+/* 指令流同步（Zifencei）：无译码缓存的功能模型仍需正确识别能力身份。 */
+#ifdef CONFIG_RV_ZIFENCEI
+INSTR(fence_i, "000000000000 00000 001 00000 0001111", 'N')
+#endif /* CONFIG_RV_ZIFENCEI */
+
 /* NEMU 约定：自定义 trap 指令。rs1 位域按惯例写 a0(x10)，
  * 执行时直接读 cpu.gpr[10] 作为退出码。编码（含 a0）= 0x0005006b。 */
 INSTR(nemu_trap,  "0000000 00000 ????? 000 00000 1101011", 'N')

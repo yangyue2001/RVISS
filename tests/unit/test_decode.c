@@ -32,6 +32,7 @@ int main(void) {
   code[3] = 0x0005006b; /* nemu_trap（rs1=a0）     */
   code[4] = 0x00228463; /* beq  t0, sp, +8         */
   code[5] = 0x0082b383; /* ld   t2, 8(t0)          */
+  code[6] = 0x0000100f; /* fence.i                 */
 
   Decode s = decode_one(0x80000000ull);
   CHECK(strcmp(s.mnemonic, "addi") == 0);
@@ -62,10 +63,19 @@ int main(void) {
   CHECK(s.dest.preg == &cpu.gpr[7]);
   CHECK_EQ(s.src2.imm, 8);
 
+#ifdef CONFIG_RV_ZIFENCEI
+  s = decode_one(0x80000018ull);
+  CHECK(strcmp(s.mnemonic, "fence_i") == 0);
+#else
+  Decode no_fence_i = {0};
+  no_fence_i.pc = 0x80000018ull;
+  CHECK(!riscv_decode(&no_fence_i));
+#endif
+
   /* 非法指令应译码失败 */
-  code[6] = 0xffffffff;
+  code[7] = 0xffffffff;
   Decode bad = {0};
-  bad.pc = 0x80000018ull;
+  bad.pc = 0x8000001cull;
   CHECK(!riscv_decode(&bad));
 
   mem_shutdown();
