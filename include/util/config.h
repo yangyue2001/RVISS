@@ -25,6 +25,7 @@ typedef struct {
   bool log_trace;     /* -t：打开指令 trace（还需编译期 CONFIG_TRACE_INST*） */
   const char *log_file;
   LogLevel log_level;
+  const char *trace_file; /* --trace-file：RVTR 二进制事件流 */
 
   const char *image;          /* 位置参数：镜像路径 */
   const char *checkpoint_in;  /* --checkpoint-in  */

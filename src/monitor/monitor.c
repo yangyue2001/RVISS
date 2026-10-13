@@ -7,6 +7,7 @@
 #include <util/config.h>
 #include <util/log.h>
 #include <util/state.h>
+#include <trace/trace.h>
 
 #include "../engine/engine.h"
 #include "../machine/machine.h"
@@ -23,6 +24,12 @@ void monitor_init(int argc, char* argv[]) {
   log_init(rt_cfg.log_file);
   log_set_level(rt_cfg.log_level);
   config_print();
+#ifdef CONFIG_TRACE_STREAM
+  if (!trace_init(rt_cfg.trace_file)) panic("初始化 trace 失败");
+#else
+  if (rt_cfg.trace_file != NULL)
+    Logw("--trace-file requires CONFIG_TRACE_STREAM; trace disabled");
+#endif
 
   /* 板级默认来自 Kconfig（boards 下的板级文件），命令行只做本次覆盖 */
   MachineConfig cfg = machine_minimal;
@@ -102,6 +109,9 @@ int monitor_run(void) {
   }
 
   print_summary(t1 - t0);
+#ifdef CONFIG_TRACE_STREAM
+  if (!trace_close()) Loge("关闭 trace 文件失败");
+#endif
   host_uart_input_close();
   log_close();
   return sim_exit_code();

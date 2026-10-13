@@ -1,6 +1,7 @@
 # T021：诊断日志与性能 Trace 通道
 
-状态：设计完成，待实现（2026-10-13）。
+状态：active（2026-10-13；诊断/trace 通道分离和 RVTR retire 流已实现并验证，
+统计、采样、分块压缩和完整事件观察点仍待实现）。
 
 ## 结论
 
@@ -73,7 +74,8 @@
 
 ## 二进制格式选择
 
-首版使用带版本头的 little-endian RVTR 格式：
+首版使用带版本头的 little-endian RVTR 格式。当前头部记录稳定的 RV64 宽度，
+具体 profile 能力位和镜像/config 身份将在后续元数据切片加入：
 
 ```text
 Header {
@@ -147,3 +149,40 @@ zstd -T0 -1 run.rvtr -o run.rvtr.zst
 
 每个切片都要执行相关 unit/smoke，并运行一次 Linux 启动和 Spike difftest，
 证明 trace 开关不会改变体系结构执行。
+
+## 已实现切片：RVTR retire 流（verified，2026-10-13）
+
+- 新增 `CONFIG_TRACE_STREAM` 和 `--trace-file FILE`，trace 文件不经过诊断日志
+  的 `log_printf()`，也不与 UART stdout 混流。
+- `src/trace/stream.c` 使用 1 MiB 缓冲，固定 64 字节头和 104 字节小端记录；
+  记录 event/retired 序号、PC、原始指令、特权级、结果、访存和 trap 字段。
+- `operation` 静态字符串不写入格式，避免把宿主指针误当作 ABI；解析器应根据
+  原始编码和版本解释它。
+- 默认配置保持 `CONFIG_TRACE_STREAM=n`，未打开 sink 时 `trace_emit()` 在编译期
+  为空；这避免普通 Linux/Spike 回归为每个事件增加函数调用。
+- 当前首版不在 RVISS 内部链接 zstd；原始 RVTR 完成后可用 `zstd -T0 -1` 做块级
+  压缩。短程序实测 5 条记录为 584 字节，zstd 文件为 174 字节。
+
+实际验证：
+
+```text
+make CC=/usr/bin/gcc gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t021-base check
+  20 个单元、25,876 checks，3 个 smoke，CLI/UI 14 checks，全部通过
+
+# 临时设置 CONFIG_TRACE_STREAM=y
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t021-stream check
+  20 个单元、25,876 checks，3 个 smoke，CLI/UI 14 checks，全部通过
+
+make CC=/usr/bin/gcc linux_rv64gc_defconfig
+# 临时设置 CONFIG_TRACE_STREAM=y
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t021-linux-stream check
+python3 tools/linux/run_rviss.py --rviss build/t021-linux-stream/rviss \
+  --out build/linux --boots 1 --rounds 1 --timeout 180 \
+  --max-instr 4000000000
+  Linux PID1/BusyBox smoke 正常关机，203,623,674 retired，exit 0；
+  log SHA256=bcc1c233964f0714bbb885e8423c2701f2bec6b1e33017882384a0ede645cb3b
+
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t021-linux-stream check-diff DIFF_SUITE=a
+  Spike 对拍 665 cases / 5,156 events 通过，3 种故意差异全部捕获
+```

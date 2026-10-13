@@ -26,6 +26,7 @@ static void usage(const char* prog) {
   printf(
       "  -L, --log-level N        日志等级 0=ERROR..4=TRACE（默认 2=INFO）\n");
   printf("  -t, --trace              打开指令 trace（等级自动设为 TRACE）\n");
+  printf("      --trace-file FILE   写入 RVTR 二进制执行事件（需 CONFIG_TRACE_STREAM）\n");
   printf("      --checkpoint-in FILE  执行前恢复 checkpoint\n");
   printf("      --checkpoint-out FILE 执行后保存 checkpoint\n");
   printf("  -h, --help               显示本帮助\n");
@@ -64,12 +65,13 @@ void config_parse(int argc, char* argv[]) {
       .log_trace = false,
       .log_file = NULL,
       .log_level = LOG_INFO,
+      .trace_file = NULL,
       .image = NULL,
       .checkpoint_in = NULL,
       .checkpoint_out = NULL,
   };
 
-  enum { OPT_CPT_IN = 1000, OPT_CPT_OUT, OPT_MAX_EVENTS, OPT_UART_STDIN, OPT_UART_RECORD, OPT_UART_REPLAY };
+  enum { OPT_CPT_IN = 1000, OPT_CPT_OUT, OPT_MAX_EVENTS, OPT_UART_STDIN, OPT_UART_RECORD, OPT_UART_REPLAY, OPT_TRACE_FILE };
 
   static const struct option table[] = {
       {"uart-stdin", no_argument, NULL, OPT_UART_STDIN},
@@ -82,6 +84,7 @@ void config_parse(int argc, char* argv[]) {
       {"log", required_argument, NULL, 'l'},
       {"log-level", required_argument, NULL, 'L'},
       {"trace", no_argument, NULL, 't'},
+      {"trace-file", required_argument, NULL, OPT_TRACE_FILE},
       {"checkpoint-in", required_argument, NULL, OPT_CPT_IN},
       {"checkpoint-out", required_argument, NULL, OPT_CPT_OUT},
       {"help", no_argument, NULL, 'h'},
@@ -122,6 +125,9 @@ void config_parse(int argc, char* argv[]) {
         rt_cfg.log_trace = true;
         rt_cfg.log_level = LOG_TRACE;
         break;
+      case OPT_TRACE_FILE:
+        rt_cfg.trace_file = optarg;
+        break;
       case OPT_CPT_IN:
         rt_cfg.checkpoint_in = optarg;
         break;
@@ -149,7 +155,8 @@ void config_parse(int argc, char* argv[]) {
 }
 
 void config_print(void) {
-  Log("config: max_instr=%lu max_events=%lu batch=%d trace=%d mem_override=%s",
+  Log("config: max_instr=%lu max_events=%lu batch=%d trace=%d trace_file=%s mem_override=%s",
       rt_cfg.max_instr, rt_cfg.max_events, rt_cfg.batch, rt_cfg.log_trace,
+      rt_cfg.trace_file ? rt_cfg.trace_file : "-",
       rt_cfg.ram_size_override ? "yes" : "no");
 }

@@ -110,6 +110,14 @@ config TRACE_MMU
 	depends on DEBUG
 	default n
 
+config TRACE_STREAM
+	bool "结构化 RVTR 二进制 trace"
+	default n
+	help
+	  编译独立的 --trace-file sink。记录带版本头的 RV64 执行事件，
+	  使用批量缓冲写入，不经过文本日志。文件可在运行结束后用
+	  zstd -T0 -1 压缩；该选项不改变客户机执行语义。
+
 config SHARE
 	bool "编译为 difftest 参考共享库（librviss_ref.so）"
 	default n

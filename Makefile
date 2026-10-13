@@ -40,6 +40,7 @@ INC_DIR += $(RVISS_HOME)/src/target/$(ISA)/local_include
 # 目录整体收集（NEMU 风格：新增文件不用改 Makefile）
 DIRS-y  = src/util src/host src/memory src/machine src/monitor
 DIRS-y += src/checkpoint src/difftest
+DIRS-y += src/trace
 DIRS-y += src/engine/$(ENGINE)
 DIRS-y += src/target/$(ISA)
 ifdef CONFIG_RV_F

@@ -4,6 +4,7 @@
 #include <device/device.h>
 #include <util/log.h>
 #include <util/state.h>
+#include <trace/trace.h>
 
 #include "../engine.h"
 
@@ -115,6 +116,7 @@ static void complete_event(StepResult *r) {
            r->pc_before, r->raw_instruction, r->raw_bytes, r->instruction_valid,
            r->operation ? r->operation : "-");
 #endif
+  trace_emit(r);
   /* 当前事件的 outcome 保留；下一步才看到预算导致的 STOPPED。 */
   if (sim_running() &&
       ((sim.max_instr && sim.attempts >= sim.max_instr) ||
