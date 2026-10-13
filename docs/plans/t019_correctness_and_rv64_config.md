@@ -103,3 +103,8 @@
   验收通过。
 - `difftest_uarchstatus_*`、`update_dynamic_config` 和 `difftest_guided_exec` 当前仍是
   空 hook；它们保留在后续独立 ABI 契约任务，不能作为本切片的完成条件。
+
+## AMO 差分回归
+
+- `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-gc check-diff DIFF_SUITE=a` 通过：
+  Spike 对拍 665 cases / 5,156 events，且 3 种故意注入差异均被捕获。
