@@ -12,6 +12,14 @@ static bool prepare(Decode *s, int len, int type) {
   return s->memory.status == MEM_OK;
 }
 
+static bool prepare_atomic(Decode *s, int len) {
+  s->memory = isa_mem_prepare_atomic(*s->src1.preg, len, true);
+  if (s->memory.status == MEM_HOST_ERROR) s->host_error = true;
+  if (s->memory.status == MEM_FAULT)
+    riscv_exec_trap(s, s->memory.cause, s->memory.tval);
+  return s->memory.status == MEM_OK;
+}
+
 static bool read_ram(Decode *s, word_t *old) {
   if (paddr_try_read(s->memory.paddr, s->memory.length, old, NULL)) return true;
   s->memory.status = MEM_HOST_ERROR;
@@ -59,7 +67,7 @@ static void sc(Decode *s, int len) {
 
 static void amo(Decode *s, int len, unsigned op) {
   word_t value = *s->src2.preg;
-  if (!prepare(s, len, MEM_TYPE_WRITE)) return;
+  if (!prepare_atomic(s, len)) return;
   word_t old;
   if (!read_ram(s, &old)) return;
   if (len == 4) value = (uint32_t)value;

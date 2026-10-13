@@ -1,6 +1,7 @@
 #include <checkpoint/checkpoint.h>
 #include <common.h>
 #include <cpu/cpu.h>
+#include <host/host.h>
 #include <memory/paddr.h>
 #include <stdio.h>
 #include <util/log.h>
@@ -14,7 +15,7 @@
  */
 
 #define CPT_MAGIC 0x5256495353435054ull /* "RVISSCPT" */
-#define CPT_VERSION 1u
+#define CPT_VERSION 2u
 
 typedef struct {
   uint64_t magic;
@@ -22,8 +23,8 @@ typedef struct {
   uint32_t header_size;
   uint64_t ram_base;
   uint64_t ram_size;
-  uint64_t checksum; /* 头部（本字段之前）+ RAM 内容的 FNV-1a */
   CPU_state cpu;
+  uint64_t checksum; /* 固定头部 + CPU 状态 + RAM 内容的 FNV-1a */
 } CptHeader;
 
 static uint64_t fnv1a(uint64_t h, const void* data, size_t n) {
@@ -85,7 +86,11 @@ bool cpt_load(const char* path) {
     return false;
   }
 
-  if (fread(mem_host_ptr(mem_base), 1, mem_size, fp) != mem_size) {
+  /* Verify into a temporary mapping first. A corrupt checkpoint must not
+   * partially replace the running machine before its checksum is known. */
+  uint8_t* ram_copy = host_mmap_anon(mem_size);
+  if (ram_copy == NULL || fread(ram_copy, 1, mem_size, fp) != mem_size) {
+    if (ram_copy != NULL) host_munmap(ram_copy, mem_size);
     fclose(fp);
     return false;
   }
@@ -93,12 +98,15 @@ bool cpt_load(const char* path) {
 
   uint64_t sum =
       fnv1a(0xcbf29ce484222325ull, &h, offsetof(CptHeader, checksum));
-  sum = fnv1a(sum, mem_host_ptr(mem_base), mem_size);
+  sum = fnv1a(sum, ram_copy, mem_size);
   if (sum != h.checksum) {
     Loge("checkpoint 校验和错误: %s", path);
+    host_munmap(ram_copy, mem_size);
     return false;
   }
 
+  memcpy(mem_host_ptr(mem_base), ram_copy, mem_size);
+  host_munmap(ram_copy, mem_size);
   cpu = h.cpu;
   Logw("checkpoint is CPU/RAM only: continuation equivalence is not supported");
   Log("checkpoint 已恢复: %s (pc = " FMT_WORD ")", path, cpu.pc);

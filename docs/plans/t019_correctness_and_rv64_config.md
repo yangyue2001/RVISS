@@ -1,6 +1,6 @@
 # T019：核心边界加固与 RV64 Linux/OpenSBI 配置
 
-状态：active（2026-10-13；配置切片已完成，边界切片进行中）。
+状态：active（2026-10-13；配置、镜像边界、AMO 和 checkpoint 切片已完成）。
 
 ## 目标
 
@@ -70,3 +70,26 @@
   Sv39；配置中没有 RV32、Sv48、V、H 或 Sstc 能力。
 - `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-config check`：17 个单元、25,676
   项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
+
+## 边界切片验证
+
+- ELF loader 现在先验证完整 program-header 表和所有 `PT_LOAD` 段，再写入 RAM；检查
+  `p_offset + p_filesz`、`p_filesz <= p_memsz`、RAM 范围和地址溢出，raw/ELF 仍各只读
+  一次文件。`tests/unit/test_image.c` 覆盖坏 magic、截断/错端序 ELF、坏段和部分装载，
+  108 项检查通过。
+- `isa_mem_prepare_atomic` 先走读权限再走写权限，AMO 仍强制 RAM-only，并把读路径失败
+  映射为 store/AMO fault；LR/SC 保持原路径。A/Sv39 定向回归和 `test_sv39` 的 12 项
+  新增检查通过。
+- checkpoint 升级到版本 2，校验覆盖固定头、`CPU_state` 和 RAM；加载时先在临时映射
+  中校验，坏 CPU、坏 RAM、截断文件都不会改写当前 CPU/RAM。`test_checkpoint` 的 48
+  项检查通过；设备、平台时间和事件序号仍明确不在恢复范围内。
+- `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-config check`：19 个单元、25,844
+  项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
+- `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-gc check`：同一 19 个单元、25,844
+  项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
+- 固定工件 Linux smoke：
+  `python3 tools/linux/run_rviss.py --rviss build/t019-config/rviss --out build/linux
+  --boots 1 --rounds 1 --timeout 180 --max-instr 4000000000` 通过；PID1、BusyBox
+  交互、RV64/FP/AMO/Sv39/timer probe 和 finisher shutdown 均通过，退出码 0，
+  退休 203,623,674，日志 SHA256 为
+  `f6e076c469f55eb76b9ce2a2a793f4338017c6d5bc29ac38aa94d4176835f3af`。

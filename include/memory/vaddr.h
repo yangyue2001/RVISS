@@ -38,6 +38,8 @@ MemAccess vaddr_write(vaddr_t addr, int len, word_t data);
 MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data);
 /* target 原子路径使用：只检查/翻译，不读数据或写 RAM/MMIO。 */
 MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only);
+/* AMO 同时是读和写；两个权限路径都必须成功，且只允许 RAM。 */
+MemAccess isa_mem_prepare_atomic(vaddr_t addr, int len, bool ram_only);
 
 /* ---- 以下由 target/riscv64/mmu/ 实现 ---- */
 void    isa_mmu_flush_tlb(void);

@@ -110,6 +110,12 @@ static void test_ad_and_execution(void) {
   CHECK_EQ(get(PTE_DATA),initial|192); CHECK_EQ(get(DATA),42);
   setup(); put(PTE_DATA,leaf(DATA,1)); check_fault(vaddr_write(VA,8,42),15,VA);
   CHECK_EQ(get(PTE_DATA),leaf(DATA,1)); CHECK_EQ(get(DATA),OLD);
+  /* AMO must pass the load permission path as well as the store path. */
+#ifdef CONFIG_RV_A
+  setup(); put(PTE_DATA,leaf(DATA,0xc9));
+  check_fault(isa_mem_prepare_atomic(VA,8,true),15,VA);
+  CHECK_EQ(get(DATA),OLD);
+#endif
   setup(); put(PTE_DATA,leaf(BASE+65536,7)); check_fault(vaddr_write(VA,8,42),7,VA);
   CHECK_EQ(get(PTE_DATA),leaf(BASE+65536,0xc7)); /* A/D can survive final PMA fault */
   setup(); put(PTE_DATA,0); StepResult r=execute(0x00033283);

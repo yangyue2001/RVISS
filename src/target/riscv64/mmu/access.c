@@ -51,6 +51,23 @@ MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only) {
   return a;
 }
 
+MemAccess isa_mem_prepare_atomic(vaddr_t addr, int len, bool ram_only) {
+  MemAccess read = isa_mem_prepare(addr, len, MEM_TYPE_READ, ram_only);
+  if (read.status != MEM_OK) {
+    /* AMO faults are reported in the store/AMO class even when the required
+     * read half fails first. */
+    if (read.status == MEM_FAULT) {
+      read.type = MEM_TYPE_WRITE;
+      read.cause = read.cause == EX_LAM ? EX_SAM :
+                   read.cause == EX_LPF ? EX_SPF : EX_SAF;
+    }
+    return read;
+  }
+  /* Translate again through the write path. This preserves its distinct
+   * permission/fault cause and performs the required PTE D-bit update. */
+  return isa_mem_prepare(addr, len, MEM_TYPE_WRITE, ram_only);
+}
+
 MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data) {
   MemAccess a = isa_mem_prepare(addr, len, type, false);
   if (a.status != MEM_OK) return a;
