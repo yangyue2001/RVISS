@@ -1,7 +1,7 @@
 # T020：Linux RV64 ISA 配置与 RVISS 硬件能力映射
 
-状态：active（2026-10-13；先完成 Linux/RVA23 清单与能力映射，随后按本契约
-逐项实现并验证；尚未宣称 RVA23、PBMT 或非对齐访问已支持）。
+状态：active（2026-10-13；Linux/RVA23 清单、Zifencei/Zicntr 和两种非对齐访问
+模式已经完成并验证；RVA23、PBMT、Svnapot、Sstc 等仍按本契约继续实现）。
 
 ## 目标
 
