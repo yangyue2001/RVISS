@@ -85,6 +85,10 @@
   项检查通过；设备、平台时间和事件序号仍明确不在恢复范围内。
 - `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-config check`：19 个单元、25,844
   项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
+- 切换到 `linux_rv64gc_defconfig` 后，原验收命令
+  `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-linux check` 同样通过：19 个单元、
+  25,844 项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过；随后已恢复
+  `gc_defconfig` 作为工作区默认配置。
 - `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-gc check`：同一 19 个单元、25,844
   项检查，3 个 smoke 和 14 个 CLI/UI 检查全部通过。
 - 固定工件 Linux smoke：
