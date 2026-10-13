@@ -155,6 +155,18 @@ static void test_sync_faults(void) {
 
   setup(0x00033283);
   cpu.gpr[6] = BASE + 97;
+#ifdef CONFIG_RV_MISALIGNED_NATIVE
+  CHECK(paddr_write(BASE+96,8,UINT64_C(0x1122334455667788)));
+  CHECK(paddr_write(BASE+104,1,0xaa));
+  r=step(); CHECK(r.retired && r.register_write);
+  CHECK_EQ(cpu.gpr[5],UINT64_C(0xaa11223344556677));
+  setup(0x00533023); cpu.gpr[6]=BASE+97;
+  r=step(); CHECK(r.retired && !r.register_write);
+  CHECK_EQ(paddr_read(BASE+97,8),UINT64_C(0xdeadbeef));
+  setup(0x00033283); cpu.gpr[6]=0x40000001;
+  check_trap(step(),5,BASE,0x40000001);
+  CHECK_EQ(cpu.gpr[5],0xdeadbeef);
+#else
   check_trap(step(), 4, BASE, BASE + 97);
   CHECK_EQ(cpu.gpr[5], 0xdeadbeef);
   setup(0x00533023);
@@ -166,6 +178,7 @@ static void test_sync_faults(void) {
   setup(0x00033283);
   cpu.gpr[6] = 0x40000001;
   check_trap(step(), 4, BASE, 0x40000001);
+#endif
   setup(0x00033283);
   cpu.gpr[6] = UINT64_C(0x0100000000000000); /* PA 超出 56 bits */
   check_trap(step(), 5, BASE, UINT64_C(0x0100000000000000));

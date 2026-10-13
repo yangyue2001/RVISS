@@ -28,9 +28,9 @@ MemAccess isa_mem_prepare(vaddr_t addr, int len, int type, bool ram_only) {
                              type == MEM_TYPE_READ ? EX_LAF : EX_SAF;
   const word_t aligned_cause = type == MEM_TYPE_READ ? EX_LAM : EX_SAM;
 
-  /* profile 在翻译前拒绝非自然对齐的数据访问。fetch 使用 halfword，
-   * IALIGN 在 decoder/控制流检查，第二 halfword 不按 4-byte 对齐拒绝。
-   */
+  /* prepare 始终检查自然对齐，尤其不能让 LR/SC/AMO 获得拆分语义。
+   * 可选普通标量拆分在 access 中进入，逐字节走同一权限/翻译路径。
+   * fetch 使用 halfword；IALIGN 由 decoder/控制流检查。 */
   if (type != MEM_TYPE_IFETCH && (addr & (word_t)(len - 1))) {
     a.status = MEM_FAULT;
     a.cause = aligned_cause;
@@ -68,7 +68,70 @@ MemAccess isa_mem_prepare_atomic(vaddr_t addr, int len, bool ram_only) {
   return isa_mem_prepare(addr, len, MEM_TYPE_WRITE, ram_only);
 }
 
+#ifdef CONFIG_RV_MISALIGNED_NATIVE
+static MemAccess isa_mem_access_native_unaligned(vaddr_t addr, int len, int type,
+                                                 word_t data) {
+  MemAccess result = {.valid = true, .type = type, .length = len,
+                      .vaddr = addr, .status = MEM_OK};
+  if (addr > UINT64_MAX - (word_t)(len - 1)) {
+    result.status = MEM_FAULT;
+    result.cause = type == MEM_TYPE_READ ? EX_LAF : EX_SAF;
+    result.tval = addr;
+    return result;
+  }
+
+  MemAccess bytes[8];
+  for (int i = 0; i < len; i++) {
+    bytes[i] = isa_mem_prepare(addr + (word_t)i, 1, type, false);
+    if (bytes[i].status != MEM_OK) {
+      result.status = bytes[i].status;
+      result.cause = bytes[i].cause;
+      result.tval = bytes[i].tval;
+      return result;
+    }
+    if (!bytes[i].paddr_valid || bytes[i].mmio ||
+        !mem_in_ram(bytes[i].paddr, 1)) {
+      result.status = MEM_FAULT;
+      result.cause = type == MEM_TYPE_READ ? EX_LAF : EX_SAF;
+      result.tval = addr;
+      return result;
+    }
+    if (i == 0) result.paddr = bytes[i].paddr;
+  }
+  result.paddr_valid = true;
+
+  if (type == MEM_TYPE_READ) {
+    result.data = 0;
+    for (int i = 0; i < len; i++) {
+      word_t byte;
+      if (!paddr_try_read(bytes[i].paddr, 1, &byte, NULL)) {
+        result.status = MEM_HOST_ERROR;
+        return result;
+      }
+      result.data |= (byte & 0xffu) << (8 * i);
+    }
+  } else {
+    for (int i = 0; i < len; i++) {
+      if (!paddr_try_write(bytes[i].paddr, 1, (data >> (8 * i)) & 0xffu,
+                           NULL)) {
+        result.status = MEM_HOST_ERROR;
+        return result;
+      }
+    }
+    result.data = data & (UINT64_MAX >> (64 - len * 8));
+    result.write_performed = true;
+  }
+  return result;
+}
+#endif
+
 MemAccess isa_mem_access(vaddr_t addr, int len, int type, word_t data) {
+#ifdef CONFIG_RV_MISALIGNED_NATIVE
+  if ((len == 2 || len == 4 || len == 8) &&
+      (type == MEM_TYPE_READ || type == MEM_TYPE_WRITE) &&
+      (addr & (word_t)(len - 1)))
+    return isa_mem_access_native_unaligned(addr, len, type, data);
+#endif
   MemAccess a = isa_mem_prepare(addr, len, type, false);
   if (a.status != MEM_OK) return a;
   a.data = data;

@@ -38,31 +38,13 @@ static CsrEntry csr_table[] = {RVISS_CSRS_OWNED(CSR_ENTRY_OWNED)
 #undef CSR_ENTRY_PMPCFG
 
 static CsrEntry *csr_lookup(word_t addr) {
+#ifndef CONFIG_RV_ZICNTR
+  if (addr >= CSR_CYCLE && addr <= CSR_INSTRET) return NULL;
+#endif
   for (size_t i = 0; i < ARRLEN(csr_table); i++) {
     if (csr_table[i].addr == addr) return &csr_table[i];
   }
   return NULL;
-}
-
-static bool csr_counter_access_enabled(word_t addr) {
-#ifdef CONFIG_RV_ZICNTR
-  (void)addr;
-  return true;
-#else
-  switch (addr) {
-    case CSR_MCYCLE:
-    case CSR_MINSTRET:
-    case CSR_CYCLE:
-    case CSR_TIME:
-    case CSR_INSTRET:
-    case CSR_MCOUNTINHIBIT:
-    case CSR_MCOUNTEREN:
-    case CSR_SCOUNTEREN:
-      return false;
-    default:
-      return true;
-  }
-#endif
 }
 
 /* RV64、little endian、无 VS/XS。S 实现保留 FS 以允许软件模拟浮点。 */
@@ -113,7 +95,6 @@ word_t riscv_misa_supported(void) {
 
 static bool csr_allowed(word_t addr, bool write) {
   if (!csr_lookup(addr) || cpu.priv < ((addr >> 8) & 3)) return false;
-  if (!csr_counter_access_enabled(addr)) return false;
   if (riscv_pmp_csr(addr) && !cpu.pmp_count) return false;
   if (addr>=CSR_FFLAGS && addr<=CSR_FCSR && !riscv_fp_enabled(false)) return false;
   if (write && ((addr >> 10) & 3) == 3) return false;
@@ -197,7 +178,13 @@ bool csr_write(word_t addr, word_t val) {
       cpu_sync_irq_inputs();
       break;
     }
-    case CSR_MCOUNTEREN: case CSR_SCOUNTEREN: *e->field = val & 7; break;
+    case CSR_MCOUNTEREN: case CSR_SCOUNTEREN:
+#ifdef CONFIG_RV_ZICNTR
+      *e->field = val & 7;
+#else
+      *e->field = 0; /* 没有用户级视图时，CY/TM/IR 硬连线零。 */
+#endif
+      break;
     case CSR_SATP: cpu.satp = riscv_satp_value(val); break;
     default: if(e->field) *e->field = val & e->view_mask; break;
   }

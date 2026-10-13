@@ -47,6 +47,10 @@ run_case() {
 
 run_case smoke start.S "Hello from RVISS!"
 run_case irq   irq.S   ""
-run_case fault fault.S ""
+if grep -q '^#define CONFIG_RV_MISALIGNED_NATIVE 1$' "$DIR/../../include/generated/autoconf.h"; then
+    run_case fault_native fault_native.S ""
+else
+    run_case fault fault.S ""
+fi
 
 echo "冒烟测试通过（smoke：UART 输出；irq：定时器中断；fault：精确同步异常）"

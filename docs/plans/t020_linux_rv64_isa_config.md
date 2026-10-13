@@ -77,7 +77,7 @@ RVA23 是 64 位应用处理器 profile。`RVA23U64` 是用户级必需/可选�
 | `NONPORTABLE` | 允许依赖固定硬件的内核 | `y`，固定 virt 板级 |
 | `RISCV_ALTERNATIVE` | 启用运行时替换机制 | `y`，不等于某个 ISA 扩展 |
 | `RISCV_ISA_FALLBACK` | 兼容解析旧 `riscv,isa` DT 属性 | `n`，固定 DT 使用显式扩展列表 |
-| `RISCV_PROBE_UNALIGNED_ACCESS` | 启动探测非对齐速度，缺失时 Linux 仿真 | 当前模板未选；RVISS 当前严格 trap |
+| `RISCV_PROBE_UNALIGNED_ACCESS` | 启动探测非对齐速度，缺失时 Linux 仿真 | 固定工件为 `y`；RVISS Linux profile 选择严格 trap |
 | `RISCV_EMULATED_UNALIGNED_ACCESS` | 总是允许 Linux 对缺失硬件做仿真 | 当前未选；需要 RVISS 明确策略 |
 | `RISCV_SLOW_UNALIGNED_ACCESS` | 假设硬件支持但较慢的非对齐访问 | 当前未选 |
 | `RISCV_EFFICIENT_UNALIGNED_ACCESS` | 假设硬件高效支持并启用优化 | 当前未选 |
@@ -176,8 +176,9 @@ Svpbmt 不是“增加几个 PTE 标志位”就完成。RVISS 需要：
 
 - `RV_ZIFENCEI`：门控 `fence.i` 指令、misa/ISA 元数据和非法指令路径；当前有序
   功能模型可以明确说明 no-op，不伪造 cache flush。
-- `RV_ZICNTR`：把已验证的 `cycle/time/instret` CSR 与 ISA 身份绑定；区分客户机
-  计数器和 RVISS 事件/预算计数器。
+- `RV_ZICNTR`：把已验证的用户级 `cycle/time/instret` CSR 视图与 ISA 身份绑定；
+  `mcycle/minstret` 和 `mcounteren` 仍是特权架构状态；区分客户机计数器和 RVISS
+  事件/预算计数器。
 - 明确的非对齐访问策略符号（严格 trap 先作为默认），并在帮助文本中说明它不
   等同 Linux `RISCV_*_UNALIGNED_ACCESS`。
 
@@ -275,9 +276,10 @@ make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check-diff DIFF_SUITE=a
 - 新增 `RV_ZIFENCEI`，默认配置打开；`fence.i` 只在该能力存在时进入译码表，
   关闭时同一编码走非法指令异常。当前顺序功能模型没有译码缓存，所以合法的
   `fence.i` 退休时不需要额外宿主缓存操作。
-- 新增 `RV_ZICNTR`，默认配置打开；关闭时 `mcycle/minstret/cycle/time/instret`
-  及计数器控制 CSR 访问失败并产生非法指令，内部计数器仍与引擎预算保持分离。
-  这没有把 HPM CSR 宣称为 `Zihpm`。
+- 新增 `RV_ZICNTR`，默认配置打开；关闭时用户级 `cycle/time/instret` CSR
+  访问失败并产生非法指令，机器级 `mcycle/minstret` 仍是特权架构计数器，
+  `mcounteren/scounteren` 在关闭用户视图时硬连线为零。内部计数器仍与引擎
+  预算保持分离。这没有把 HPM CSR 宣称为 `Zihpm`。
 - `RV64_LINUX`、`gc_defconfig` 和固定 Linux RV64GC defconfig 显式选择这两个已
   实现能力；未实现的 PBMT、Svnapot、Z* cache block、V、Sstc 等仍没有假开关。
 - 解码和计数器单测分别覆盖能力开启/关闭；关闭测试通过临时修改 `.config` 后
@@ -296,9 +298,9 @@ make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check
   19 个单元、25,844 checks，3 个 smoke，CLI/UI 14 checks，全部通过
 
 gc_defconfig + CONFIG_RV_ZICNTR=n
-make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zicntr check
-  19 个单元、24,663 checks，3 个 smoke，CLI/UI 14 checks，全部通过；
-  test_counters 的关闭路径 57 checks 验证所有计数/计时 CSR 非法
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zicntr2 check
+  20 个单元、25,897 checks，3 个 smoke，CLI/UI 14 checks，全部通过；
+  用户级 cycle/time/instret 为非法指令，机器级计数器和控制 CSR 的特权语义保持
 
 gc_defconfig + CONFIG_RV_ZIFENCEI=n
 make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zifencei check
@@ -306,16 +308,44 @@ make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-no-zifencei check
   test_decode 的关闭路径验证 fence.i 不再译码
 
 make CC=/usr/bin/gcc linux_rv64gc_defconfig
-make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-linux check
-python3 tools/linux/run_rviss.py --rviss build/t020-linux/rviss --out build/linux \
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-linux2 check
+python3 tools/linux/run_rviss.py --rviss build/t020-linux2/rviss --out build/linux \
   --boots 1 --rounds 1 --timeout 180 --max-instr 4000000000
   Linux PID1/BusyBox smoke 正常关机，203,623,674 retired，exit 0，
-  log SHA256=e779038f8f740b11376761ef5f93ccfa6300b09505abc65eb83232c0faaa0662
+  log SHA256=bcc1a0333425846ed7f095bdf07e1f36c267ef9d2c9af5bc3a2e2a4c8dba259b
 
 make CC=/usr/bin/gcc gc_defconfig
-make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc check-diff DIFF_SUITE=a
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-gc2 check-diff DIFF_SUITE=a
   Spike 对拍 665 cases / 5,156 events 通过，3 种故意差异全部捕获
 ```
 
-本切片尚未实现 Linux `RISCV_*_UNALIGNED_ACCESS` 的可选仿真，也未改变当前严格
-非对齐 trap 行为；PBMT/Svnapot/Sstc/RVA23 仍按上面的阶段计划执行。
+## 阶段 1b：非对齐访问策略（verified，2026-10-13）
+
+已完成两个真实的 RVISS 硬件模式：
+
+- `RV_MISALIGNED_TRAP`：普通数据访问在翻译前产生 load/store-misaligned，
+  LR/SC/AMO 也保持自然对齐要求；固定 `RV64_LINUX` 和 Linux defconfig 采用此模式，
+  对应 Linux `RISCV_PROBE_UNALIGNED_ACCESS` 让内核陷阱路径负责仿真。
+- `RV_MISALIGNED_NATIVE`：普通 RAM load/store 逐字节预检查、逐字节翻译和访问，
+  因此跨页不会跳过第二页权限；所有预检查通过后才写 RAM。MMIO 不拆分，LR/SC/AMO
+  仍然 misaligned fault。这个模式表达功能模型中的硬件支持，不承诺真实周期性能。
+
+`tests/unit/test_misaligned.c`、`test_fp.c`、`test_step.c` 和 `test_sv39.c` 分别覆盖
+两种模式、FP 访问、跨 RAM 尾部、Sv39 映射和原子边界；smoke 在 native 模式使用独立
+的 `fault_native.S`，避免把“硬件成功”误判为异常测试失败。
+
+实际验证：
+
+```text
+make CC=/usr/bin/gcc gc_defconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-misaligned-trap3 check
+  严格 trap：20 个单元、25,855 checks，3 个 smoke，CLI/UI 14 checks，全部通过
+
+# 临时把 CONFIG_RV_MISALIGNED_NATIVE=y 写入 .config 并同步 Kconfig
+make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t020-misaligned-native check
+  native RAM 拆分：20 个单元、25,855 checks，3 个 smoke（fault_native），
+  CLI/UI 14 checks，全部通过
+```
+
+本阶段尚未实现 Linux `RISCV_SLOW_UNALIGNED_ACCESS` 的性能模型、向量非对齐访问或
+MMIO 非对齐语义；PBMT/Svnapot/Sstc/RVA23 仍按上面的阶段计划执行。

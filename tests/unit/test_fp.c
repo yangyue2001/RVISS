@@ -156,9 +156,17 @@ static void test_csr_and_memory(void) {
   CHECK_EQ((uint32_t)cpu.fpr[5],0x7f812345);CHECK_EQ(cpu.fcsr,0);
   setup();cpu.fpr[1]=UINT64_C(0x1234567887654321);CHECK(execute(0x00132027).retired);
   CHECK_EQ(paddr_read(DATA,4),0x87654321);CHECK_EQ(cpu.mstatus&MSTATUS_FS,MSTATUS_FS_INITIAL);
-  setup();cpu.gpr[6]=DATA+1;word_t old=cpu.fpr[5];CHECK(!execute(0x00032287).retired);
+  setup();cpu.gpr[6]=DATA+1;
+#ifdef CONFIG_RV_MISALIGNED_NATIVE
+  CHECK(paddr_write(DATA,8,UINT64_C(0x1122334455667788)));
+  CHECK(execute(0x00032287).retired);
+  CHECK_EQ(cpu.fpr[5],BOX|UINT64_C(0x44556677));
+  CHECK_EQ(cpu.mstatus&MSTATUS_FS,MSTATUS_FS_DIRTY);
+#else
+  word_t old=cpu.fpr[5];CHECK(!execute(0x00032287).retired);
   CHECK_EQ(cpu.mcause,4);CHECK_EQ(cpu.mtval,DATA+1);CHECK_EQ(cpu.fpr[5],old);
   CHECK_EQ(cpu.mstatus&MSTATUS_FS,MSTATUS_FS_INITIAL);
+#endif
   setup();cpu.gpr[6]=BASE+4096;CHECK(!execute(0x00132027).retired);CHECK_EQ(cpu.mcause,7);
 }
 #ifdef CONFIG_RV_D

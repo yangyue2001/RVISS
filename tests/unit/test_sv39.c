@@ -101,7 +101,13 @@ static void test_invalid_and_pages(void) {
   setup(); put(ROOT,leaf(BASE+0x10000,1)); check_fault(vaddr_read(VA,8),5,VA);
   setup(); put(PTE_DATA,leaf(UINT64_C(0x00fffffffffff000),0xc7));
   check_fault(vaddr_read(VA,8),5,VA);
-  setup(); check_fault(vaddr_read(VA+1,8),4,VA+1); /* misaligned before walk */
+  setup();
+#ifdef CONFIG_RV_MISALIGNED_NATIVE
+  a=vaddr_read(VA+1,8); CHECK_EQ(a.status,MEM_OK);
+  CHECK_EQ(a.data,UINT64_C(0x0011223344556677));
+#else
+  check_fault(vaddr_read(VA+1,8),4,VA+1); /* misaligned before walk */
+#endif
 }
 static void test_ad_and_execution(void) {
   setup(); word_t initial=leaf(DATA,7); put(PTE_DATA,initial);

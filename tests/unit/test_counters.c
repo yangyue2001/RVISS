@@ -31,21 +31,20 @@ static StepResult instruction(unsigned csr,unsigned fn,unsigned rd,unsigned rs1)
   return execute((csr<<20)|(rs1<<15)|(fn<<12)|(rd<<7)|0x73);
 }
 
-#ifdef CONFIG_RV_ZICNTR
 static void test_writes(void) {
   setup(); cpu.gpr[6]=UINT64_MAX;
   StepResult r=instruction(CSR_MINSTRET,1,5,6);
   CHECK(r.retired && r.counter_write_instret); CHECK_EQ(cpu.gpr[5],17);
   CHECK_EQ(cpu.instret,UINT64_MAX); CHECK_EQ(sim.instret,1); CHECK_EQ(r.retired_total,1);
   CHECK(execute(0x13).retired); CHECK_EQ(cpu.instret,0); CHECK_EQ(sim.instret,2);
-  CHECK(instruction(CSR_INSTRET,2,5,0).retired); CHECK_EQ(cpu.gpr[5],0);
+  CHECK(instruction(CSR_MINSTRET,2,5,0).retired); CHECK_EQ(cpu.gpr[5],0);
   CHECK_EQ(cpu.instret,1); CHECK_EQ(sim.instret,3);
   setup(); cpu.gpr[6]=UINT64_MAX;
   r=instruction(CSR_MCYCLE,1,5,6);
   CHECK(r.retired && r.counter_write_cycle); CHECK_EQ(cpu.gpr[5],23);
   CHECK_EQ(cpu.cycle,UINT64_MAX); CHECK_EQ(sim.logical_ticks,1);
   CHECK(execute(0x13).retired); CHECK_EQ(cpu.cycle,0);
-  CHECK(instruction(CSR_CYCLE,2,5,0).retired); CHECK_EQ(cpu.gpr[5],0);
+  CHECK(instruction(CSR_MCYCLE,2,5,0).retired); CHECK_EQ(cpu.gpr[5],0);
   CHECK_EQ(cpu.cycle,1);
   setup(); cpu.gpr[6]=0;
   CHECK(instruction(CSR_MINSTRET,2,5,6).retired); CHECK_EQ(cpu.instret,17);
@@ -62,13 +61,19 @@ static void test_writes(void) {
 }
 
 static void test_permissions(void) {
+#ifdef CONFIG_RV_ZICNTR
   word_t time=42; device_set_time_reader(clock_read,&time);
+#endif
   const unsigned levels[]={PRV_U,PRV_S,PRV_M};
   for(unsigned p=0;p<3;p++) for(unsigned m=0;m<2;m++) for(unsigned s=0;s<2;s++)
   for(unsigned index=0;index<3;index++) {
     setup(); cpu.priv=levels[p]; cpu.mcounteren=m?7:0; cpu.scounteren=s?7:0;
     StepResult r=instruction(CSR_CYCLE+index,2,5,0);
+#ifdef CONFIG_RV_ZICNTR
     bool allowed=p==2 || (m && (p==1 || s));
+#else
+    bool allowed=false;
+#endif
     CHECK_EQ(r.retired,allowed);
     if(allowed) {
       const word_t values[]={23,42,17}; CHECK_EQ(cpu.gpr[5],values[index]);
@@ -108,6 +113,7 @@ static void test_zero_hpm(void) {
   }
 }
 
+#ifdef CONFIG_RV_ZICNTR
 static void test_clint_time(void) {
 #ifdef CONFIG_HAS_CLINT
   bus_init(BASE,512); ClintState clint; clint_init(&clint);
@@ -129,26 +135,30 @@ static void test_clint_time(void) {
 }
 #else
 static void test_counters_disabled(void) {
-  const unsigned counters[] = {CSR_MCYCLE, CSR_MINSTRET, CSR_CYCLE,
-                               CSR_TIME, CSR_INSTRET, CSR_MCOUNTINHIBIT,
-                               CSR_MCOUNTEREN, CSR_SCOUNTEREN};
+  const unsigned counters[] = {CSR_CYCLE, CSR_TIME, CSR_INSTRET};
   for (size_t i = 0; i < ARRLEN(counters); i++) {
     setup();
     word_t value = 0;
     CHECK(!csr_read(counters[i], &value));
+    CHECK(!csr_peek(counters[i], &value));
     CHECK(!csr_write(counters[i], UINT64_MAX));
     StepResult r = instruction(counters[i], 2, 5, 0);
     CHECK(!r.retired && r.trap.valid);
     CHECK_EQ(r.trap.cause, 2);
     CHECK_EQ(cpu.gpr[5], UINT64_C(0xdeadbeef));
   }
+  setup();
+  CHECK(csr_write(CSR_MCOUNTEREN, UINT64_MAX));
+  CHECK(csr_write(CSR_SCOUNTEREN, UINT64_MAX));
+  CHECK_EQ(cpu.mcounteren, 0); CHECK_EQ(cpu.scounteren, 0);
 }
 #endif
 
 int main(void) {
   CHECK(mem_init(BASE,512)); bus_init(BASE,512); engine_init();
+  test_writes(); test_permissions(); test_zero_hpm();
 #ifdef CONFIG_RV_ZICNTR
-  test_writes(); test_permissions(); test_zero_hpm(); test_clint_time();
+  test_clint_time();
 #else
   test_counters_disabled();
 #endif

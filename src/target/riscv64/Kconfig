@@ -25,11 +25,13 @@ config RV_ZIFENCEI
 
 config RV_ZICNTR
 	bool "Zicntr（基础计数器与计时器）"
+	depends on RV_ZICSR
 	default y
 	help
-	  提供 cycle/time/instret 及对应机器级计数器 CSR。RVISS 的客户机
-	  计数器仍与引擎事件、退休预算和平台逻辑时间分开；关闭后这些
-	  CSR 不可访问。Zihpm 高性能计数器不因该选项被宣称支持。
+	  提供只读 cycle/time/instret CSR，关闭后访问它们产生非法指令。
+	  机器级 mcycle/minstret 和计数器控制 CSR 仍属于特权架构；关闭
+	  Zicntr 不关闭机器计数或 CLINT 时间，counteren 的 CY/TM/IR 读零。
+	  引擎预算/累计退休与客户机计数始终分开；此选项不包含 Zihpm。
 
 comment "Linux 必需扩展（能力以验证任务为准）"
 
@@ -72,6 +74,29 @@ config RV_PMP
 	bool "PMP：物理内存保护"
 	help
 	  16 entries，粒度 4 bytes，OFF/TOR/NA4/NAPOT；关闭时 0 entries。
+
+choice
+	prompt "RV64 数据非对齐访问"
+	default RV_MISALIGNED_TRAP
+	help
+	  选择 CPU 对普通数据 load/store 的非自然对齐行为。LR/SC/AMO
+	  始终要求自然对齐；MMIO 不通过拆分访问模拟。
+
+config RV_MISALIGNED_TRAP
+	bool "非对齐访问产生异常（Linux 可由内核仿真）"
+	help
+	  模拟硬件对非对齐标量访问抛出 load/store-misaligned。此模式对应
+	  固定 Linux 的 RISCV_PROBE_UNALIGNED_ACCESS：Linux 可以在陷阱中
+	  仿真访问，并据此报告硬件速度。
+
+config RV_MISALIGNED_NATIVE
+	bool "RAM 非对齐访问由 RVISS 拆分完成"
+	help
+	  普通 RAM load/store 按字节预检查、翻译并完成 little-endian 访问，
+	  跨页也不会跳过第二页的权限检查。该功能模型选项不改变 LR/SC/AMO
+	  的自然对齐要求，也不把 MMIO 拆成多个副作用访问。
+
+endchoice
 
 comment "阶段二：可选特性（未实现）"
 
