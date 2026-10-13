@@ -93,3 +93,13 @@
   交互、RV64/FP/AMO/Sv39/timer probe 和 finisher shutdown 均通过，退出码 0，
   退休 203,623,674，日志 SHA256 为
   `f6e076c469f55eb76b9ce2a2a793f4338017c6d5bc29ac38aa94d4176835f3af`。
+
+## ABI 现状记录
+
+- `make -j4 CC=/usr/bin/gcc BUILD_DIR=build/t019-share CONFIG_SHARE=y` 成功生成
+  `build/t019-share/librviss_ref.so`，但 `nm -D --defined-only` 显示它只导出当前
+  difftest 骨架符号；`include/rviss.h` 声明的 `rviss_create`、`rviss_step` 等原生
+  API 没有实现，`difftest_store_commit` 也没有实现。没有把共享库“能链接”当成 ABI
+  验收通过。
+- `difftest_uarchstatus_*`、`update_dynamic_config` 和 `difftest_guided_exec` 当前仍是
+  空 hook；它们保留在后续独立 ABI 契约任务，不能作为本切片的完成条件。
