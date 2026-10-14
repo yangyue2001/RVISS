@@ -1,7 +1,7 @@
 # T026：QEMU RV64 配置对照与 RVISS ISA 元数据布局
 
-状态：design proposed（2026-10-14）。本任务先固化设计和迁移边界，不改变解释器、
-CSR、MMU 或 Linux 启动行为。后续每个代码切片都要独立验证并提交。
+状态：documented（2026-10-14）。本任务先固化设计和迁移边界，不改变解释器、CSR、
+MMU 或 Linux 启动行为。后续每个代码切片都要独立验证并提交。
 
 ## 1. 目标和结论
 
@@ -260,6 +260,16 @@ checkpoint 只保存客户机架构状态；profile 作为配置 ID/hash 写入�
 - 固化 QEMU 对照、`include/cpu/isa/` 目录边界和非目标；
 - 不改变现有 CSR、译码、MMU 和 Linux 行为；
 - 运行 `git diff --check`，提交文档。
+
+本轮实际验证：
+
+```text
+git diff --cached --check  # 通过
+git commit -m "Document RV64 ISA metadata layout"  # 7514aed
+```
+
+本轮没有运行构建或 Linux/Spike 测试，因为只新增设计文档，未改动可执行代码；后续
+阶段必须重新运行对应的 `make check`、Linux smoke 和 Spike 基线。
 
 ### 阶段 2：只搬元数据类型
 
