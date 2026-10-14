@@ -17,35 +17,32 @@
 enum { PRV_U = 0, PRV_S = 1, PRV_M = 3 };
 
 typedef struct {
-  rtlreg_t gpr[32];
-  word_t fpr[32]; /* F-only FLEN32；D FLEN64，f0 可写 */
-  vaddr_t  pc;
-
-  /*
-   * CSR 存储：由 include/cpu/csr_list.h 的清单生成（视图 CSR 不占存储）。
-   * mcycle/minstret 同属该清单，不驱动平台时间/累计退休或预算。
-   */
+  reg_t gpr[32];
+  freg_t fpr[32];
+  vaddr_t pc;
 #define RVISS_CSR_MEMBER(_n, _a, _m) word_t _n;
+  /* 只有当前 RVISS profile 真正实现的 CSR 才进入架构状态。 */
   RVISS_CSRS_OWNED(RVISS_CSR_MEMBER)
 #undef RVISS_CSR_MEMBER
 
+
   /* ---- 运行状态 ---- */
-  uint8_t  priv;    /* 当前特权级 */
-  /* 单 hart LR/SC；与 CSR/累计计数分开，reset 使 reservation 失效。 */
+  uint8_t priv; /* 当前特权级 */
+  /* 以下是 CSR 访问副作用所需的实现状态，不是客户机可见 CSR。 */
   paddr_t reservation_addr;
   uint8_t reservation_length;
   bool reservation_valid;
   uint8_t pmp_count, pmpcfg[16];
   word_t pmpaddr[16];
-  bool sv39_supported; /* 初始化硬件能力；客户机不能改变 */
-  word_t mip_software; /* SSIP/STIP/SEIP 软件存储；mip 是软件与 IRQ 线的可见 OR */
+  bool sv39_supported;
+  word_t mip_software;
 } CPU_state;
 
 extern CPU_state cpu;
 
 /* 实现于 src/target/riscv64/cpu.c */
 void cpu_reset(vaddr_t reset_pc);
-const char *cpu_priv_name(uint8_t priv);
+const char* cpu_priv_name(uint8_t priv);
 
 /* target 提供的公共入口：注入一次陷阱（difftest 注入异常、monitor 调试用）。
  * 实现于 src/target/riscv64/trap/trap.c。 */

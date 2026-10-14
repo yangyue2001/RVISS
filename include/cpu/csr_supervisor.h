@@ -1,13 +1,53 @@
 // clang-format off
-#define CSRS_Unprivileged_Counter_Timers(f) \
-    f(hpmcounter3    , 0xC03) \
-    f(hpmcounter4    , 0xC04) f(hpmcounter5    , 0xC05) f(hpmcounter6    , 0xC06) f(hpmcounter7    , 0xC07) \
-    f(hpmcounter8    , 0xC08) f(hpmcounter9    , 0xC09) f(hpmcounter10   , 0xC0A) f(hpmcounter11   , 0xC0B) \
-    f(hpmcounter12   , 0xC0C) f(hpmcounter13   , 0xC0D) f(hpmcounter14   , 0xC0E) f(hpmcounter15   , 0xC0F) \
-    f(hpmcounter16   , 0xC10) f(hpmcounter17   , 0xC11) f(hpmcounter18   , 0xC12) f(hpmcounter19   , 0xC13) \
-    f(hpmcounter20   , 0xC14) f(hpmcounter21   , 0xC15) f(hpmcounter22   , 0xC16) f(hpmcounter23   , 0xC17) \
-    f(hpmcounter24   , 0xC18) f(hpmcounter25   , 0xC19) f(hpmcounter26   , 0xC1A) f(hpmcounter27   , 0xC1B) \
-    f(hpmcounter28   , 0xC1C) f(hpmcounter29   , 0xC1D) f(hpmcounter30   , 0xC1E) f(hpmcounter31   , 0xC1F)
+/* S 态陷阱设置 */
+#define CSRS_Supervisor_TrapSetup(f) \
+    f(sstatus         , 0x100) \
+    f(sie             , 0x104) \
+    f(stvec           , 0x105) \
+    f(scounteren      , 0x106)
+
+/* S 态配置 */
+#define CSRS_Supervisor_Configuration(f) \
+    f(senvcfg         , 0x10A)
+
+/* S 态计数器设置 */
+#define CSRS_Supervisor_CounterSetup(f) \
+    f(scountinhibit   , 0x120)
+
+/* S 态陷阱处理 */
+#define CSRS_Supervisor_TrapHandling(f) \
+    f(sscratch        , 0x140) \
+    f(sepc            , 0x141) \
+    f(scause          , 0x142) \
+    f(stval           , 0x143) \
+    f(sip             , 0x144) \
+    f(scountovf       , 0xDA0)
+
+/* S 态保护与地址转换 */
+#define CSRS_Supervisor_Protection(f) \
+    f(satp            , 0x180)
+
+/* Debug/Trace 寄存器 (S 态) */
+#define CSRS_Supervisor_DebugTrace(f) \
+    f(scontext        , 0x5A8)
+
+/* S 态 State Enable 寄存器 */
+#define CSRS_Supervisor_StateEnable(f) \
+    f(sstateen0       , 0x10C) \
+    f(sstateen1       , 0x10D) \
+    f(sstateen2       , 0x10E) \
+    f(sstateen3       , 0x10F)
+
+/* S 态合计 */
+#define CSRS_Supervisor(f) \
+    CSRS_Supervisor_TrapSetup(f) \
+    CSRS_Supervisor_Configuration(f) \
+    CSRS_Supervisor_CounterSetup(f) \
+    CSRS_Supervisor_TrapHandling(f) \
+    CSRS_Supervisor_Protection(f) \
+    CSRS_Supervisor_DebugTrace(f) \
+    CSRS_Supervisor_StateEnable(f)
+
 // clang-format on
 
 #define SSTATUS_SIE (1ull << 1)

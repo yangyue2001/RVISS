@@ -4,8 +4,8 @@
 #include "cpu_state.h"
 #include "csr.h"
 #include "intr.h"
-#include "pmp.h"
 #include "mmu.h"
+#include "pmp.h"
 
 /* 体系结构状态实例 */
 CPU_state cpu;
@@ -18,18 +18,21 @@ void cpu_reset(vaddr_t reset_pc) {
 
   riscv_mmu_reset();
   cpu.misa = riscv_misa_supported();
-
   csr_reset();
   riscv_pmp_reset();
-  riscv_intr_reset(); /* 清空设备中断线电平快照（否则复用 CPU 时会残留） */
+  riscv_intr_reset();
   Log("cpu reset: pc = " FMT_WORD ", priv = M", reset_pc);
 }
 
-const char *cpu_priv_name(uint8_t priv) {
+const char* cpu_priv_name(uint8_t priv) {
   switch (priv) {
-    case PRV_U: return "U";
-    case PRV_S: return "S";
-    case PRV_M: return "M";
-    default:    return "?";
+    case PRV_U:
+      return "U";
+    case PRV_S:
+      return "S";
+    case PRV_M:
+      return "M";
+    default:
+      return "?";
   }
 }
