@@ -11,18 +11,29 @@ board config -> MemObject -> MemRegion -> AddressSpace -> physical read/write
 
 ## 配置文件
 
-`configs/virt.board` 描述一台板子：
+`configs/virt.board` 使用设备树风格的最小语法描述一台板子：
 
-```text
-board virt
-reset_pc 0x80000000
-object ram0 RAM
-object uart0 UART
-region ram_map ram0 0x80000000 0x20000 main rwx 1,2,4,8 4,8 split 1 1
-region uart_map uart0 0x10000000 0x100 io rw 1 - trap 0 0
+```dts
+/ {
+  model = "rviss,virt";
+  reset-pc = <0x80000000>;
+
+  ram0: memory@80000000 {
+    device-type = "memory";
+    reg = <0x80000000 0x20000>;
+  };
+
+  uart0: serial@10000000 {
+    compatible = "ns16550a";
+    reg = <0x10000000 0x100>;
+    interrupts = <10>;
+  };
+};
 ```
 
-`object` 定义行为和状态实例；`region` 把对象放入物理地址空间，并为这段地址指定 PMA。
+配置只描述板卡事实：节点名称、设备类型、`reg` 地址区间、复位入口和中断号。
+PMA 由对象类型推导：`memory` 使用主存默认属性，`ns16550a` 使用 I/O 默认属性。
+这样配置不会被宽度、非对齐访问和缓存实现细节淹没；以后需要特殊硬件时再增加可选属性。
 
 ## 构建和运行
 
@@ -37,7 +48,7 @@ make CC=/usr/bin/gcc test
 | 文件 | 作用 |
 |---|---|
 | `include/memory_model.h` | `MemOps`、`MemObject`、`MemRegion`、`AddressSpace`、PMA 类型 |
-| `include/board_config.h` | 板卡配置的内存表示和配置文件解析接口 |
+| `include/board_config.h` | 板卡节点的内存表示和配置文件解析接口 |
 | `include/board_runtime.h` | 根据配置实例化对象并建立地址空间 |
 | `src/address_space.c` | 地址查找、重叠检查、PMA 检查和读写分发 |
 | `src/board_config.c` | 简单文本配置解析器 |

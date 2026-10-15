@@ -8,7 +8,12 @@
 
 typedef struct {
   char name[BM_NAME_SIZE];
+  char compatible[BM_NAME_SIZE];
+  char device_type[BM_NAME_SIZE];
   MemKind kind;
+  int irq;
+  bool has_irq;
+  bool enabled;
 } BoardObjectConfig;
 
 typedef struct {
@@ -16,7 +21,7 @@ typedef struct {
   char object[BM_NAME_SIZE];
   paddr_t base;
   paddr_t size;
-  PmaAttributes pma;
+  PmaAttributes pma; /* 由对象类型推导，不写入板卡配置文件。 */
 } BoardRegionConfig;
 
 typedef struct {

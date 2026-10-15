@@ -27,9 +27,9 @@ int main(int argc, char **argv) {
   address_space_dump(&runtime.space, stdout);
 
   const BoardRegionConfig *ram_config =
-      board_config_find_region(&config, "ram_map");
+      board_config_find_region(&config, "ram0_map");
   const BoardRegionConfig *uart_config =
-      board_config_find_region(&config, "uart_map");
+      board_config_find_region(&config, "uart0_map");
   if (ram_config == NULL || uart_config == NULL) {
     fprintf(stderr, "expected demo regions are missing\n");
     board_runtime_destroy(&runtime);

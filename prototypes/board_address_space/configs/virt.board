@@ -1,12 +1,20 @@
-# 一个最小 RV64 板卡地址图。
-board virt
-reset_pc 0x80000000
+// RVISS 只读取设备树风格的一个小子集，不依赖完整 libfdt。
+/dts-v1/;
 
-# object 描述行为实例；它还没有物理地址。
-object ram0 RAM
-object uart0 UART
+/ {
+  model = "rviss,virt";
+  reset-pc = <0x80000000>;
 
-# region 描述地址映射和 PMA。
-# region name object base size pma permissions widths atomics misaligned idempotent cacheable
-region ram_map ram0 0x80000000 0x20000 main rwx 1,2,4,8 4,8 split 1 1
-region uart_map uart0 0x10000000 0x100 io rw 1 - trap 0 0
+  ram0: memory@80000000 {
+    device-type = "memory";
+    reg = <0x80000000 0x20000>;
+    status = "okay";
+  };
+
+  uart0: serial@10000000 {
+    compatible = "ns16550a";
+    reg = <0x10000000 0x100>;
+    interrupts = <10>;
+    status = "okay";
+  };
+};

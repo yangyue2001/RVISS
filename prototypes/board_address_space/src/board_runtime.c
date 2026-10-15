@@ -122,6 +122,13 @@ static int find_object(const BoardConfig *config, const char *name) {
   return -1;
 }
 
+static int find_runtime_object(const BoardRuntime *runtime, const char *name) {
+  for (size_t i = 0; i < runtime->object_count; i++) {
+    if (strcmp(runtime->objects[i].name, name) == 0) return (int)i;
+  }
+  return -1;
+}
+
 static paddr_t object_capacity(const BoardConfig *config, const char *name) {
   paddr_t capacity = 0;
   for (size_t i = 0; i < config->region_count; i++) {
@@ -208,6 +215,7 @@ bool board_runtime_build(const BoardConfig *config, BoardRuntime *runtime,
 
   for (size_t i = 0; i < config->object_count; i++) {
     const BoardObjectConfig *object = &config->objects[i];
+    if (!object->enabled) continue;
     if (find_object(config, object->name) != (int)i) {
       (void)snprintf(error, error_size, "duplicate object %s", object->name);
       board_runtime_destroy(runtime);
@@ -226,7 +234,7 @@ bool board_runtime_build(const BoardConfig *config, BoardRuntime *runtime,
 
   for (size_t i = 0; i < config->region_count; i++) {
     const BoardRegionConfig *source = &config->regions[i];
-    int object_index = find_object(config, source->object);
+    int object_index = find_runtime_object(runtime, source->object);
     if (object_index < 0) {
       (void)snprintf(error, error_size, "region %s references unknown object %s",
                      source->name, source->object);
