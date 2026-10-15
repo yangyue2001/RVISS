@@ -1,0 +1,12 @@
+# 一个最小 RV64 板卡地址图。
+board virt
+reset_pc 0x80000000
+
+# object 描述行为实例；它还没有物理地址。
+object ram0 RAM
+object uart0 UART
+
+# region 描述地址映射和 PMA。
+# region name object base size pma permissions widths atomics misaligned idempotent cacheable
+region ram_map ram0 0x80000000 0x20000 main rwx 1,2,4,8 4,8 split 1 1
+region uart_map uart0 0x10000000 0x100 io rw 1 - trap 0 0
