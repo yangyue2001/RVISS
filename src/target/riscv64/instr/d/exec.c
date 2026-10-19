@@ -194,11 +194,7 @@ ExecResult exec_fsd(ExecContext* ctx) {
   return exec_ok();
 }
 
-#ifdef CONFIG_RV_D
 #define DP_CALL(_ctx, _call) (_call)
-#else
-#define DP_CALL(_ctx, _call) fp_common_illegal(_ctx)
-#endif
 
 ExecResult exec_fmadd_d(ExecContext* ctx) {
   return DP_CALL(ctx, fp_common_fma(ctx, fp64_read_bits, fp64_write_bits,

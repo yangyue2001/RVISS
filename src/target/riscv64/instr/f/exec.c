@@ -188,11 +188,7 @@ ExecResult exec_fsw(ExecContext* ctx) {
   return exec_ok();
 }
 
-#ifdef CONFIG_RV_F
 #define FP_CALL(_ctx, _call) (_call)
-#else
-#define FP_CALL(_ctx, _call) fp_common_illegal(_ctx)
-#endif
 
 ExecResult exec_fmadd_s(ExecContext* ctx) {
   return FP_CALL(ctx, fp_common_fma(ctx, fp32_read_bits, fp32_write_bits,
