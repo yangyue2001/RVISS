@@ -1,30 +1,24 @@
 #include <common.h>
+#include <cpu/cpu.h>
 #include <util/log.h>
 
-#include "cpu_state.h"
 #include "csr.h"
-#include "intr.h"
 #include "mmu.h"
 #include "pmp.h"
 
 /* 体系结构状态实例 */
-CPU_state cpu;
+CpuState cpu;
 
 void cpu_reset(vaddr_t reset_pc) {
   memset(&cpu, 0, sizeof(cpu));
   cpu.pc = reset_pc;
   cpu.priv = PRV_M; /* RISC-V 复位后进入 M 模式 */
-  cpu.mhartid = 0;
-
-  riscv_mmu_reset();
-  cpu.misa = riscv_misa_supported();
-  csr_reset();
+  cpu.mstatus = csr_status_value(0);
   riscv_pmp_reset();
-  riscv_intr_reset();
   Log("cpu reset: pc = " FMT_WORD ", priv = M", reset_pc);
 }
 
-const char* cpu_priv_name(uint8_t priv) {
+const char* cpu_priv_name(Priv priv) {
   switch (priv) {
     case PRV_U:
       return "U";
@@ -36,3 +30,5 @@ const char* cpu_priv_name(uint8_t priv) {
       return "?";
   }
 }
+
+void cpu_exec() {}

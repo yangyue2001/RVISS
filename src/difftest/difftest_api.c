@@ -107,9 +107,7 @@ void difftest_csrcpy(void* csrs, bool direction) {
 /* legacy n 是指令尝试，不是退休或执行事件数。完整 ABI 可用性另行验收。 */
 void difftest_exec(uint64_t n) { engine_exec(n); }
 
-void difftest_raise_intr(uint64_t cause) {
-  engine_raise_trap((word_t)cause);
-}
+void difftest_raise_intr(uint64_t cause) { engine_raise_trap((word_t)cause); }
 
 void difftest_uarchstatus_sync(void* state) { (void)state; }
 

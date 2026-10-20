@@ -212,6 +212,8 @@
 #define MSTATUS_MDT (1ull << 42) /* Smdbltrp: double trap status, reset 1 */
 #define MSTATUS_SD (1ull << 63)  /* FS/VS/XS dirty, read-only; RV32: bit 31 */
 
+#define MSTATUS_MPP_HIGH 12
+#define MSTATUS_MPP_LOW 11
 /* ---- mtvec (0x305) ---- */
 #define MTVEC_MODE (3ull << 0) /* MODE field [1:0]: 0=direct, 1=vectored */
 #define MTVEC_MODE_DIRECT (0ull << 0) /* all traps jump to BASE */
@@ -492,4 +494,5 @@
 #define MCTRCTL_DIRLJMPINH \
   (1ull << 47)                        /* inhibit other direct jumps (linkage) */
 #define MCTRCTL_CUSTOM (0xFull << 60) /* custom use [63:60] */
-#endif                                /* RVISS_CPU_CSR_MACHINE_H */
+
+#endif /* RVISS_CPU_CSR_MACHINE_H */

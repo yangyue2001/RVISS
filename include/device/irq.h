@@ -4,25 +4,20 @@
 #include <common.h>
 
 /*
- * 中断线对象（QEMU 的 qemu_irq 最小版）。
- *
- * 设备只持有"输出线"，在状态变化时 raise/lower；
- * 对端是谁、接到 CPU 的哪一位，只有**板子**（machine）知道。
- * 因此设备层完全不认识 RISC-V 的中断编号 —— 这是设备/ISA 解耦的关键一步。
- *
- * 接线由板子完成：line = cpu_irq_input(IRQ_MTIP); clint.mtimer_irq = line;
+ * 中断线对象。设备只持有输出线，不知道对端是 CPU 的哪一位。
+ * 板子在注册时把线接进去：machine_add_clint(base, cpu_irq_input(INT_MTI), ...)。
  */
 
 typedef struct IrqLine {
-  void (*set)(void *ctx, bool level);
-  void *ctx;
+  void (*set)(void* ctx, bool level);
+  void* ctx;
 } IrqLine;
 
-static inline void irq_raise(IrqLine *line) {
+static inline void irq_raise(IrqLine* line) {
   if (line != NULL) line->set(line->ctx, true);
 }
 
-static inline void irq_lower(IrqLine *line) {
+static inline void irq_lower(IrqLine* line) {
   if (line != NULL) line->set(line->ctx, false);
 }
 

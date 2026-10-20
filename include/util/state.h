@@ -15,14 +15,14 @@ typedef enum {
 typedef struct {
   sim_state_t state;
   vaddr_t halt_pc;
-  int halt_code;      /* nemu_trap 的 a0：0 = HIT GOOD TRAP */
-  uint64_t instret;   /* 累计正常退休，不受客户机计数器写入影响 */
-  uint64_t attempts;  /* 指令尝试：含同步异常，不含独立中断事件 */
-  uint64_t event_seq; /* 每个执行边界的累计序号 */
+  int halt_code;          /* nemu_trap 的 a0：0 = HIT GOOD TRAP */
+  uint64_t instret;       /* 累计正常退休，不受客户机计数器写入影响 */
+  uint64_t attempts;      /* 指令尝试：含同步异常，不含独立中断事件 */
+  uint64_t event_seq;     /* 每个执行边界的累计序号；UART 重放按它对齐 */
   uint64_t logical_ticks; /* 平台时间源，与客户机 cycle/instret 独立 */
-  uint64_t idle_ticks, idle_advances; /* deterministic WFI time advances */
-  uint64_t max_instr; /* 尝试上限；0 表示不限 */
-  uint64_t max_events; /* 独立事件上限；0 表示不限 */
+  uint64_t idle_ticks, idle_advances; /* WFI 快进的逻辑时间 */
+  uint64_t max_instr;     /* 尝试上限；0 表示不限 */
+  uint64_t max_events;    /* 独立事件上限；0 表示不限 */
 } SimState;
 
 extern SimState sim;

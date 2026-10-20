@@ -1,13 +1,14 @@
 #include <checkpoint/checkpoint.h>
 #include <common.h>
+#include <cpu/cpu.h>
 #include <host/host.h>
 #include <memory/image.h>
 #include <memory/paddr.h>
 #include <monitor/monitor.h>
+#include <trace/trace.h>
 #include <util/config.h>
 #include <util/log.h>
 #include <util/state.h>
-#include <trace/trace.h>
 
 #include "../engine/engine.h"
 #include "../machine/machine.h"
@@ -31,41 +32,13 @@ void monitor_init(int argc, char* argv[]) {
     Logw("--trace-file requires CONFIG_TRACE_STREAM; trace disabled");
 #endif
 
-  /* 板级默认来自 Kconfig（boards 下的板级文件），命令行只做本次覆盖 */
+  /* 仿真器和 CPU 复位不归板卡。machine_init 只注册外设并接线。 */
   MachineConfig cfg = machine_minimal;
-  if (rt_cfg.ram_size_override != 0) {
-    cfg.ram_size = rt_cfg.ram_size_override;
-  }
+  if (rt_cfg.ram_size_override != 0) cfg.ram_size = rt_cfg.ram_size_override;
+  sim_reset();
+  cpu_reset(cfg.reset_pc);
   machine_init(&cfg);
   engine_init();
-
-  if (rt_cfg.log_trace) {
-#if !defined(CONFIG_TRACE_INST) && !defined(CONFIG_TRACE_INST_DASM)
-    Logw(
-        "-t/--trace 已给出，但编译时未开启 CONFIG_TRACE_INST*，不会有指令流输出"
-        "（重新 make debug_defconfig 或 make menuconfig 打开）");
-#endif
-  }
-
-  if (rt_cfg.checkpoint_in != NULL) {
-    if (!cpt_load(rt_cfg.checkpoint_in)) {
-      panic("恢复 checkpoint 失败: %s", rt_cfg.checkpoint_in);
-    }
-  }
-
-  if (rt_cfg.image != NULL) {
-    const paddr_t end = image_load(rt_cfg.image, machine_get()->ram_base);
-    if (end == 0) {
-      panic("加载镜像失败: %s", rt_cfg.image);
-    }
-    Log("image loaded, end = " FMT_PADDR, end);
-  } else {
-    Log("未指定镜像：内存为空，可用交互模式手工检查");
-  }
-
-  sim.state = SIM_RUNNING;
-  sim.max_instr = rt_cfg.max_instr;
-  sim.max_events = rt_cfg.max_events;
 }
 
 static void print_summary(uint64_t us) {
@@ -74,10 +47,11 @@ static void print_summary(uint64_t us) {
           ? "HALTED"
           : (sim.state == SIM_STOPPED ? "STOPPED" : "ABORTED"),
       sim.halt_pc, sim.halt_code);
-  Log("retired=%lu attempts=%lu events=%lu logical_ticks=%lu",
-      sim.instret, sim.attempts, sim.event_seq, sim.logical_ticks);
+  Log("retired=%lu attempts=%lu events=%lu logical_ticks=%lu", sim.instret,
+      sim.attempts, sim.event_seq, sim.logical_ticks);
   Log("idle advances=%lu ticks=%lu", sim.idle_advances, sim.idle_ticks);
-  if (sim.state == SIM_ABORTED || sim.state == SIM_STOPPED) engine_dump_recent();
+  if (sim.state == SIM_ABORTED || sim.state == SIM_STOPPED)
+    engine_dump_recent();
   if (us > 0) {
     Log("host time = %lu us, speed = %llu instr/s", us,
         (unsigned long long)(sim.instret * 1000000ull / us));

@@ -19,6 +19,13 @@ void host_uart_input_close(void);
 void *host_mmap_anon(size_t size); /* 匿名映射，失败返回 NULL */
 int   host_munmap(void *addr, size_t size);
 
+/* 宿主访问客户机物理内存。失败不产生客户机异常。 */
+bool host_mem_try_read(paddr_t addr, int len, word_t *data, bool *mmio);
+bool host_mem_try_write(paddr_t addr, int len, word_t data, bool *mmio);
+/* 没有区域应答时返回 0。调试器使用；客户机访问不能用它。 */
+word_t host_mem_read(paddr_t addr, int len);
+bool host_mem_write(paddr_t addr, int len, word_t data);
+
 /* 读整个文件到堆内存（调用方 free）；*size 返回字节数 */
 bool host_read_file(const char *path, void **buf, size_t *size);
 

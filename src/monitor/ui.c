@@ -1,4 +1,5 @@
 #include <common.h>
+#include <host/host.h>
 #include <cpu/cpu.h>
 #include <memory/paddr.h>
 #include <monitor/monitor.h>
@@ -38,7 +39,7 @@ static void cmd_x(const char *arg) {
   for (int row = 0; row < 4; row++) {
     printf(FMT_PADDR ":", addr + (paddr_t)row * 16);
     for (int i = 0; i < 4; i++) {
-      printf(" %08lx", (unsigned long)paddr_read(addr + (paddr_t)row * 16 + (paddr_t)i * 4, 4));
+      printf(" %08lx", (unsigned long)host_mem_read(addr + (paddr_t)row * 16 + (paddr_t)i * 4, 4));
     }
     printf("\n");
   }

@@ -67,26 +67,26 @@ word_t riscv_query_intr(void) {
    */
   cpu_sync_irq_inputs();
 
-  const word_t pending = cpu.mip & cpu.mie;
+  const word_t pending = cpu.mip & cpu.mie;  // 有挂起的中断
   word_t eligible = 0;
-  if (cpu.priv < PRV_M || (cpu.priv == PRV_M && (cpu.mstatus & MSTATUS_MIE)))
+  if (cpu.priv < PRV_M ||
+      (cpu.priv == PRV_M && (cpu.mstatus & MSTATUS_MIE)))  // M态中断检查
     eligible = pending & ~cpu.mideleg;
-  if (!eligible && (cpu.priv < PRV_S ||
-      (cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_SIE))))
+
+  if (!eligible &&
+      (cpu.priv < PRV_S ||
+       (cpu.priv == PRV_S && (cpu.mstatus & MSTATUS_SIE))))  // S态中断检查
     eligible = pending & cpu.mideleg;
+
   for (size_t i = 0; i < ARRLEN(intr_priority); i++) {
     const int line = intr_priority[i];
     if (eligible & (1ull << line)) return IRQ_BIT | (word_t)line;
   }
+
   return 0;
 }
 
 bool riscv_wait_resume(void) {
   cpu_sync_irq_inputs();
   return (cpu.mip & cpu.mie) != 0;
-}
-
-void cpu_sync_irq_inputs(void) {
-  cpu.mip = (cpu.mip & ~hw_mask & ~SIE_MASK) |
-            (cpu.mip_software & SIE_MASK) | hw_pending;
 }

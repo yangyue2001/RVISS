@@ -52,6 +52,7 @@ endif
 # 设备按类别分子目录（QEMU 风格：char/timer/intc），bus.c 是设备框架本身
 SRCS-y  = src/main.c
 SRCS-y += src/device/bus.c
+SRCS-y += src/device/ram/ram.c
 SRCS-$(CONFIG_HAS_CLINT)     += src/device/timer/clint.c
 SRCS-$(CONFIG_HAS_UART16550) += src/device/char/uart16550.c
 SRCS-$(CONFIG_HAS_PLIC)      += src/device/intc/plic.c

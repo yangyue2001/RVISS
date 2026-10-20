@@ -74,9 +74,9 @@ ISS/
 ├── include/                【跨模块接口】只放会被多个子系统 include 的头
 │   ├── rviss.h             对外 API + difftest ABI（嵌入/被 dlopen 的稳定接口）
 │   ├── common.h            基础聚合头（被上面四个子头组成）
-│   ├── common/types.h      word_t / vaddr_t / paddr_t / rtlreg_t
+│   ├── common/types.h      word_t / vaddr_t / paddr_t / reg_t
 │   ├── common/bits.h       BITS / BIT / SEXT
-│   ├── common/macro.h      str / concat / likely / unlikely
+│   ├── common/macro.h      str / CONCAT / likely / unlikely
 │   ├── common/assert.h     panic / Assert（内部 bug 的出口，noreturn）
 │   ├── cpu/cpu.h           ★ 体系结构状态 CPU_state + cpu_reset + cpu_raise_trap
 │   ├── cpu/csr-list.h      ★ CSR 清单（唯一事实来源）：地址/掩码 + 生成存储与访问表

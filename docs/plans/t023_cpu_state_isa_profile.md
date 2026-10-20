@@ -198,7 +198,7 @@ Svnapot、Svpbmt 是页表语义扩展，不应被塞进 `RiscvVmMode` 枚举；
 
 ```c
 typedef struct {
-  rtlreg_t gpr[32];
+  reg_t gpr[32];
   word_t fpr[32];
   vaddr_t pc;
 

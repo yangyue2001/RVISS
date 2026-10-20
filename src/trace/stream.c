@@ -5,21 +5,21 @@
 
 #define TRACE_BUFFER_SIZE (1u << 20)
 
-static FILE *trace_fp;
+static FILE* trace_fp;
 static uint8_t trace_buffer[TRACE_BUFFER_SIZE];
 static size_t trace_used;
 static bool trace_failed;
 
-static void put_u16(uint8_t *p, uint16_t value) {
+static void put_u16(uint8_t* p, uint16_t value) {
   p[0] = (uint8_t)value;
   p[1] = (uint8_t)(value >> 8);
 }
 
-static void put_u32(uint8_t *p, uint32_t value) {
+static void put_u32(uint8_t* p, uint32_t value) {
   for (unsigned i = 0; i < 4; i++) p[i] = (uint8_t)(value >> (8 * i));
 }
 
-static void put_u64(uint8_t *p, uint64_t value) {
+static void put_u64(uint8_t* p, uint64_t value) {
   for (unsigned i = 0; i < 8; i++) p[i] = (uint8_t)(value >> (8 * i));
 }
 
@@ -31,7 +31,7 @@ static bool flush_buffer(void) {
   return ok;
 }
 
-static bool append_bytes(const uint8_t *data, size_t size) {
+static bool append_bytes(const uint8_t* data, size_t size) {
   if (trace_fp == NULL || trace_failed) return false;
   while (size != 0) {
     const size_t available = TRACE_BUFFER_SIZE - trace_used;
@@ -56,22 +56,26 @@ bool trace_close(void) {
   return ok;
 }
 
-bool trace_init(const char *path) {
-  if (!trace_close()) return false;
-  if (path == NULL) return true;
-
-  trace_fp = fopen(path, "wb");
+bool trace_init(const char* path) {
+#ifdef CONFIG_TRACE_STREAM
+  CONFIG_TRACE_STREAM, trace_fp = fopen(path, "wb");
   if (trace_fp == NULL) {
     Loge("cannot open trace file %s", path);
     return false;
   }
+#else
+  if (path != NULL) {
+    Logw("--trace-file requires CONFIG_TRACE_STREAM; trace disabled");
+    return false;
+  }
+#endif
 
   uint8_t header[RVISS_TRACE_HEADER_SIZE] = {0};
   memcpy(header, "RVTR", 4);
   put_u16(header + 4, 1); /* format version */
   put_u16(header + 6, RVISS_TRACE_HEADER_SIZE);
   put_u32(header + 8, RVISS_TRACE_RECORD_SIZE);
-  header[12] = 1; /* little endian */
+  header[12] = 1;  /* little endian */
   header[13] = 64; /* RV64 */
   /* Header currently carries the stable ISA width only; profile-specific
    * capability bits can be added without changing the record layout. */
@@ -84,7 +88,7 @@ bool trace_init(const char *path) {
   return true;
 }
 
-void trace_emit_record(const StepResult *r) {
+void trace_emit_record(const StepResult* r) {
   if (trace_fp == NULL || trace_failed) return;
 
   uint8_t record[RVISS_TRACE_RECORD_SIZE] = {0};

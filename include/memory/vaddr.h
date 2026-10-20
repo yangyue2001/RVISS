@@ -73,6 +73,10 @@ static inline bool mem_access_is_write(MemAccessType type) {
   return type == kMemWrite || type == kMemPteWrite;
 }
 
+static inline bool mem_access_is_pte(MemAccessType type) {
+  return type == kMemPteRead || type == kMemPteWrite;
+}
+
 static inline Exception mem_misaligned_fault(MemAccessType type) {
   switch (type) {
     case kMemIFetch:

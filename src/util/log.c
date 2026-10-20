@@ -1,8 +1,6 @@
 #include <common.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <util/log.h>
-
 /*
  * 分类 + 分级日志实现。
  * 日志目标是文件（--log）或 stdout；trace 类日志量大，建议输出到文件。

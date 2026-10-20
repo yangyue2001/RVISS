@@ -1,58 +1,138 @@
 #include <device/timer/clint.h>
-#define TICKS_PER_MTIME 128
-word_t clint_time(void *opaque) { return ((ClintState *)opaque)->mtime; }
 
-static void update(ClintState *s) {
-  if (s->mtime >= s->mtimecmp) irq_raise(s->mtimer_irq); else irq_lower(s->mtimer_irq);
-  if (s->msip) irq_raise(s->msip_irq); else irq_lower(s->msip_irq);
-}
-static bool accepts(void *opaque, paddr_t off, int len, bool write) {
-  (void)opaque; (void)write;
-  return (off == 0 && len == 4) ||
-    ((off == 0x4000 || off == 0xbff8) && (len == 4 || len == 8)) ||
-    ((off == 0x4004 || off == 0xbffc) && len == 4);
-}
-static word_t read_reg(void *opaque, paddr_t off, int len) {
-  ClintState *s = opaque;
-  if (!off) return s->msip;
-  const uint64_t value = off < 0x8000 ? s->mtimecmp : s->mtime;
-  return len == 8 ? value : (uint32_t)(value >> ((off & 4) ? 32 : 0));
-}
-static void write_reg(void *opaque, paddr_t off, int len, word_t data) {
-  ClintState *s = opaque;
-  if (!off) s->msip = data & 1;
-  else {
-    uint64_t *r = off < 0x8000 ? &s->mtimecmp : &s->mtime;
-    if (len == 8) *r = data;
-    else { unsigned shift = (off & 4) ? 32 : 0;
-      *r = (*r & ~(UINT64_C(0xffffffff) << shift)) | ((uint64_t)(uint32_t)data << shift);
+#define TICKS_PER_MTIME 128
+#define CLINT_MAX 8
+
+struct Clint {
+  IrqLine* mtimer_irq;
+  IrqLine* msip_irq;
+  uint64_t last_ticks;
+  uint64_t mtime;
+  uint64_t mtimecmp;
+  uint32_t msip;
+};
+
+static Clint pool[CLINT_MAX];
+static bool used[CLINT_MAX];
+
+static Clint* clint_alloc(void) {
+  for (int i = 0; i < CLINT_MAX; i++) {
+    if (!used[i]) {
+      used[i] = true;
+      memset(&pool[i], 0, sizeof(pool[i]));
+      return &pool[i];
     }
   }
-  update(s);
+  return NULL;
 }
-static void tick(void *opaque, uint64_t ticks) {
-  ClintState *s = opaque;
-  if (ticks >= s->last_ticks) s->mtime += ticks / TICKS_PER_MTIME - s->last_ticks / TICKS_PER_MTIME;
-  s->last_ticks = ticks;
-  update(s);
+
+static bool clint_owned(const Clint* clint) {
+  return clint != NULL && clint >= pool && clint < pool + CLINT_MAX;
 }
-uint64_t clint_next_tick(const ClintState *s) {
-  if (s->mtime >= s->mtimecmp || s->mtimecmp == UINT64_MAX) return UINT64_MAX;
-  const uint64_t distance = s->mtimecmp - s->mtime;
-  if (distance > (UINT64_MAX - s->last_ticks) / TICKS_PER_MTIME) return UINT64_MAX;
-  return s->last_ticks + distance * TICKS_PER_MTIME - s->last_ticks % TICKS_PER_MTIME;
+
+static void clint_drive(Clint* clint) {
+  if (clint->mtime >= clint->mtimecmp)
+    irq_raise(clint->mtimer_irq);
+  else
+    irq_lower(clint->mtimer_irq);
+  if (clint->msip)
+    irq_raise(clint->msip_irq);
+  else
+    irq_lower(clint->msip_irq);
 }
-void clint_reset(ClintState *s) {
-  s->last_ticks = s->mtime = s->msip = 0;
-  s->mtimecmp = UINT64_MAX;
-  update(s);
+
+static bool clint_accepts(paddr_t offset, int len) {
+  return (offset == 0 && len == 4) ||
+         ((offset == 0x4000 || offset == 0xbff8) && (len == 4 || len == 8)) ||
+         ((offset == 0x4004 || offset == 0xbffc) && len == 4);
 }
-static uint64_t deadline(void *opaque) { return clint_next_tick(opaque); }
-void clint_init(ClintState *s) {
-  memset(s, 0, sizeof(*s));
-  s->mmio = (MmioRegion){.name="clint", .size=0x10000, .accepts=accepts,
-      .read=read_reg, .write=write_reg, .opaque=s};
-  clint_reset(s);
-  Assert(device_register_tick(tick, s), "CLINT tick registration failed");
-  Assert(device_register_deadline(deadline, s), "CLINT deadline registration failed");
+
+static bool clint_read(void* ctx, paddr_t offset, int len, word_t* data) {
+  Clint* clint = ctx;
+  if (!clint_accepts(offset, len)) return false;
+  if (offset == 0) {
+    *data = clint->msip;
+    return true;
+  }
+  const uint64_t value = offset < 0x8000 ? clint->mtimecmp : clint->mtime;
+  *data = len == 8 ? value : (uint32_t)(value >> ((offset & 4) ? 32 : 0));
+  return true;
+}
+
+static bool clint_write(void* ctx, paddr_t offset, int len, word_t data) {
+  Clint* clint = ctx;
+  if (!clint_accepts(offset, len)) return false;
+  if (offset == 0) {
+    clint->msip = (uint32_t)data & 1u;
+  } else {
+    uint64_t* reg = offset < 0x8000 ? &clint->mtimecmp : &clint->mtime;
+    if (len == 8) {
+      *reg = data;
+    } else {
+      unsigned shift = (offset & 4) ? 32 : 0;
+      *reg = (*reg & ~(UINT64_C(0xffffffff) << shift)) |
+             ((uint64_t)(uint32_t)data << shift);
+    }
+  }
+  clint_drive(clint);
+  return true;
+}
+
+Clint* clint_create(IrqLine* timer_irq, IrqLine* software_irq) {
+  Clint* clint = clint_alloc();
+  if (clint == NULL) return NULL;
+  clint->mtimer_irq = timer_irq;
+  clint->msip_irq = software_irq;
+  clint->mtimecmp = UINT64_MAX;
+  return clint;
+}
+
+void clint_release(Clint* clint) {
+  if (!clint_owned(clint)) return;
+  used[clint - pool] = false;
+}
+
+void clint_mmio(Clint* clint, MemObject* mmio) {
+  *mmio = (MemObject){.name = "clint",
+                      .ctx = clint,
+                      .read = clint_read,
+                      .write = clint_write};
+}
+
+void clint_reset(Clint* clint) {
+  if (clint == NULL) return;
+  clint->last_ticks = 0;
+  clint->mtime = 0;
+  clint->msip = 0;
+  clint->mtimecmp = UINT64_MAX;
+  clint_drive(clint);
+}
+
+void clint_update(Clint* clint) {
+  if (clint != NULL) clint_drive(clint);
+}
+
+void clint_advance(Clint* clint, uint64_t logical_ticks) {
+  if (clint == NULL) return;
+  if (logical_ticks >= clint->last_ticks) {
+    clint->mtime += logical_ticks / TICKS_PER_MTIME -
+                    clint->last_ticks / TICKS_PER_MTIME;
+  }
+  clint->last_ticks = logical_ticks;
+  clint_drive(clint);
+}
+
+uint64_t clint_deadline(const Clint* clint) {
+  if (clint == NULL || clint->mtime >= clint->mtimecmp ||
+      clint->mtimecmp == UINT64_MAX)
+    return UINT64_MAX;
+  const uint64_t distance = clint->mtimecmp - clint->mtime;
+  if (distance > (UINT64_MAX - clint->last_ticks) / TICKS_PER_MTIME)
+    return UINT64_MAX;
+  return clint->last_ticks + distance * TICKS_PER_MTIME -
+         clint->last_ticks % TICKS_PER_MTIME;
+}
+
+uint64_t clint_mtime(const Clint* clint) {
+  return clint == NULL ? 0 : clint->mtime;
 }

@@ -5,28 +5,29 @@
 #include <device/irq.h>
 
 /*
- * 外设对 CPU 只暴露一段 MMIO。状态留在设备 .c 的实例池里，
- * 板子只保存不透明指针。基址和映射记录由总线掌握，不放进外设结构体。
+ * MemObject 只有名字和读写方法，不保存基址。
+ * 板卡把基址、长度和 MemObject 放进 MemRegion。RAM 也是一个区域。
+ * 页表访问靠 object.name 识别 RAM，不在区域上另加标志。
  */
-
-void device_set_time_reader(word_t (*reader)(void* opaque), void* opaque);
-word_t device_time(void);
 
 typedef struct MemObject {
   const char* name;
-  paddr_t size;
   void* ctx;
   bool (*read)(void* ctx, paddr_t offset, int len, word_t* data);
   bool (*write)(void* ctx, paddr_t offset, int len, word_t data);
 } MemObject;
 
-void bus_init(paddr_t ram_base, size_t ram_size);
-/* 拷贝 object。调用方的 MemObject 可以是临时量；name 和 ctx 必须保持有效。 */
-bool mmio_map(const MemObject* object, paddr_t base);
-bool mmio_dispatch_read(paddr_t addr, int len, word_t* data);
-bool mmio_dispatch_write(paddr_t addr, int len, word_t data);
+typedef struct MemRegion {
+  paddr_t base;
+  paddr_t size;
+  MemObject object;
+} MemRegion;
 
-/* bus_init 时调用，用来撤销板卡登记的实例。 */
-bool device_add_bus_reset(void (*fn)(void));
+void device_set_time_reader(word_t (*reader)(void* opaque), void* opaque);
+word_t device_time(void);
+
+/* 拷贝 object。name 和 ctx 必须在区域存活期间保持有效。 */
+bool mem_region_add(paddr_t base, paddr_t size, const MemObject* object);
+const MemRegion* mem_region_find(paddr_t addr, word_t len);
 
 #endif /* RVISS_DEVICE_DEVICE_H */

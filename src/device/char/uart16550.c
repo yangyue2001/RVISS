@@ -1,139 +1,283 @@
 #include <device/char/uart16550.h>
 
-static unsigned trigger(const Uart16550State *s) {
+#define UART_MAX 8
+
+struct Uart16550 {
+  IrqLine* irq;
+  void (*transmit)(void* opaque, uint8_t byte);
+  void* transmit_opaque;
+  uint8_t dll, dlm, ier, fcr, lcr, mcr, scr, msr;
+  uint8_t fifo[16], head, count;
+  bool overrun, thre_pending, timeout;
+  uint64_t now, rx_activity;
+};
+
+static Uart16550 pool[UART_MAX];
+static bool used[UART_MAX];
+
+static Uart16550* uart_alloc(void) {
+  for (int i = 0; i < UART_MAX; i++) {
+    if (!used[i]) {
+      used[i] = true;
+      memset(&pool[i], 0, sizeof(pool[i]));
+      return &pool[i];
+    }
+  }
+  return NULL;
+}
+
+static bool uart_owned(const Uart16550* uart) {
+  return uart != NULL && uart >= pool && uart < pool + UART_MAX;
+}
+
+static unsigned trigger(const Uart16550* uart) {
   static const unsigned levels[] = {1, 4, 8, 14};
-  return (s->fcr & 1) ? levels[s->fcr >> 6] : 1;
+  return (uart->fcr & 1) ? levels[uart->fcr >> 6] : 1;
 }
-unsigned uart16550_capacity(const Uart16550State *s) {
-  return ((s->fcr & 1) ? 16 : 1) - s->count;
+
+unsigned uart16550_rx_capacity(const Uart16550* uart) {
+  if (uart == NULL) return 0;
+  return ((uart->fcr & 1) ? 16 : 1) - uart->count;
 }
-static unsigned interrupt_id(const Uart16550State *s) {
-  if ((s->ier & 4) && s->overrun) return 6;
-  if ((s->ier & 1) && s->count >= trigger(s)) return 4;
-  if ((s->ier & 1) && s->count && s->timeout) return 12;
-  if ((s->ier & 2) && s->thre_pending) return 2;
-  if ((s->ier & 8) && (s->msr & 15)) return 0;
+
+bool uart16550_loopback(const Uart16550* uart) {
+  return uart != NULL && (uart->mcr & 0x10) != 0;
+}
+
+static unsigned interrupt_id(const Uart16550* uart) {
+  if ((uart->ier & 4) && uart->overrun) return 6;
+  if ((uart->ier & 1) && uart->count >= trigger(uart)) return 4;
+  if ((uart->ier & 1) && uart->count && uart->timeout) return 12;
+  if ((uart->ier & 2) && uart->thre_pending) return 2;
+  if ((uart->ier & 8) && (uart->msr & 15)) return 0;
   return 1;
 }
-static void update(Uart16550State *s) {
-  if (interrupt_id(s) != 1) irq_raise(s->irq); else irq_lower(s->irq);
-}
-static void activity(Uart16550State *s) { s->rx_activity = s->now; s->timeout = false; }
 
-uint64_t uart16550_next_tick(const Uart16550State *s) {
-  if (!(s->fcr & 1) || !s->count || s->timeout) return UINT64_MAX;
-  unsigned divisor = s->dll | ((unsigned)s->dlm << 8);
-  if (!divisor) divisor = 1;
-  /* Frame length in half bits: start + 5..8 data + optional parity + stops. */
-  unsigned frame = 2 * (1 + 5 + (s->lcr & 3) + ((s->lcr & 8) != 0));
-  frame += (s->lcr & 4) ? ((s->lcr & 3) ? 4 : 3) : 2;
-  const uint64_t numerator = UINT64_C(10000000) * 128 * 4 * frame * 16 * divisor;
+static void uart_drive(Uart16550* uart) {
+  /* 0 是 modem status 中断，1 才是没有中断。 */
+  if (interrupt_id(uart) != 1)
+    irq_raise(uart->irq);
+  else
+    irq_lower(uart->irq);
+}
+
+static void activity(Uart16550* uart) {
+  uart->rx_activity = uart->now;
+  uart->timeout = false;
+}
+
+uint64_t uart16550_deadline(const Uart16550* uart) {
+  if (uart == NULL || !(uart->fcr & 1) || !uart->count || uart->timeout)
+    return UINT64_MAX;
+  unsigned divisor = uart->dll | ((unsigned)uart->dlm << 8);
+  if (divisor == 0) divisor = 1;
+  /* 半 bit 帧长：起始 + 5..8 数据 + 可选校验 + 停止位。 */
+  unsigned frame = 2 * (1 + 5 + (uart->lcr & 3) + ((uart->lcr & 8) != 0));
+  frame += (uart->lcr & 4) ? ((uart->lcr & 3) ? 4 : 3) : 2;
+  const uint64_t numerator =
+      UINT64_C(10000000) * 128 * 4 * frame * 16 * divisor;
   const uint64_t delay = (numerator + 7372800 - 1) / 7372800;
-  return s->rx_activity > UINT64_MAX - delay ? UINT64_MAX : s->rx_activity + delay;
+  return uart->rx_activity > UINT64_MAX - delay ? UINT64_MAX
+                                                : uart->rx_activity + delay;
 }
-static void tick(void *opaque, uint64_t now) {
-  Uart16550State *s = opaque;
-  s->now = now;
-  if (!s->timeout && now >= uart16550_next_tick(s) && s->count && (s->fcr & 1)) {
-    s->timeout = true; update(s);
+
+void uart16550_advance(Uart16550* uart, uint64_t logical_ticks) {
+  if (uart == NULL) return;
+  uart->now = logical_ticks;
+  if (!uart->timeout && logical_ticks >= uart16550_deadline(uart) &&
+      uart->count && (uart->fcr & 1)) {
+    uart->timeout = true;
+    uart_drive(uart);
   }
 }
-bool uart16550_receive(Uart16550State *s, uint8_t byte) {
-  if (!uart16550_capacity(s)) {
-    s->overrun = true;
-    if (!(s->fcr & 1)) { s->fifo[s->head] = byte; activity(s); }
-    update(s); return false;
+
+void uart16550_update(Uart16550* uart) {
+  if (uart != NULL) uart_drive(uart);
+}
+
+bool uart16550_receive(Uart16550* uart, uint8_t byte) {
+  if (uart == NULL) return false;
+  if (uart16550_rx_capacity(uart) == 0) {
+    uart->overrun = true;
+    if (!(uart->fcr & 1)) {
+      uart->fifo[uart->head] = byte;
+      activity(uart);
+    }
+    uart_drive(uart);
+    return false;
   }
-  s->fifo[(s->head + s->count) % 16] = byte; s->count++;
-  activity(s); update(s); return true;
+  uart->fifo[(uart->head + uart->count) % 16] = byte;
+  uart->count++;
+  activity(uart);
+  uart_drive(uart);
+  return true;
 }
-static bool accepts(void *opaque, paddr_t off, int len, bool write) {
-  (void)opaque; (void)write;
-  return off < 8 && len == 1;
+
+static bool uart_accepts(paddr_t offset, int len) {
+  return offset < 8 && len == 1;
 }
-static word_t read_reg(void *opaque, paddr_t off, int len) {
-  Uart16550State *s = opaque; (void)len;
-  switch (off) {
+
+static bool uart_read(void* ctx, paddr_t offset, int len, word_t* data) {
+  Uart16550* uart = ctx;
+  if (!uart_accepts(offset, len)) return false;
+  switch (offset) {
     case 0:
-      if (s->lcr & 0x80) return s->dll;
-      if (s->count) {
-        uint8_t value = s->fifo[s->head]; s->head = (s->head + 1) % 16; s->count--;
-        activity(s); update(s); return value;
+      if (uart->lcr & 0x80) {
+        *data = uart->dll;
+        return true;
       }
-      return 0;
-    case 1: return (s->lcr & 0x80) ? s->dlm : s->ier;
+      if (uart->count != 0) {
+        uint8_t value = uart->fifo[uart->head];
+        uart->head = (uart->head + 1) % 16;
+        uart->count--;
+        activity(uart);
+        uart_drive(uart);
+        *data = value;
+        return true;
+      }
+      *data = 0;
+      return true;
+    case 1:
+      *data = (uart->lcr & 0x80) ? uart->dlm : uart->ier;
+      return true;
     case 2: {
-      unsigned id = interrupt_id(s), value = id | ((s->fcr & 1) ? 0xc0 : 0);
-      if (id == 2) { s->thre_pending = false; update(s); }
-      return value;
+      unsigned id = interrupt_id(uart);
+      *data = id | ((uart->fcr & 1) ? 0xc0 : 0);
+      if (id == 2) {
+        uart->thre_pending = false;
+        uart_drive(uart);
+      }
+      return true;
     }
-    case 3: return s->lcr;
-    case 4: return s->mcr;
-    case 5: {
-      unsigned value = 0x60 | (s->count != 0) | (s->overrun ? 2 : 0);
-      s->overrun = false; update(s); return value;
+    case 3:
+      *data = uart->lcr;
+      return true;
+    case 4:
+      *data = uart->mcr;
+      return true;
+    case 5:
+      *data = 0x60 | (uart->count != 0) | (uart->overrun ? 2 : 0);
+      uart->overrun = false;
+      uart_drive(uart);
+      return true;
+    case 6: {
+      uint8_t value = uart->msr;
+      uart->msr &= 0xf0;
+      uart_drive(uart);
+      *data = value;
+      return true;
     }
-    case 6: { uint8_t value = s->msr; s->msr &= 0xf0; update(s); return value; }
-    case 7: return s->scr;
+    case 7:
+      *data = uart->scr;
+      return true;
+    default:
+      return false;
   }
-  return 0;
 }
-static void write_reg(void *opaque, paddr_t off, int len, word_t data) {
-  Uart16550State *s = opaque; uint8_t value = data; (void)len;
-  switch (off) {
+
+static bool uart_write(void* ctx, paddr_t offset, int len, word_t data) {
+  Uart16550* uart = ctx;
+  uint8_t value = (uint8_t)data;
+  if (!uart_accepts(offset, len)) return false;
+  switch (offset) {
     case 0:
-      if (s->lcr & 0x80) s->dll = value;
-      else {
-        /* Functional immediate TX: holding and shift register empty on return. */
-        s->thre_pending = false;
-        if (s->mcr & 0x10) uart16550_receive(s, value);
-        else if (s->transmit) s->transmit(s->transmit_opaque, value);
-        s->thre_pending = true;
+      if (uart->lcr & 0x80) {
+        uart->dll = value;
+      } else {
+        /* 功能模型即时发送：返回时保持寄存器和移位寄存器都空。 */
+        uart->thre_pending = false;
+        if (uart->mcr & 0x10)
+          uart16550_receive(uart, value);
+        else if (uart->transmit)
+          uart->transmit(uart->transmit_opaque, value);
+        uart->thre_pending = true;
       }
       break;
     case 1:
-      if (s->lcr & 0x80) s->dlm = value;
-      else {
+      if (uart->lcr & 0x80) {
+        uart->dlm = value;
+      } else {
         value &= 15;
-        if ((value ^ s->ier) & 2) s->thre_pending = (value & 2) != 0;
-        s->ier = value;
+        if ((value ^ uart->ier) & 2) uart->thre_pending = (value & 2) != 0;
+        uart->ier = value;
       }
       break;
     case 2:
-      if (!(value & 1)) value = 0; /* Other FCR bits require FIFO enable. */
-      if (((value ^ s->fcr) & 1) || (value & 2)) { s->count = s->head = 0; activity(s); }
-      if (((value ^ s->fcr) & 1) || (value & 4)) s->thre_pending = true;
-      s->fcr = value & 0xc9;
+      if (!(value & 1)) value = 0;
+      if (((value ^ uart->fcr) & 1) || (value & 2)) {
+        uart->count = 0;
+        uart->head = 0;
+        activity(uart);
+      }
+      if (((value ^ uart->fcr) & 1) || (value & 4)) uart->thre_pending = true;
+      uart->fcr = value & 0xc9;
       break;
-    case 3: s->lcr = value; break;
+    case 3:
+      uart->lcr = value;
+      break;
     case 4: {
-      s->mcr = value & 31;
-      uint8_t status = (s->mcr & 0x10) ?
-        ((s->mcr & 2) << 3) | ((s->mcr & 1) << 5) |
-        ((s->mcr & 4) << 4) | ((s->mcr & 8) << 4) : 0xb0;
-      uint8_t changed = (status ^ s->msr) & 0xf0;
+      uart->mcr = value & 31;
+      uint8_t status =
+          (uart->mcr & 0x10)
+              ? (uint8_t)(((uart->mcr & 2) << 3) | ((uart->mcr & 1) << 5) |
+                          ((uart->mcr & 4) << 4) | ((uart->mcr & 8) << 4))
+              : 0xb0;
+      uint8_t changed = (status ^ uart->msr) & 0xf0;
       uint8_t delta = (changed >> 4) & 0xb;
       if ((changed & 0x40) && !(status & 0x40)) delta |= 4;
-      s->msr = status | (s->msr & 15) | delta;
+      uart->msr = status | (uart->msr & 15) | delta;
       break;
     }
-    case 7: s->scr = value; break;
+    case 7:
+      uart->scr = value;
+      break;
+    default:
+      break;
   }
-  update(s);
+  uart_drive(uart);
+  return true;
 }
-void uart16550_reset(Uart16550State *s) {
-  s->dll = 1; s->dlm = s->ier = s->fcr = s->lcr = s->mcr = s->scr = 0;
-  s->msr = 0xb0; s->head = s->count = 0;
-  memset(s->fifo, 0, sizeof(s->fifo));
-  s->overrun = s->thre_pending = s->timeout = false; s->now = s->rx_activity = 0;
-  update(s);
+
+Uart16550* uart16550_create(IrqLine* irq,
+                            void (*transmit)(void* opaque, uint8_t byte),
+                            void* transmit_opaque) {
+  Uart16550* uart = uart_alloc();
+  if (uart == NULL) return NULL;
+  uart->irq = irq;
+  uart->transmit = transmit;
+  uart->transmit_opaque = transmit_opaque;
+  return uart;
 }
-static uint64_t deadline(void *opaque) { return uart16550_next_tick(opaque); }
-void uart16550_init(Uart16550State *s) {
-  memset(s, 0, sizeof(*s));
-  s->mmio = (MmioRegion){.name="uart16550", .size=0x100, .accepts=accepts,
-      .read=read_reg, .write=write_reg, .opaque=s};
-  uart16550_reset(s);
-  Assert(device_register_tick(tick, s), "UART tick registration failed");
-  Assert(device_register_deadline(deadline, s), "UART deadline registration failed");
+
+void uart16550_release(Uart16550* uart) {
+  if (!uart_owned(uart)) return;
+  used[uart - pool] = false;
+}
+
+void uart16550_mmio(Uart16550* uart, MemObject* mmio) {
+  *mmio = (MemObject){.name = "uart16550",
+                      .ctx = uart,
+                      .read = uart_read,
+                      .write = uart_write};
+}
+
+void uart16550_reset(Uart16550* uart) {
+  if (uart == NULL) return;
+  uart->dll = 1;
+  uart->dlm = 0;
+  uart->ier = 0;
+  uart->fcr = 0;
+  uart->lcr = 0;
+  uart->mcr = 0;
+  uart->scr = 0;
+  uart->msr = 0xb0;
+  uart->head = 0;
+  uart->count = 0;
+  memset(uart->fifo, 0, sizeof(uart->fifo));
+  uart->overrun = false;
+  uart->thre_pending = false;
+  uart->timeout = false;
+  uart->now = 0;
+  uart->rx_activity = 0;
+  uart_drive(uart);
 }

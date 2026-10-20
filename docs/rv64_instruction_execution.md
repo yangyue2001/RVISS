@@ -104,7 +104,7 @@ Decode s = {.pc = cpu.pc};
 
 ```c
 typedef struct {
-  rtlreg_t *preg;
+  reg_t *preg;
   sword_t imm;
   bool is_imm;
 } Operand;

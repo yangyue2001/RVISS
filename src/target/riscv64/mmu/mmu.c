@@ -22,7 +22,8 @@ _Static_assert(RISCV_SV57_LEVELS* RISCV_VPN_BITS + RISCV_PAGE_SHIFT ==
 _Static_assert(RISCV_PPN_BITS + RISCV_PAGE_SHIFT == RISCV_PA_BITS, "PA width");
 
 bool isa_pa_format_ok(paddr_t addr, word_t len) {
-  if (len == 0) return false;
+  Assert(len != 0, "非法长度");
+
   const paddr_t limit = UINT64_C(1) << RISCV_PA_BITS;
   return addr < limit && len <= limit - addr;
 }
@@ -43,10 +44,9 @@ static inline int paging_levels(reg_t satp) {
 }
 
 static bool read_pte(paddr_t pte_addr, word_t* value) {
-  if (!mem_in_ram(pte_addr, RISCV_PTE_BYTES)) return false;
   MemRequest request = {.addr = pte_addr,
                         .len = RISCV_PTE_BYTES,
-                        .type = kMemRead,
+                        .type = kMemPteRead,
                         .data = 0,
                         .privilege = PRV_S};
   MemResult result = paddr_access(&request);

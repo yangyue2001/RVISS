@@ -1,9 +1,9 @@
 #include <common.h>
 #include <util/log.h>
 
+#include "cpu_state.h"
 #include "csr.h"
 #include "intr.h"
-#include "cpu_state.h"
 
 /* trap 目标只由 ISA 决定；设备不读取 CPU 的私有 CSR。 */
 vaddr_t riscv_raise_trap(word_t cause, vaddr_t epc, vaddr_t tval) {
@@ -55,6 +55,7 @@ vaddr_t riscv_mret(void) {
   return target;
 }
 
+vaddr_t riscv_ret() {}
 vaddr_t riscv_sret(void) {
   word_t status = csr_status_value(cpu.mstatus);
   uint8_t previous = (status & MSTATUS_SPP) ? PRV_S : PRV_U;

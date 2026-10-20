@@ -21,22 +21,22 @@
  * 这种垃圾。所以参数统一加下划线前缀。 */
 
 /* ---- 由 .def 生成执行函数声明（exec_<名字> 在 exec.c 里实现） ---- */
-#define INSTR(_n, _p, _f) void concat(exec_, _n)(Decode * s);
-#include "instr/i/instr.def"
-#include "instr/m/instr.def"
+#define INSTR(_n, _p, _f) void CONCAT(exec_, _n)(Decode * s);
 #include "instr/a/instr.def"
 #include "instr/fp/instr.def"
+#include "instr/i/instr.def"
+#include "instr/m/instr.def"
 #include "instr/system/instr.def"
 #undef INSTR
 
 /* ---- 由同一份 .def 生成指令元信息表 ---- */
 #define INSTR(_n, _p, _f) \
-  {.name = #_n, .pattern = _p, .fmt = _f, .exec = concat(exec_, _n)},
+  {.name = #_n, .pattern = _p, .fmt = _f, .exec = CONCAT(exec_, _n)},
 static InstrEntry instr_table[] = {
-#include "instr/i/instr.def"
-#include "instr/m/instr.def"
 #include "instr/a/instr.def"
 #include "instr/fp/instr.def"
+#include "instr/i/instr.def"
+#include "instr/m/instr.def"
 #include "instr/system/instr.def"
 };
 #undef INSTR
@@ -56,8 +56,8 @@ static uint16_t decode_candidates[NR_INSTRS * DECODE_FUNCT3_COUNT];
 static bool decode_index_ready;
 
 /* x0 的写入要被丢弃：指向这个哑元寄存器即可（NEMU 里叫 zero_null） */
-static rtlreg_t zero_reg;
-static rtlreg_t* gpr_or_zero(uint8_t r) {
+static reg_t zero_reg;
+static reg_t* gpr_or_zero(uint8_t r) {
   return r != 0 ? &cpu.gpr[r] : &zero_reg;
 }
 
@@ -189,7 +189,8 @@ void riscv_decode_init(void) {
     for (unsigned funct3 = 0; funct3 < DECODE_FUNCT3_COUNT; funct3++) {
       if (pattern_matches_funct3(funct3, funct3_key, funct3_mask)) {
         unsigned pos = decode_bucket_cursor[opcode][funct3]++;
-        Assert(pos < ARRLEN(decode_candidates), "decoder candidate pool overflow");
+        Assert(pos < ARRLEN(decode_candidates),
+               "decoder candidate pool overflow");
         decode_candidates[pos] = (uint16_t)i;
       }
     }
@@ -199,7 +200,7 @@ void riscv_decode_init(void) {
       NR_INSTRS, total, max_bucket);
 }
 
-static void fill_operands(Decode* s, char fmt) {
+static void fill_operands(word_t instr, Decode* s, char fmt) {
   const uint32_t i = s->encoding;
   s->rd = RD(i);
   s->rs1 = RS1(i);
@@ -264,46 +265,22 @@ static void fill_operands(Decode* s, char fmt) {
   }
 }
 
-static bool fetch_halfword(Decode *s, vaddr_t addr, uint16_t *data) {
+static bool fetch_halfword(Decode* s, vaddr_t addr, uint16_t* data) {
   MemAccess access = vaddr_ifetch(addr, 2);
   if (access.status != MEM_OK) {
     s->memory = access;
-    if (access.status == MEM_HOST_ERROR) s->host_error = true;
-    else riscv_exec_trap(s, access.cause, access.tval);
+    if (access.status == MEM_HOST_ERROR)
+      s->host_error = true;
+    else
+      riscv_exec_trap(s, access.cause, access.tval);
     return false;
   }
   *data = (uint16_t)access.data;
   return true;
 }
 
-bool riscv_decode(Decode* s) {
+Decode riscv_decode(word_t instr) {
   Assert(decode_index_ready, "riscv_decode_init() was not called");
-  /* IALIGN 随 misa.C；错误的跳转在其执行处报告；这里也拒绝
-   * 调试/导入提供的非法 PC，避免宿主越界或错误执行。
-   */
-  if (s->pc & ((cpu.misa & MISA_C) ? 1 : 3)) {
-    riscv_exec_trap(s, EX_IAM, s->pc);
-    return false;
-  }
-  uint16_t low = 0, high = 0;
-  if (!fetch_halfword(s, s->pc, &low)) return false;
-  s->instr = low;
-  s->raw_bytes = 2;
-
-  if (unlikely((s->instr & 0x3u) != 0x3u)) {
-    s->ilen = 2;
-    s->instruction_valid = true;
-    s->snpc = s->pc + 2;
-    if (!(cpu.misa & MISA_C) || !riscv_expand_compressed(s)) return false;
-  } else {
-    s->ilen = 4;
-    s->snpc = s->pc + 4;
-    if (!fetch_halfword(s, s->pc + 2, &high)) return false;
-    s->instr |= (uint32_t)high << 16;
-    s->raw_bytes = 4;
-    s->instruction_valid = true;
-    s->encoding = s->instr;
-  }
 
   unsigned opcode = s->encoding & UINT32_C(0x7f);
   unsigned funct3 = (s->encoding >> 12) & UINT32_C(0x7);

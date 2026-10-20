@@ -1,3 +1,5 @@
+#ifndef RVISS_CPU_CSR_SUPERVISOR_H
+#define RVISS_CPU_CSR_SUPERVISOR_H
 // clang-format off
 /* S 态陷阱设置 */
 #define CSRS_Supervisor_TrapSetup(f) \
@@ -152,12 +154,6 @@
 #define SATP64_MODE_SV57 (10ull << 60)
 #define SATP64_ASID (0xFFFFull << 44)
 #define SATP64_PPN ((1ull << 44) - 1)
-/* SXLEN=32 */
-#define SATP32_MODE (1ull << 31)
-#define SATP32_MODE_BARE (0ull << 31)
-#define SATP32_MODE_SV32 (1ull << 31)
-#define SATP32_ASID (0x1FFull << 22)
-#define SATP32_PPN ((1ull << 22) - 1)
 
 /* ---- scause (0x142) ----
  * 原因编码见文件末尾附录 (与 mcause 相同) */
@@ -276,3 +272,5 @@
 #define SSTATEEN0_C (1ull << 0)
 #define SSTATEEN0_FCSR (1ull << 1)
 #define SSTATEEN0_JVT (1ull << 2)
+
+#endif /* RVISS_CPU_CSR_SUPERVISOR_H */

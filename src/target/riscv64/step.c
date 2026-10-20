@@ -4,42 +4,50 @@
 #include <cpu/step.h>
 #include <util/state.h>
 
-#include "intr.h"
+#include "trap.h"
 
-void riscv_exec_trap(Decode *s, word_t cause, vaddr_t tval) {
+void riscv_exec_trap(Decode* s, word_t cause, vaddr_t tval) {
   if (s->trap_pending) return; /* 保留第一处故障 */
   s->trap_pending = true;
   s->trap_cause = cause;
   s->trap_tval = tval;
 }
 
-bool riscv_jump(Decode *s, vaddr_t target) {
+bool riscv_jump(Decode* s, vaddr_t target) {
   if (target & ((cpu.misa & MISA_C) ? 1 : 3)) {
-    riscv_exec_trap(s, EX_IAM, target);
+    riscv_exec_trap(s, EXCP_INST_ADDR_MIS, target);
     return false;
   }
   cpu.pc = target;
   return true;
 }
 
-void riscv_step(StepResult *result) {
-  *result = (StepResult){.pc_before = cpu.pc,
-                         .privilege_before = cpu.priv};
-  const word_t intr = riscv_query_intr();
-  if (intr != 0) {
-    result->outcome = STEP_INTERRUPT;
-    result->trap.valid = true;
-    result->trap.cause = intr;
-    result->trap.epc = cpu.pc;
-    cpu.pc = riscv_raise_trap(intr, cpu.pc, 0);
-  } else {
+static void finish_step(StepResult* result) {
+  cpu.gpr[0] = 0;
+  result->pc_after = cpu.pc;
+  result->privilege_after = cpu.priv;
+}
+
+void riscv_take_interrupt(StepResult* result, word_t cause) {
+  *result = (StepResult){.pc_before = cpu.pc, .privilege_before = cpu.priv};
+  result->outcome = STEP_INTERRUPT;
+  result->trap.valid = true;
+  result->trap.cause = cause;
+  result->trap.epc = cpu.pc;
+  cpu.pc = riscv_raise_trap(cause, cpu.pc, 0);
+  finish_step(result);
+}
+
+void riscv_execute(StepResult* result) {
+  *result = (StepResult){.pc_before = cpu.pc, .privilege_before = cpu.priv};
+  {
     Decode s = {.pc = cpu.pc};
     result->instruction_attempted = true;
     if (riscv_decode(&s)) {
       cpu.pc = s.snpc;
       s.exec(&s);
     } else if (!s.trap_pending && !s.host_error) {
-      riscv_exec_trap(&s, EX_II, s.instr);
+      riscv_exec_trap(&s, EXCP_ILLEGAL_INST, s.instr);
     }
     result->raw_instruction = s.instr;
     result->instruction_length = s.ilen;
@@ -67,7 +75,8 @@ void riscv_step(StepResult *result) {
         result->register_write = true;
         result->register_is_fp = true;
         result->rd = s.rd;
-        result->register_value = cpu.fpr[s.rd] & ((cpu.misa&MISA_D)?UINT64_MAX:UINT32_MAX);
+        result->register_value =
+            cpu.fpr[s.rd] & ((cpu.misa & MISA_D) ? UINT64_MAX : UINT32_MAX);
       } else if (s.rd != 0 && s.dest.preg != NULL) {
         result->register_write = true;
         result->rd = s.rd;
@@ -75,7 +84,13 @@ void riscv_step(StepResult *result) {
       }
     }
   }
-  cpu.gpr[0] = 0;
-  result->pc_after = cpu.pc;
-  result->privilege_after = cpu.priv;
+  finish_step(result);
+}
+
+void riscv_step(StepResult* result) {
+  const word_t intr = riscv_query_intr();
+  if (intr != 0)
+    riscv_take_interrupt(result, intr);
+  else
+    riscv_execute(result);
 }

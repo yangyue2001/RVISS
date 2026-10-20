@@ -12,14 +12,15 @@
 #include <generated/autoconf.h> /* Kconfig 生成的 #define CONFIG_xxx */
 
 /* C 标准库基础（NEMU 同款做法：这几个头在本项目里被视为"语言基础"） */
+#include <common/assert.h>
+#include <common/bits.h>
+#include <common/macro.h>
+#include <common/types.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-#include <common/types.h>
-#include <common/bits.h>
-#include <common/macro.h>
-#include <common/assert.h>
 
 #endif /* RVISS_COMMON_H */

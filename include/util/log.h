@@ -48,8 +48,7 @@ void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...)
  * trace 日志直接使用 RVISS_LOG，因此 CONFIG_TRACE_* 仍可独立控制它们。
  * 关闭时参数不会被求值，保持原有宏的零开销语义。
  */
-#define RVISS_LOG(cat, level, ...) \
-  log_printf((cat), (level), __VA_ARGS__)
+#define RVISS_LOG(cat, level, ...) log_printf((cat), (level), __VA_ARGS__)
 
 #ifdef CONFIG_DEBUG
 #define RVISS_DEBUG_LOG(...) RVISS_LOG(__VA_ARGS__)
@@ -61,10 +60,8 @@ void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...)
 #define Logw(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_WARN, __VA_ARGS__)
 #define Loge(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_ERROR, __VA_ARGS__)
 #define LogTrap(...) RVISS_DEBUG_LOG(LOG_CAT_TRAP, LOG_DEBUG, __VA_ARGS__)
-#define LogDevice(...) \
-  RVISS_DEBUG_LOG(LOG_CAT_DEVICE, LOG_DEBUG, __VA_ARGS__)
-#define LogDiff(...) \
-  RVISS_DEBUG_LOG(LOG_CAT_DIFFTEST, LOG_DEBUG, __VA_ARGS__)
+#define LogDevice(...) RVISS_DEBUG_LOG(LOG_CAT_DEVICE, LOG_DEBUG, __VA_ARGS__)
+#define LogDiff(...) RVISS_DEBUG_LOG(LOG_CAT_DIFFTEST, LOG_DEBUG, __VA_ARGS__)
 
 #if defined(CONFIG_TRACE_INST) || defined(CONFIG_TRACE_INST_DASM)
 #define LogInstr(...) RVISS_LOG(LOG_CAT_INSTR, LOG_TRACE, __VA_ARGS__)

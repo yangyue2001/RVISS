@@ -1,0 +1,5 @@
+INSTR(hinval_gvma, "0110011 ????? ????? 000 00000 1110011", SYS)
+INSTR(hinval_vvma, "0010011 ????? ????? 000 00000 1110011", SYS)
+INSTR(sfence_inval_ir, "0001100 00001 00000 000 00000 1110011", SYS)
+INSTR(sfence_w_inval, "0001100 00000 00000 000 00000 1110011", SYS)
+INSTR(sinval_vma, "0001011 ????? ????? 000 00000 1110011", SYS)

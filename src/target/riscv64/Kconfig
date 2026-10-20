@@ -92,9 +92,9 @@ config RV_MISALIGNED_TRAP
 config RV_MISALIGNED_NATIVE
 	bool "RAM 非对齐访问由 RVISS 拆分完成"
 	help
-	  普通 RAM load/store 按字节预检查、翻译并完成 little-endian 访问，
-	  跨页也不会跳过第二页的权限检查。该功能模型选项不改变 LR/SC/AMO
-	  的自然对齐要求，也不把 MMIO 拆成多个副作用访问。
+	  普通 RAM load/store 在访问宽度的自然对齐边界拆成两段。
+	  两段都完成翻译、PMP 和 RAM 检查后才读写，跨页不会跳过第二页。
+	  取指始终不支持非对齐。MMIO 不拆成多次访问。
 
 endchoice
 

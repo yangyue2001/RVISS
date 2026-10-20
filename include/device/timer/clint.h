@@ -7,28 +7,21 @@
 
 /*
  * CLINT：mtime / mtimecmp / msip。
- *
- * mtime 由平台逻辑 tick 驱动（每 128 ticks +1），不读宿主时钟；
- * 客户机 cycle/instret 的写入不改变平台节拍。
- *
- * 实例状态由板子提供存储（QEMU 的板子也这么做：static PLICState plic; ...），
- * 所以同一设备可以有多个实例，且单元测试可以随意构造。
+ * mtime 每 128 个逻辑 tick 加 1。实例在 clint.c 的固定池里，
+ * 结构体不对外。MMIO 基址由板卡 mmio_map，不放在实例里。
  */
 
-typedef struct {
-  MmioRegion mmio;
-  IrqLine *mtimer_irq; /* 输出线：mtime >= mtimecmp 时拉高（板子接到 CPU 的 MTIP） */
-  IrqLine *msip_irq;   /* 输出线：MSIP 置位时拉高（板子接到 MSIP） */
-  uint64_t last_ticks;
-  uint64_t mtime;
-  uint64_t mtimecmp;
-  uint32_t msip;
-} ClintState;
+typedef struct Clint Clint;
 
-/* 初始化实例（置 mmio 回调、复位寄存器、注册设备节拍）；不涉及地址 */
-word_t clint_time(void *opaque);
-void clint_init(ClintState *s);
-void clint_reset(ClintState *s);
-uint64_t clint_next_tick(const ClintState *s);
+Clint* clint_create(IrqLine* timer_irq, IrqLine* software_irq);
+void clint_release(Clint* clint);
+void clint_reset(Clint* clint);
+#define CLINT_MMIO_SIZE UINT64_C(0x10000)
+
+void clint_mmio(Clint* clint, MemObject* mmio);
+void clint_advance(Clint* clint, uint64_t logical_ticks);
+void clint_update(Clint* clint);
+uint64_t clint_deadline(const Clint* clint);
+uint64_t clint_mtime(const Clint* clint);
 
 #endif /* RVISS_DEVICE_TIMER_CLINT_H */

@@ -1,7 +1,5 @@
 #include <common.h>
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <util/config.h>
 #include <util/log.h>
 
@@ -12,6 +10,14 @@
  */
 
 RuntimeConfig rt_cfg;
+
+void config_print(void) {
+  Log("config: max_instr=%lu max_events=%lu batch=%d trace=%d trace_file=%s "
+      "mem_override=%s",
+      rt_cfg.max_instr, rt_cfg.max_events, rt_cfg.batch, rt_cfg.log_trace,
+      rt_cfg.trace_file ? rt_cfg.trace_file : "-",
+      rt_cfg.ram_size_override ? "yes" : "no");
+}
 
 static void usage(const char* prog) {
   printf("用法: %s [选项] [镜像]\n\n", prog);
@@ -26,7 +32,9 @@ static void usage(const char* prog) {
   printf(
       "  -L, --log-level N        日志等级 0=ERROR..4=TRACE（默认 2=INFO）\n");
   printf("  -t, --trace              打开指令 trace（等级自动设为 TRACE）\n");
-  printf("      --trace-file FILE   写入 RVTR 二进制执行事件（需 CONFIG_TRACE_STREAM）\n");
+  printf(
+      "      --trace-file FILE   写入 RVTR 二进制执行事件（需 "
+      "CONFIG_TRACE_STREAM）\n");
   printf("      --checkpoint-in FILE  执行前恢复 checkpoint\n");
   printf("      --checkpoint-out FILE 执行后保存 checkpoint\n");
   printf("  -h, --help               显示本帮助\n");
@@ -71,7 +79,15 @@ void config_parse(int argc, char* argv[]) {
       .checkpoint_out = NULL,
   };
 
-  enum { OPT_CPT_IN = 1000, OPT_CPT_OUT, OPT_MAX_EVENTS, OPT_UART_STDIN, OPT_UART_RECORD, OPT_UART_REPLAY, OPT_TRACE_FILE };
+  enum {
+    OPT_CPT_IN = 1000,
+    OPT_CPT_OUT,
+    OPT_MAX_EVENTS,
+    OPT_UART_STDIN,
+    OPT_UART_RECORD,
+    OPT_UART_REPLAY,
+    OPT_TRACE_FILE
+  };
 
   static const struct option table[] = {
       {"uart-stdin", no_argument, NULL, OPT_UART_STDIN},
@@ -146,17 +162,15 @@ void config_parse(int argc, char* argv[]) {
     }
   }
   if (rt_cfg.uart_stdin && !rt_cfg.batch) {
-    fprintf(stderr, "--uart-stdin requires --batch\n"); exit(1);
+    fprintf(stderr, "--uart-stdin requires --batch\n");
+    exit(1);
   }
-  if ((rt_cfg.uart_replay && (!rt_cfg.batch || rt_cfg.uart_stdin || rt_cfg.uart_record)) ||
+  if ((rt_cfg.uart_replay &&
+       (!rt_cfg.batch || rt_cfg.uart_stdin || rt_cfg.uart_record)) ||
       (rt_cfg.uart_record && !rt_cfg.uart_stdin)) {
-    fprintf(stderr, "UART replay requires batch and exclusive input; recording requires --uart-stdin\n"); exit(1);
+    fprintf(stderr,
+            "UART replay requires batch and exclusive input; recording "
+            "requires --uart-stdin\n");
+    exit(1);
   }
-}
-
-void config_print(void) {
-  Log("config: max_instr=%lu max_events=%lu batch=%d trace=%d trace_file=%s mem_override=%s",
-      rt_cfg.max_instr, rt_cfg.max_events, rt_cfg.batch, rt_cfg.log_trace,
-      rt_cfg.trace_file ? rt_cfg.trace_file : "-",
-      rt_cfg.ram_size_override ? "yes" : "no");
 }

@@ -2,35 +2,46 @@
 #define RVISS_RISCV64_CSR_H
 
 #include <common.h>
-#include <cpu/csr_list.h> /* CSR 地址、视图掩码与存储清单 */
 
 /*
- * target 侧的 CSR 访问接口。
- *
- * 地址/清单在 cpu/csr_list.h，M 侧位定义在 cpu/csr_machine.h；
- * CPU_state 的存储由清单生成。
- * 本头只声明"怎么访问"。实现见 csr/csr_access.c。
- *
- * 对照 NEMU：它的 csr.h 有 600 行 CSRR 定义 + 类型化位域 union，priv.c 里
- * 还有两个几百行的 read/write switch；这里清单只有一份，读写共用一段逻辑。
+ * CSR 访问描述符。权限由地址位和可选 check 决定；
+ * 读写函数为空时走默认存储掩码。布局见
+ * docs/plans/t028_csr_descriptor.md。
  */
+typedef struct CsrDesc CsrDesc;
 
-/* CSR 指令（csrrw/rs/rc 及其立即数形式）的公共实现，op 见 CSR_OP_* */
-enum { CSR_OP_RW = 0, CSR_OP_RS, CSR_OP_RC };
-struct Decode;
-void csr_execute(struct Decode* s, int op, bool immediate);
+typedef bool (*CsrCheckFn)(const CsrDesc* csr, bool write);
+typedef word_t (*CsrReadFn)(const CsrDesc* csr);
+typedef void (*CsrWriteFn)(const CsrDesc* csr, word_t value);
 
-/* 读写一个 CSR。返回 false 表示非法（未实现 / 特权级不足 / 只读被写），
- * 调用方据此上报 EX_II —— 与硬件行为一致。 */
+struct CsrDesc {
+  const char* name;
+  word_t addr;
+  word_t* field;
+  word_t read_mask;
+  word_t write_mask;
+  CsrCheckFn check;
+  CsrReadFn read;
+  CsrWriteFn write;
+};
+
+/* 只看地址编码：范围、csr[9:8] 特权、csr[11:10]==3 的写。 */
+bool csr_addr_legal(word_t addr, bool write);
+/* 不检查权限。未实现返回 NULL。 */
+const CsrDesc* csr_lookup(word_t addr);
+/* 地址合法、已实现，且 desc->check 通过。失败返回 NULL。 */
+const CsrDesc* csr_match(word_t addr, bool write);
+
+word_t csr_desc_read(const CsrDesc* csr);
+void csr_desc_write(const CsrDesc* csr, word_t value);
+
+/* 客户机访问。false 表示应报非法指令，且没有写入。 */
 bool csr_read(word_t addr, word_t* val);
 bool csr_write(word_t addr, word_t val);
-/* 只读状态观测，绕过客户机权限但保留体系结构可见值/别名规则。 */
-bool csr_peek(word_t addr, word_t *val);
-word_t csr_status_value(word_t val);
-word_t csr_epc_storage_value(word_t val);
-word_t csr_epc_read_value(word_t val);
+/* 宿主观察：不检查客户机权限，仍返回体系结构可见值。 */
+bool csr_peek(word_t addr, word_t* val);
 
-void csr_reset(void);
-word_t riscv_misa_supported(void);
+/* trap 与 CSR 写共用。保留未实现位清零，并派生 SD。 */
+word_t csr_status_value(word_t val);
 
 #endif /* RVISS_RISCV64_CSR_H */

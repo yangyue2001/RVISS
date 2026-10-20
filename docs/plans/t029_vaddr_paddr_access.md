@@ -10,7 +10,7 @@ Status: slice-verified
   允许的非对齐访问在访问宽度的对齐边界拆成两段。每一段由 `vaddr_unit`
   决定是否翻译，需要翻译时先检查规范地址，再按运行时 `satp.MODE`
   走 Sv39、Sv48 或 Sv57。页表项和最终数据都走 `paddr_access`。
-  它只接收请求，物理地址就是 `req->addr`。`riscv_mmu_translate` 成功时把物理地址放在
+  它先按 `MemRegion` 查找物理地址，RAM 和外设同一张表。页表访问使用 `kMemPteRead`，只能命中 RAM。`riscv_mmu_translate` 成功时把物理地址放在
   `MemResult.data`。RAM 和 MMIO 在这一层相同。
 
 ## Non-goals
@@ -30,6 +30,7 @@ Status: slice-verified
 - 页表访问按 S 模式做 PMP，必须在 RAM，不再进入虚地址翻译。
   请求里的地址就是页表项的物理地址。失败按原访问报 access fault。
   未实现 Svadu。叶页表项缺 A，或 store 缺 D，报 page fault，不改 PTE。
+  页表项地址不在 RAM 区域时，由 `paddr_access` 报 access fault。
 - 非对齐的两段按顺序调用 `vaddr_unit`。前一段完成后，后一段仍可能异常。
   不做地址空间回绕检查。MMIO 和 RAM 都走这两段。
 - 两段长度可以不是 2 的幂。8 字节落在 +1 时是 7 字节和 1 字节。
