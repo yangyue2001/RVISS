@@ -1,189 +1,96 @@
 #include "../fp/exec_common.h"
 
-static word_t fp64_read_bits(ExecContext* ctx, unsigned reg) {
-  return fpr_read(ctx->hart, (uint8_t)reg);
-}
-
-static void fp64_write_bits(ExecContext* ctx, unsigned reg, word_t value) {
-  fpr_write(ctx->hart, (uint8_t)reg, value);
-}
-
-#ifdef CONFIG_RV_D
-static word_t fp64_read_s_bits(ExecContext* ctx, unsigned reg) {
-  const word_t value = fpr_read(ctx->hart, (uint8_t)reg);
-  return (value >> 32) == UINT32_MAX ? (uint32_t)value : UINT32_C(0x7fc00000);
-}
-
-static void fp64_write_s_bits(ExecContext* ctx, unsigned reg, word_t value) {
-  fpr_write(ctx->hart, (uint8_t)reg,
-            UINT64_C(0xffffffff00000000) | (uint32_t)value);
-}
-
-static bool fp64_is_nan(uint64_t bits) {
-  return (bits & UINT64_C(0x7ff0000000000000)) ==
-             UINT64_C(0x7ff0000000000000) &&
-         (bits & UINT64_C(0x000fffffffffffff)) != 0;
-}
-
-static bool fp64_is_snan(uint64_t bits) {
-  return fp64_is_nan(bits) &&
-         (bits & UINT64_C(0x0008000000000000)) == 0;
-}
-
 static word_t fp64_classify(word_t value) {
-  const uint64_t bits = value;
-  const bool sign = (bits >> 63) != 0;
-  const uint64_t exponent = (bits >> 52) & UINT64_C(0x7ff);
-  const uint64_t fraction = bits & UINT64_C(0x000fffffffffffff);
-
-  if (exponent == UINT64_C(0x7ff)) {
-    if (fraction != 0) return UINT64_C(1) << (fp64_is_snan(bits) ? 8 : 9);
-    return UINT64_C(1) << (sign ? 0 : 7);
-  }
-  if (exponent == 0) {
-    if (fraction != 0) return UINT64_C(1) << (sign ? 2 : 5);
-    return UINT64_C(1) << (sign ? 3 : 4);
-  }
-  return UINT64_C(1) << (sign ? 1 : 6);
+  return fp_classify_bits(value, FP64_MANT_BITS, FP64_EXP_BITS);
 }
 
-static word_t fp64_minmax_bits(word_t lhs, word_t rhs, bool max) {
-  const uint64_t a = lhs;
-  const uint64_t b = rhs;
-  const bool a_nan = fp64_is_nan(a);
-  const bool b_nan = fp64_is_nan(b);
-
-  if (fp64_is_snan(a) || fp64_is_snan(b))
-    softfloat_exceptionFlags |= softfloat_flag_invalid;
-
-  if (a_nan && b_nan) return UINT64_C(0x7ff8000000000000);
-  if (a_nan) return b;
-  if (b_nan) return a;
-
-  /* RISC-V selects -0 for min and +0 for max. */
-  if ((a & UINT64_C(0x7fffffffffffffff)) == 0 &&
-      (b & UINT64_C(0x7fffffffffffffff)) == 0)
-    return max ? a & b : a | b;
-
-  const bool less = f64_lt_quiet((float64_t){a}, (float64_t){b});
-  return max ? (less ? b : a) : (less ? a : b);
+static bool fp64_less(word_t lhs, word_t rhs) {
+  return f64_lt_quiet((float64_t){lhs}, (float64_t){rhs});
 }
 
-static word_t fp64_min_bits(word_t lhs, word_t rhs) {
-  return fp64_minmax_bits(lhs, rhs, false);
+static word_t fp64_min(word_t lhs, word_t rhs) {
+  return fp_minmax_bits(lhs, rhs, false, FP64_MANT_BITS, FP64_EXP_BITS,
+                        fp64_less);
 }
 
-static word_t fp64_max_bits(word_t lhs, word_t rhs) {
-  return fp64_minmax_bits(lhs, rhs, true);
+static word_t fp64_max(word_t lhs, word_t rhs) {
+  return fp_minmax_bits(lhs, rhs, true, FP64_MANT_BITS, FP64_EXP_BITS,
+                        fp64_less);
 }
 
-static word_t fp64_add_bits(word_t lhs, word_t rhs) {
+static word_t fp64_add(word_t lhs, word_t rhs) {
   return f64_add((float64_t){lhs}, (float64_t){rhs}).v;
 }
 
-static word_t fp64_sub_bits(word_t lhs, word_t rhs) {
+static word_t fp64_sub(word_t lhs, word_t rhs) {
   return f64_sub((float64_t){lhs}, (float64_t){rhs}).v;
 }
 
-static word_t fp64_mul_bits(word_t lhs, word_t rhs) {
+static word_t fp64_mul(word_t lhs, word_t rhs) {
   return f64_mul((float64_t){lhs}, (float64_t){rhs}).v;
 }
 
-static word_t fp64_div_bits(word_t lhs, word_t rhs) {
+static word_t fp64_div(word_t lhs, word_t rhs) {
   return f64_div((float64_t){lhs}, (float64_t){rhs}).v;
 }
 
-static word_t fp64_sqrt_bits(word_t value) {
-  return f64_sqrt((float64_t){value}).v;
+static word_t fp64_sqrt(word_t value) { return f64_sqrt((float64_t){value}).v; }
+
+static word_t fp64_fma(word_t lhs, word_t rhs, word_t addend) {
+  return f64_mulAdd((float64_t){lhs}, (float64_t){rhs}, (float64_t){addend}).v;
 }
 
-static word_t fp64_fma_bits(word_t lhs, word_t rhs, word_t third) {
-  return f64_mulAdd((float64_t){lhs}, (float64_t){rhs},
-                    (float64_t){third})
-      .v;
-}
-
-static bool fp64_eq_bits(word_t lhs, word_t rhs) {
+static bool fp64_eq(word_t lhs, word_t rhs) {
   return f64_eq((float64_t){lhs}, (float64_t){rhs});
 }
 
-static bool fp64_lt_bits(word_t lhs, word_t rhs) {
+static bool fp64_lt(word_t lhs, word_t rhs) {
   return f64_lt((float64_t){lhs}, (float64_t){rhs});
 }
 
-static bool fp64_le_bits(word_t lhs, word_t rhs) {
+static bool fp64_le(word_t lhs, word_t rhs) {
   return f64_le((float64_t){lhs}, (float64_t){rhs});
 }
 
-static word_t fp64_to_i32_bits(word_t value, uint_fast8_t rm, bool exact) {
+static word_t fp64_to_i32(word_t value, uint_fast8_t rm, bool exact) {
   return (word_t)(int_fast32_t)f64_to_i32((float64_t){value}, rm, exact);
 }
 
-static word_t fp64_to_ui32_bits(word_t value, uint_fast8_t rm, bool exact) {
+static word_t fp64_to_ui32(word_t value, uint_fast8_t rm, bool exact) {
   return (word_t)(uint_fast32_t)f64_to_ui32((float64_t){value}, rm, exact);
 }
 
-static word_t fp64_to_i64_bits(word_t value, uint_fast8_t rm, bool exact) {
+static word_t fp64_to_i64(word_t value, uint_fast8_t rm, bool exact) {
   return (word_t)(int_fast64_t)f64_to_i64((float64_t){value}, rm, exact);
 }
 
-static word_t fp64_to_ui64_bits(word_t value, uint_fast8_t rm, bool exact) {
+static word_t fp64_to_ui64(word_t value, uint_fast8_t rm, bool exact) {
   return (word_t)(uint_fast64_t)f64_to_ui64((float64_t){value}, rm, exact);
 }
 
-static word_t fp64_from_i32_bits(word_t value) {
+static word_t fp64_from_i32(word_t value) {
   return i32_to_f64((int32_t)value).v;
 }
 
-static word_t fp64_from_ui32_bits(word_t value) {
+static word_t fp64_from_ui32(word_t value) {
   return ui32_to_f64((uint32_t)value).v;
 }
 
-static word_t fp64_from_i64_bits(word_t value) {
+static word_t fp64_from_i64(word_t value) {
   return i64_to_f64((int64_t)value).v;
 }
 
-static word_t fp64_from_ui64_bits(word_t value) {
-  return ui64_to_f64(value).v;
-}
+static word_t fp64_from_ui64(word_t value) { return ui64_to_f64(value).v; }
 
-static word_t fp64_from_s_bits(word_t value) {
+static word_t fp64_from_s(word_t value) {
   return f32_to_f64((float32_t){(uint32_t)value}).v;
 }
 
-static word_t fp64_to_s_bits(word_t value) {
+static word_t fp64_to_s(word_t value) {
   return f64_to_f32((float64_t){value}).v;
 }
 
-static ExecResult exec_fp64_sign_inject(ExecContext* ctx, bool negate,
-                                        bool xor_sign) {
-  if (!fp_common_enabled(ctx->hart)) return fp_common_illegal(ctx);
-  const word_t lhs = fp64_read_bits(ctx, fp_common_rs1(ctx));
-  const word_t rhs = fp64_read_bits(ctx, fp_common_rs2(ctx));
-  fp64_write_bits(ctx, fp_common_rd(ctx),
-                  fp_common_sign_inject(lhs, rhs, UINT64_C(1) << 63, negate,
-                                        xor_sign));
-  fp_common_mark_dirty(ctx->hart);
-  return exec_ok();
-}
-
-static ExecResult exec_fmv_x_d_impl(ExecContext* ctx) {
-  if (!fp_common_enabled(ctx->hart)) return fp_common_illegal(ctx);
-  gpr_write(ctx->hart, (uint8_t)fp_common_rd(ctx),
-            fp64_read_bits(ctx, fp_common_rs1(ctx)));
-  return exec_ok();
-}
-
-static ExecResult exec_fmv_d_x_impl(ExecContext* ctx) {
-  if (!fp_common_enabled(ctx->hart)) return fp_common_illegal(ctx);
-  fp64_write_bits(ctx, fp_common_rd(ctx),
-                  gpr_read(ctx->hart, (uint8_t)fp_common_rs1(ctx)));
-  fp_common_mark_dirty(ctx->hart);
-  return exec_ok();
-}
-#endif /* CONFIG_RV_D */
-
-/* Load/store are intentionally placeholders for this slice. */
+/* Load/store stay placeholders until the new memory operand path exists. */
 ExecResult exec_fld(ExecContext* ctx) {
   (void)ctx;
   return exec_ok();
@@ -194,151 +101,129 @@ ExecResult exec_fsd(ExecContext* ctx) {
   return exec_ok();
 }
 
-#define DP_CALL(_ctx, _call) (_call)
-
 ExecResult exec_fmadd_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_fma(ctx, fp64_read_bits, fp64_write_bits,
-                                    fp64_fma_bits, UINT64_C(1) << 63, false,
-                                    false));
+  return fp_fma(ctx, fp64_read, fp64_write, fp64_fma, FP64_SIGN_BIT, false,
+                false);
 }
 
 ExecResult exec_fmsub_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_fma(ctx, fp64_read_bits, fp64_write_bits,
-                                    fp64_fma_bits, UINT64_C(1) << 63, false,
-                                    true));
+  return fp_fma(ctx, fp64_read, fp64_write, fp64_fma, FP64_SIGN_BIT, false,
+                true);
 }
 
 ExecResult exec_fnmsub_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_fma(ctx, fp64_read_bits, fp64_write_bits,
-                                    fp64_fma_bits, UINT64_C(1) << 63, true,
-                                    true));
+  return fp_fma(ctx, fp64_read, fp64_write, fp64_fma, FP64_SIGN_BIT, true,
+                false);
 }
 
 ExecResult exec_fnmadd_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_fma(ctx, fp64_read_bits, fp64_write_bits,
-                                    fp64_fma_bits, UINT64_C(1) << 63, true,
-                                    false));
+  return fp_fma(ctx, fp64_read, fp64_write, fp64_fma, FP64_SIGN_BIT, true,
+                true);
 }
 
 ExecResult exec_fadd_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_binary(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_add_bits));
+  return fp_binary(ctx, fp64_read, fp64_write, fp64_add);
 }
 
 ExecResult exec_fsub_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_binary(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_sub_bits));
+  return fp_binary(ctx, fp64_read, fp64_write, fp64_sub);
 }
 
 ExecResult exec_fmul_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_binary(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_mul_bits));
+  return fp_binary(ctx, fp64_read, fp64_write, fp64_mul);
 }
 
 ExecResult exec_fdiv_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_binary(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_div_bits));
+  return fp_binary(ctx, fp64_read, fp64_write, fp64_div);
 }
 
 ExecResult exec_fsqrt_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_unary(ctx, fp64_read_bits, fp64_write_bits,
-                                      fp64_sqrt_bits));
+  return fp_unary(ctx, fp64_read, fp64_write, fp64_sqrt);
 }
 
 ExecResult exec_fclass_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_classify(ctx, fp64_read_bits, fp64_classify));
+  return fp_classify(ctx, fp64_read, fp64_classify);
 }
 
 ExecResult exec_fcvt_l_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_to_int(ctx, fp64_read_bits, fp64_to_i64_bits,
-                                       false));
+  return fp_to_int(ctx, fp64_read, fp64_to_i64, false);
 }
 
 ExecResult exec_fcvt_lu_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_to_int(ctx, fp64_read_bits, fp64_to_ui64_bits,
-                                       false));
+  return fp_to_int(ctx, fp64_read, fp64_to_ui64, false);
 }
 
 ExecResult exec_fcvt_w_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_to_int(ctx, fp64_read_bits, fp64_to_i32_bits,
-                                       true));
+  return fp_to_int(ctx, fp64_read, fp64_to_i32, true);
 }
 
 ExecResult exec_fcvt_wu_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_to_int(ctx, fp64_read_bits, fp64_to_ui32_bits,
-                                       true));
+  return fp_to_int(ctx, fp64_read, fp64_to_ui32, true);
 }
 
 ExecResult exec_fcvt_d_l(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_from_int(ctx, fp64_write_bits,
-                                         fp64_from_i64_bits));
+  return fp_from_int(ctx, fp64_write, fp64_from_i64);
 }
 
 ExecResult exec_fcvt_d_lu(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_from_int(ctx, fp64_write_bits,
-                                         fp64_from_ui64_bits));
+  return fp_from_int(ctx, fp64_write, fp64_from_ui64);
 }
 
 ExecResult exec_fcvt_d_w(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_from_int(ctx, fp64_write_bits,
-                                         fp64_from_i32_bits));
+  return fp_from_int(ctx, fp64_write, fp64_from_i32);
 }
 
 ExecResult exec_fcvt_d_wu(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_from_int(ctx, fp64_write_bits,
-                                         fp64_from_ui32_bits));
+  return fp_from_int(ctx, fp64_write, fp64_from_ui32);
 }
 
 ExecResult exec_fcvt_s_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_unary(ctx, fp64_read_bits, fp64_write_s_bits,
-                                      fp64_to_s_bits));
+  return fp_unary(ctx, fp64_read, fp32_write, fp64_to_s);
 }
 
 ExecResult exec_fcvt_d_s(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_unary(ctx, fp64_read_s_bits, fp64_write_bits,
-                                      fp64_from_s_bits));
+  return fp_unary(ctx, fp32_read, fp64_write, fp64_from_s);
 }
 
 ExecResult exec_feq_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_compare(ctx, fp64_read_bits, fp64_eq_bits));
+  return fp_compare(ctx, fp64_read, fp64_eq);
 }
 
 ExecResult exec_fle_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_compare(ctx, fp64_read_bits, fp64_le_bits));
+  return fp_compare(ctx, fp64_read, fp64_le);
 }
 
 ExecResult exec_flt_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_compare(ctx, fp64_read_bits, fp64_lt_bits));
+  return fp_compare(ctx, fp64_read, fp64_lt);
 }
 
 ExecResult exec_fmax_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_minmax(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_max_bits));
+  return fp_minmax(ctx, fp64_read, fp64_write, fp64_max);
 }
 
 ExecResult exec_fmin_d(ExecContext* ctx) {
-  return DP_CALL(ctx, fp_common_minmax(ctx, fp64_read_bits, fp64_write_bits,
-                                       fp64_min_bits));
+  return fp_minmax(ctx, fp64_read, fp64_write, fp64_min);
 }
 
 ExecResult exec_fmv_d_x(ExecContext* ctx) {
-  return DP_CALL(ctx, exec_fmv_d_x_impl(ctx));
+  return fp_fmv_from_gpr(ctx, fp64_write);
 }
 
 ExecResult exec_fmv_x_d(ExecContext* ctx) {
-  return DP_CALL(ctx, exec_fmv_x_d_impl(ctx));
+  return fp_fmv_to_gpr(ctx, fp64_read);
 }
 
 ExecResult exec_fsgnj_d(ExecContext* ctx) {
-  return DP_CALL(ctx, exec_fp64_sign_inject(ctx, false, false));
+  return fp_sign_inject_exec(ctx, fp64_read, fp64_write, FP64_SIGN_BIT, false,
+                             false);
 }
 
 ExecResult exec_fsgnjn_d(ExecContext* ctx) {
-  return DP_CALL(ctx, exec_fp64_sign_inject(ctx, true, false));
+  return fp_sign_inject_exec(ctx, fp64_read, fp64_write, FP64_SIGN_BIT, true,
+                             false);
 }
 
 ExecResult exec_fsgnjx_d(ExecContext* ctx) {
-  return DP_CALL(ctx, exec_fp64_sign_inject(ctx, false, true));
+  return fp_sign_inject_exec(ctx, fp64_read, fp64_write, FP64_SIGN_BIT, false,
+                             true);
 }
-
-#undef DP_CALL

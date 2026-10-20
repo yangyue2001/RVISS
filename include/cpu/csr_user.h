@@ -1,3 +1,5 @@
+#ifndef RVISS_CPU_CSR_USER_H
+#define RVISS_CPU_CSR_USER_H
 // clang-format off
 #define CSRS_Unprivileged_FloatingPoint(f) \
     f(fflags          , 0x001) \
@@ -70,14 +72,15 @@
 #define FRM_RMM (4ull << 0)
 #define FRM_DYN (7ull << 0) /* 仅指令 rm 字段用, 寄存器中保留 */
 
-/* ---- fcsr (0x003) = frm << 5 | fflags ---- */
+/* ---- fcsr (0x003) = frm << FCSR_FRM_SHIFT | fflags ---- */
 #define FCSR_NX (1ull << 0)
 #define FCSR_UF (1ull << 1)
 #define FCSR_OF (1ull << 2)
 #define FCSR_DZ (1ull << 3)
 #define FCSR_NV (1ull << 4)
-#define FCSR_FFLAGS (0x1Full << 0)
-#define FCSR_FRM (7ull << 5)
+#define FCSR_FFLAGS (FCSR_NX | FCSR_UF | FCSR_OF | FCSR_DZ | FCSR_NV)
+#define FCSR_FRM_SHIFT 5
+#define FCSR_FRM (7ull << FCSR_FRM_SHIFT)
 
 /* ---- vstart (0x008) : 无字段(元素索引, 宽度随 VLEN) ---- */
 
@@ -135,3 +138,5 @@
 #define JVT_MODE (0x3Full << 0)
 #define JVT_MODE_JUMP_TABLE (0ull << 0) /* 仅定义 0; 其余保留 */
 #define JVT_BASE (~0x3Full)
+
+#endif /* RVISS_CPU_CSR_USER_H */
