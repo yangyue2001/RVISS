@@ -1,109 +1,137 @@
 #include "mmu.h"
 
 #include <cpu/cpu.h>
-#include <cpu/interrupt.h>
+#include <memory/mmu.h>
 #include <memory/paddr.h>
 
-#include "pmp.h"
+/*
+ * 运行时按 satp.MODE 选择 Sv39、Sv48 或 Sv57。三级都是 9 位索引。
+ * 页表项是 S 模式的物理访问：检查 PMP，并且必须落在 RAM。失败按原访问
+ * 报告 access fault，而不是页表自己的 load/store fault。
+ */
 
-#define PPN_MASK ((UINT64_C(1) << 44) - 1)
-enum {
-  PTE_V = 1,
-  PTE_R = 2,
-  PTE_W = 4,
-  PTE_X = 8,
-  PTE_U = 16,
-  PTE_A = 64,
-  PTE_D = 128
-};
+_Static_assert(RISCV_SV39_LEVELS* RISCV_VPN_BITS + RISCV_PAGE_SHIFT ==
+                   RISCV_SV39_VA_BITS,
+               "Sv39 width");
+_Static_assert(RISCV_SV48_LEVELS* RISCV_VPN_BITS + RISCV_PAGE_SHIFT ==
+                   RISCV_SV48_VA_BITS,
+               "Sv48 width");
+_Static_assert(RISCV_SV57_LEVELS* RISCV_VPN_BITS + RISCV_PAGE_SHIFT ==
+                   RISCV_SV57_VA_BITS,
+               "Sv57 width");
+_Static_assert(RISCV_PPN_BITS + RISCV_PAGE_SHIFT == RISCV_PA_BITS, "PA width");
 
-void riscv_mmu_set_sv39(bool supported) {
-#ifndef CONFIG_RV_SV39
-  Assert(!supported, "Sv39 unavailable in this build");
-#endif
-  cpu.sv39_supported = supported;
+bool isa_pa_format_ok(paddr_t addr, word_t len) {
+  if (len == 0) return false;
+  const paddr_t limit = UINT64_C(1) << RISCV_PA_BITS;
+  return addr < limit && len <= limit - addr;
 }
 
-void riscv_mmu_reset(void) {
-#ifdef CONFIG_RV_SV39
-  riscv_mmu_set_sv39(true);
-#else
-  riscv_mmu_set_sv39(false);
-#endif
-}
-
-word_t riscv_satp_value(word_t value) {
-  unsigned mode = value >> 60;
-  if (mode != 0 && (mode != 8 || !cpu.sv39_supported)) return cpu.satp;
-  return cpu.sv39_supported ? value & ((UINT64_C(0xf) << 60) | PPN_MASK) : 0;
-}
-
-static bool fault(MemAccess* a, bool page) {
-  a->status = MEM_FAULT;
-  a->cause = a->type == MEM_TYPE_IFETCH ? (page ? EX_IPF : EX_IAF)
-             : a->type == MEM_TYPE_READ ? (page ? EX_LPF : EX_LAF)
-                                        : (page ? EX_SPF : EX_SAF);
-  a->tval = a->vaddr;
-  return false;
-}
-
-/* PTE PMA is RAM-only, with S-mode PMP permissions regardless of origin/MPRV.
- * 8-byte read/check/update is indivisible in this single-hart execution model:
- * no host thread or DMA writes guest RAM while the event executes. */
-static bool pte_access(paddr_t addr, int type, word_t* value) {
-  if (!mem_in_ram(addr, 8) || !riscv_pmp_check(addr, 8, type, PRV_S))
-    return false;
-  return type == MEM_TYPE_READ ? paddr_try_read(addr, 8, value, NULL)
-                               : paddr_try_write(addr, 8, *value, NULL);
-}
-
-bool riscv_mmu_translate(MemAccess* a, uint8_t privilege) {
-  unsigned mode = cpu.satp >> 60;
-  if (privilege == PRV_M || mode == 0) {
-    a->paddr = a->vaddr;
-    a->paddr_valid = true;
-    return true;
+static inline int paging_levels(reg_t satp) {
+  reg_t mode = satp & SATP64_MODE;
+  int level = 0;
+  if (satp_mode_is_sv39(mode)) {
+    level = RISCV_SV39_LEVELS;
   }
-  if (!cpu.sv39_supported || mode != 8) {
-    a->status = MEM_HOST_ERROR;
-    return false; /* corrupt/unsupported host state */
+  if (satp_mode_is_sv48(mode)) {
+    level = RISCV_SV48_LEVELS;
   }
-  word_t top = a->vaddr >> 38;
-  if (top != 0 && top != ((UINT64_C(1) << 26) - 1)) return fault(a, true);
-  paddr_t table = (cpu.satp & PPN_MASK) << 12;
-  for (int level = 2; level >= 0; level--) {
-    paddr_t pte_addr = table + ((a->vaddr >> (12 + 9 * level)) & 511) * 8;
-    word_t pte;
-    if (!pte_access(pte_addr, MEM_TYPE_READ, &pte)) return fault(a, false);
-    if (!(pte & PTE_V) || (!(pte & PTE_R) && (pte & PTE_W)) || (pte >> 54))
-      return fault(a, true);
-    word_t ppn = (pte >> 10) & PPN_MASK;
-    if (!(pte & (PTE_R | PTE_X))) {
-      if (level == 0 || (pte & (PTE_U | PTE_A | PTE_D))) return fault(a, true);
-      table = ppn << 12;
-      continue;
+  if (satp_mode_is_sv57(mode)) {
+    level = RISCV_SV57_LEVELS;
+  }
+  return level;
+}
+
+static bool read_pte(paddr_t pte_addr, word_t* value) {
+  if (!mem_in_ram(pte_addr, RISCV_PTE_BYTES)) return false;
+  MemRequest request = {.addr = pte_addr,
+                        .len = RISCV_PTE_BYTES,
+                        .type = kMemRead,
+                        .data = 0,
+                        .privilege = PRV_S};
+  MemResult result = paddr_access(&request);
+  if (result.exception) return false;
+  *value = result.data;
+  return true;
+}
+
+static word_t pte_ppn(word_t pte) {
+  return (pte & PTE_PPN) >> RISCV_PTE_PPN_SHIFT;
+}
+
+MemResult riscv_mmu_translate(MmuRequest* req) {
+  Assert(req != NULL, "riscv_mmu_translate 缺少请求");
+  int levels = paging_levels(cpu.satp);
+
+  const word_t ppn_mask = (UINT64_C(1) << RISCV_PPN_BITS) - 1;
+  const word_t vpn_mask = (UINT64_C(1) << RISCV_VPN_BITS) - 1;
+  paddr_t table = (cpu.satp & ppn_mask) << RISCV_PAGE_SHIFT;
+
+  for (int level = levels - 1; level >= 0; level--) {
+    unsigned shift = RISCV_PAGE_SHIFT + (unsigned)level * RISCV_VPN_BITS;
+    word_t vpn = (req->vaddr >> shift) & vpn_mask;
+    paddr_t pte_addr = table + vpn * RISCV_PTE_BYTES;
+    word_t pte = 0;
+    if (!read_pte(pte_addr, &pte)) {
+      return mem_result_fault(mem_access_fault(req->type), req->vaddr);
     }
-    if (privilege == PRV_U ? !(pte & PTE_U)
-                           : ((pte & PTE_U) && (a->type == MEM_TYPE_IFETCH ||
-                                                !(cpu.mstatus & MSTATUS_SUM))))
-      return fault(a, true);
-    bool permission =
-        a->type == MEM_TYPE_IFETCH ? (pte & PTE_X)
-        : a->type == MEM_TYPE_READ
-            ? ((pte & PTE_R) || ((cpu.mstatus & MSTATUS_MXR) && (pte & PTE_X)))
-            : (pte & PTE_W);
-    if (!permission) return fault(a, true);
-    word_t low_mask = (UINT64_C(1) << (9 * level)) - 1;
-    if (ppn & low_mask) return fault(a, true);
-    word_t ad = PTE_A | (a->type == MEM_TYPE_WRITE ? PTE_D : 0);
-    if ((pte & ad) != ad) {
-      pte |= ad;
-      if (!pte_access(pte_addr, MEM_TYPE_WRITE, &pte)) return fault(a, false);
+
+    bool reserved = (pte & PTE_V) == 0 ||
+                    ((pte & PTE_R) == 0 && (pte & PTE_W) != 0) ||
+                    (pte & (PTE_RESERVED | PTE_PBMT | PTE_N)) != 0;
+    if (reserved)
+      return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+
+    word_t ppn = pte_ppn(pte);
+    // 是否是leaf pte 如果是non leaf 检查是否是合格的non leaf pte
+    if ((pte & (PTE_R | PTE_X)) == 0) {
+      if (level == 0 || (pte & (PTE_U | PTE_A | PTE_D)) != 0) {
+        return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+      }
+      table = ppn << RISCV_PAGE_SHIFT;
+    } else {
+      // 防止用户态访问非用户page，  地址翻译， 不是s态就是u态，
+      // 防止s态在u取指令 sum 控制 s态load/store 用户page
+      bool user_page = (pte & PTE_U) != 0;
+      if (req->privilege == PRV_U) {
+        if (!user_page)
+          return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+      } else if (user_page && (req->type == kMemIFetch || !req->sum)) {
+        return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+      }
+
+      // 权限检查
+      bool permitted = false;
+      if (req->type == kMemIFetch)
+        permitted = (pte & PTE_X) != 0;
+      else if (req->type == kMemRead)
+        permitted = (pte & PTE_R) != 0 || (req->mxr && (pte & PTE_X) != 0);
+      else
+        permitted = (pte & PTE_W) != 0;
+
+      if (!permitted)
+        return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+
+      word_t dropped = (word_t)level * RISCV_VPN_BITS;
+      word_t low_mask = dropped == 0 ? 0 : (UINT64_C(1) << dropped) - 1;
+      if ((ppn & low_mask) != 0) {
+        return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+      }
+
+      /* Svadu 才硬件置 A/D。未实现时，缺 A 或 store 缺 D 报 page fault，不改
+       * PTE。 */
+      word_t needed = PTE_A | (req->type == kMemWrite ? PTE_D : 0);
+      if ((pte & needed) != needed) {
+        return mem_result_fault(mem_page_fault(req->type), req->vaddr);
+      }
+
+      word_t page_off = req->vaddr & (RISCV_PAGE_SIZE - 1);
+      paddr_t translated =
+          ((ppn | ((req->vaddr >> RISCV_PAGE_SHIFT) & low_mask))
+           << RISCV_PAGE_SHIFT) |
+          page_off;
+      return mem_result_data(translated);
     }
-    a->paddr =
-        ((ppn | ((a->vaddr >> 12) & low_mask)) << 12) | (a->vaddr & 4095);
-    a->paddr_valid = true;
-    return true;
   }
-  return fault(a, true);
+  return mem_result_fault(mem_page_fault(req->type), req->vaddr);
 }

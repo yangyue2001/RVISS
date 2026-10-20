@@ -1,11 +1,22 @@
 #ifndef RVISS_RISCV64_MMU_H
 #define RVISS_RISCV64_MMU_H
 
+#include <cpu/cpu.h>
 #include <memory/vaddr.h>
 
-void riscv_mmu_set_sv39(bool supported);
-void riscv_mmu_reset(void);
-word_t riscv_satp_value(word_t value);
-bool riscv_mmu_translate(MemAccess* access, uint8_t privilege);
+static inline bool satp_mode_is_bare(reg_t satp_mode) {
+  return satp_mode == SATP64_MODE_BARE;
+}
 
+static inline bool satp_mode_is_sv39(reg_t satp_mode) {
+  return satp_mode == SATP64_MODE_SV39;
+}
+
+static inline bool satp_mode_is_sv48(reg_t satp_mode) {
+  return satp_mode == SATP64_MODE_SV48;
+}
+
+static inline bool satp_mode_is_sv57(reg_t satp_mode) {
+  return satp_mode == SATP64_MODE_SV57;
+}
 #endif

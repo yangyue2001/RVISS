@@ -2,10 +2,13 @@
 #define RVISS_MEMORY_PADDR_H
 
 #include <common.h>
+#include <memory/vaddr.h>
 
 /*
- * 物理地址空间：RAM + MMIO 分发。
- * 这一层不认识 RISC-V，只知道"有一段连续内存 + 一段段 MMIO 区域"。
+ * 物理地址空间：RAM + MMIO。
+ * paddr_try_* 给 loader 和调试口用，不做翻译、PMP 或物理地址宽度检查。
+ * paddr_access 是客户机物理访问：req->addr 就是物理地址。先检查地址宽度和 PMP，
+ * 再经同一次传输进入 RAM 或 MMIO。二者在这里没有区别。
  */
 
 extern paddr_t mem_base;
@@ -23,6 +26,11 @@ static inline bool mem_in_ram(paddr_t addr, size_t len) {
 
 /* addr 必须已确认在 RAM 内 */
 uint8_t* mem_host_ptr(paddr_t addr);
+
+/* 客户机物理访问。addr 是物理地址。成功的读把数据放进返回值。 */
+MemResult paddr_access(MemRequest* req);
+bool isa_pa_format_ok(paddr_t addr, word_t len);
+bool isa_pmp_permit(paddr_t addr, word_t len, MemAccessType type, Priv privilege);
 
 /* checked 接口不注入 CPU 异常。失败不写 data；成功可标明 RAM/MMIO。 */
 bool paddr_try_read(paddr_t addr, int len, word_t* data, bool* mmio);
