@@ -43,5 +43,8 @@ bool csr_peek(word_t addr, word_t* val);
 
 /* trap 与 CSR 写共用。保留未实现位清零，并派生 SD。 */
 word_t csr_status_value(word_t val);
+word_t csr_epc_storage_value(word_t val);
+word_t csr_epc_read_value(word_t val);
+word_t riscv_misa_supported(void);
 
 #endif /* RVISS_RISCV64_CSR_H */

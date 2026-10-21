@@ -61,9 +61,8 @@ TestFinisher* machine_add_finisher(paddr_t base,
                                    void* opaque);
 #endif
 
-/* 推进已注册外设的逻辑时间。事件结束之后调用。 */
+/* 同一个逻辑时间推进全部已注册外设。 */
 void machine_advance(uint64_t logical_ticks);
-uint64_t machine_next_deadline(void);
 
 /*
  * 一步的板卡入口：刷新已注册的 UART/CLINT/PLIC，再查询中断。

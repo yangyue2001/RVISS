@@ -1,6 +1,7 @@
 #include <common.h>
 #include <cpu/cpu.h>
 #include <cpu/interrupt.h>
+#include <cpu/step.h>
 #include <device/device.h>
 #include <host/host.h>
 #include <memory/paddr.h>
@@ -23,10 +24,6 @@
 #endif
 
 #include "machine.h"
-
-/* step.h 仍引用已删除的 MemAccess，这里只取执行入口。 */
-void riscv_take_interrupt(StepResult* result, word_t cause);
-void riscv_execute(StepResult* result);
 
 /*
  * 板卡只保存已注册的不透明指针，并负责 MMIO 基址和中断线。
@@ -99,8 +96,6 @@ static void uart_irq(void* opaque, bool level) {
 const MachineConfig* machine_get(void) { return &active; }
 
 #ifdef CONFIG_HAS_CLINT
-static word_t machine_read_time(void* opaque) { return clint_mtime(opaque); }
-
 Clint* machine_add_clint(paddr_t base, IrqLine* timer_irq,
                          IrqLine* software_irq) {
   if (nr_clints >= MACHINE_DEV_MAX) return NULL;
@@ -108,11 +103,10 @@ Clint* machine_add_clint(paddr_t base, IrqLine* timer_irq,
   if (clint == NULL) return NULL;
   MemObject mmio;
   clint_mmio(clint, &mmio);
-  if (!mmio_map(base, CLINT_MMIO_SIZE, &mmio)) {
+  if (!mem_region_add(base, CLINT_MMIO_SIZE, &mmio)) {
     clint_release(clint);
     return NULL;
   }
-  device_set_time_reader(machine_read_time, clint);
   clint_reset(clint);
   clints[nr_clints++] = clint;
   return clint;
@@ -127,7 +121,7 @@ Plic* machine_add_plic(paddr_t base, IrqLine* machine_external,
   if (plic == NULL) return NULL;
   MemObject mmio;
   plic_mmio(plic, &mmio);
-  if (!mmio_map(base, PLIC_MMIO_SIZE, &mmio)) {
+  if (!mem_region_add(base, PLIC_MMIO_SIZE, &mmio)) {
     plic_release(plic);
     return NULL;
   }
@@ -146,7 +140,7 @@ Uart16550* machine_add_uart(paddr_t base, IrqLine* irq,
   if (uart == NULL) return NULL;
   MemObject mmio;
   uart16550_mmio(uart, &mmio);
-  if (!mmio_map(base, UART16550_MMIO_SIZE, &mmio)) {
+  if (!mem_region_add(base, UART16550_MMIO_SIZE, &mmio)) {
     uart16550_release(uart);
     return NULL;
   }
@@ -165,7 +159,7 @@ TestFinisher* machine_add_finisher(paddr_t base,
   if (finisher == NULL) return NULL;
   MemObject mmio;
   test_finisher_mmio(finisher, &mmio);
-  if (!mmio_map(base, TEST_FINISHER_MMIO_SIZE, &mmio)) {
+  if (!mem_region_add(base, TEST_FINISHER_MMIO_SIZE, &mmio)) {
     test_finisher_release(finisher);
     return NULL;
   }
@@ -175,6 +169,8 @@ TestFinisher* machine_add_finisher(paddr_t base,
 #endif
 
 static void machine_register(const MachineConfig* cfg) {
+  Assert(mem_init(cfg->ram_base, cfg->ram_size), "RAM 初始化失败");
+  Assert(mem_install_ram(cfg->ram_base, cfg->ram_size), "RAM 登记失败");
 #ifdef CONFIG_HAS_CLINT
   Assert(machine_add_clint(cfg->clint_base, cpu_irq_input(INT_MTI),
                            cpu_irq_input(INT_MSI)) != NULL,
@@ -239,23 +235,6 @@ void machine_advance(uint64_t logical_ticks) {
   for (int i = 0; i < nr_uarts; i++) uart16550_advance(uarts[i], logical_ticks);
   if (uart_host_rx) uart_host_poll();
 #endif
-}
-
-uint64_t machine_next_deadline(void) {
-  uint64_t next = UINT64_MAX;
-#ifdef CONFIG_HAS_CLINT
-  for (int i = 0; i < nr_clints; i++) {
-    const uint64_t at = clint_deadline(clints[i]);
-    if (at < next) next = at;
-  }
-#endif
-#ifdef CONFIG_HAS_UART16550
-  for (int i = 0; i < nr_uarts; i++) {
-    const uint64_t at = uart16550_deadline(uarts[i]);
-    if (at < next) next = at;
-  }
-#endif
-  return next;
 }
 
 void machine_update(StepResult* result) {

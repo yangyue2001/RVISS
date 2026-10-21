@@ -1,13 +1,11 @@
-#include "intr.h"
-
 #include <common.h>
 #include <cpu/cpu.h>
 #include <cpu/interrupt.h>
 #include <device/irq.h>
 #include <util/log.h>
 
-#include "cpu_state.h"
 #include "csr.h"
+#include "trap.h"
 
 /*
  * 中断输入与查询。
@@ -56,7 +54,7 @@ void riscv_intr_reset(void) { hw_pending = 0; }
 
 /* 同一目标级的优先顺序；目标 M 必须整体优先于目标 S。 */
 static const int intr_priority[] = {
-    IRQ_MEIP, IRQ_MSIP, IRQ_MTIP, IRQ_SEIP, IRQ_SSIP, IRQ_STIP,
+    INT_MEI, INT_MSI, INT_MTI, INT_SEI, INT_SSI, INT_STI,
 };
 
 word_t riscv_query_intr(void) {
@@ -89,4 +87,9 @@ word_t riscv_query_intr(void) {
 bool riscv_wait_resume(void) {
   cpu_sync_irq_inputs();
   return (cpu.mip & cpu.mie) != 0;
+}
+
+void cpu_sync_irq_inputs(void) {
+  cpu.mip = (cpu.mip & ~hw_mask & ~SIE_MASK) | (cpu.mip_software & SIE_MASK) |
+            hw_pending;
 }

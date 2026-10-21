@@ -23,9 +23,6 @@ typedef struct MemRegion {
   MemObject object;
 } MemRegion;
 
-void device_set_time_reader(word_t (*reader)(void* opaque), void* opaque);
-word_t device_time(void);
-
 /* 拷贝 object。name 和 ctx 必须在区域存活期间保持有效。 */
 bool mem_region_add(paddr_t base, paddr_t size, const MemObject* object);
 const MemRegion* mem_region_find(paddr_t addr, word_t len);

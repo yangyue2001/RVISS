@@ -78,9 +78,12 @@ static bool clint_write(void* ctx, paddr_t offset, int len, word_t data) {
   return true;
 }
 
+static Clint* time_source;
+
 Clint* clint_create(IrqLine* timer_irq, IrqLine* software_irq) {
   Clint* clint = clint_alloc();
   if (clint == NULL) return NULL;
+  if (time_source == NULL) time_source = clint;
   clint->mtimer_irq = timer_irq;
   clint->msip_irq = software_irq;
   clint->mtimecmp = UINT64_MAX;
@@ -136,3 +139,5 @@ uint64_t clint_deadline(const Clint* clint) {
 uint64_t clint_mtime(const Clint* clint) {
   return clint == NULL ? 0 : clint->mtime;
 }
+
+uint64_t clint_mtime_now(void) { return clint_mtime(time_source); }

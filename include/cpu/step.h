@@ -19,10 +19,10 @@ typedef enum {
 typedef struct StepResult {
 } StepResult;
 
-/* target 执行一个事件；计数、设备时间和预算由引擎管理。 */
+/* 取指、译码、执行一条指令。引擎交互还没定，这里不传结果。 */
+void riscv_execute(void);
+/* 先处理可响应中断，否则执行一条指令。result 暂不使用。 */
 void riscv_step(StepResult* result);
-void riscv_take_interrupt(StepResult* result, word_t cause);
-void riscv_execute(StepResult* result);
 word_t riscv_query_intr(void);
 void riscv_update_counters(const StepResult* result);
 bool riscv_wait_resume(

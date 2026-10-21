@@ -8,7 +8,7 @@
 /*
  * CLINT：mtime / mtimecmp / msip。
  * mtime 每 128 个逻辑 tick 加 1。实例在 clint.c 的固定池里，
- * 结构体不对外。MMIO 基址由板卡 mmio_map，不放在实例里。
+ * 结构体不对外。MMIO 基址由板卡 mem_region_add，不放在实例里。
  */
 
 typedef struct Clint Clint;
@@ -23,5 +23,6 @@ void clint_advance(Clint* clint, uint64_t logical_ticks);
 void clint_update(Clint* clint);
 uint64_t clint_deadline(const Clint* clint);
 uint64_t clint_mtime(const Clint* clint);
+uint64_t clint_mtime_now(void);
 
 #endif /* RVISS_DEVICE_TIMER_CLINT_H */

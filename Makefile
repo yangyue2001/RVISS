@@ -49,9 +49,9 @@ INC_DIR += $(RVISS_HOME)/third_party/softfloat
 endif
 
 # 逐文件收集：这里体现 Kconfig 的作用 —— 改配置会改变编进去的设备
-# 设备按类别分子目录（QEMU 风格：char/timer/intc），bus.c 是设备框架本身
+# 设备按类别分子目录（QEMU 风格：char/timer/intc），device.c 是设备框架本身
 SRCS-y  = src/main.c
-SRCS-y += src/device/bus.c
+SRCS-y += src/device/device.c
 SRCS-y += src/device/ram/ram.c
 SRCS-$(CONFIG_HAS_CLINT)     += src/device/timer/clint.c
 SRCS-$(CONFIG_HAS_UART16550) += src/device/char/uart16550.c

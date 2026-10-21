@@ -28,7 +28,7 @@ static inline bool mem_in_ram(paddr_t addr, size_t len) {
 /* addr 必须已确认在 RAM 内 */
 uint8_t* mem_host_ptr(paddr_t addr);
 
-/* bus_init 用它把 mem_init 的 RAM 登记成普通区域。范围不一致则不登记。 */
+/* 把 mem_init 的 RAM 登记成普通区域。范围不一致则不登记。 */
 bool mem_install_ram(paddr_t base, size_t size);
 
 /* 客户机物理访问。addr 是物理地址。成功的读把数据放进返回值。 */

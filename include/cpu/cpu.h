@@ -28,6 +28,31 @@ typedef struct {
   Priv priv; /* 当前特权级 */
   reg_t satp;
   reg_t mstatus;
+  reg_t misa;
+  reg_t mhartid;
+  reg_t medeleg;
+  reg_t mideleg;
+  reg_t mie;
+  reg_t mip;
+  reg_t mip_software;
+  reg_t mtvec;
+  reg_t mscratch;
+  reg_t mepc;
+  reg_t mcause;
+  reg_t mtval;
+  reg_t mcounteren;
+  reg_t mcountinhibit;
+  reg_t mcycle;
+  reg_t minstret;
+  reg_t stvec;
+  reg_t scounteren;
+  reg_t sscratch;
+  reg_t sepc;
+  reg_t scause;
+  reg_t stval;
+  paddr_t reservation_addr;
+  uint8_t reservation_len;
+  bool reservation_valid;
   /* CSR 描述符还没接管 PMP。访问检查和 pmpcfg/pmpaddr 读写都使用这里。 */
   uint8_t pmp_count;
   uint8_t pmpcfg[CPU_PMP_ENTRIES];

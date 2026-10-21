@@ -39,9 +39,17 @@ void monitor_init(int argc, char* argv[]) {
   cpu_reset(cfg.reset_pc);
   machine_init(&cfg);
   engine_init();
+
+  if (rt_cfg.image != NULL) {
+    const paddr_t end = image_load(rt_cfg.image, cfg.ram_base);
+    if (end == 0) panic("加载镜像失败: %s", rt_cfg.image);
+    Log("image loaded, end = " FMT_PADDR, end);
+  }
 }
 
 static void print_summary(uint64_t us) {
+  Log("cpu pc = " FMT_WORD " priv = %s satp = " FMT_WORD,
+      cpu.pc, cpu_priv_name(cpu.priv), cpu.satp);
   Log("stop reason: %s, pc = " FMT_WORD ", halt_code = %d",
       sim.state == SIM_HALTED
           ? "HALTED"

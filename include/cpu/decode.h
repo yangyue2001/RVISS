@@ -28,15 +28,14 @@ typedef struct {
   const char* pattern;
   uint64_t key, mask; /* pattern 编译后（decode 初始化时生成） */
   uint8_t shift;
-  char fmt; /* 操作数格式：R/I/X/S/B/U/J/N */
+  const char* fmt; /* 操作数格式名，如 "R"、"I"、"R4" */
   EHelper exec;
 } InstrEntry;
 
-/* target/riscv64/decode.c 提供 */
-bool riscv_decode(Decode* s); /* false：非法编码或取指故障，见 trap_pending */
-void riscv_decode_init(void); /* 预编译所有 pattern */
-void riscv_exec_trap(Decode* s, word_t cause, vaddr_t tval);
-bool riscv_jump(Decode* s, vaddr_t target);
-bool riscv_expand_compressed(Decode* s);
+/* 只匹配已经取到的 32 位编码。false 表示非法指令。 */
+bool riscv_decode(uint32_t instr, Decode* s);
+void riscv_decode_init(void);
+/* 把 16 位压缩指令展开成等价的 32 位编码。失败是非法指令。 */
+bool riscv_expand_compressed(uint16_t bits, uint32_t* instr);
 
 #endif /* RVISS_CPU_DECODE_H */

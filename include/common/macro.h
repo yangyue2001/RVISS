@@ -6,7 +6,7 @@
 #define STR(x) STR_TEMP(x)
 
 #define CONCAT_TEMP(x, y) x##y
-#define CONCAT(x, y) concat_temp(x, y)
+#define CONCAT(x, y) CONCAT_TEMP(x, y)
 
 #define CHOOSE2nd(a, b, ...) b
 #define MUX_WITH_COMMA(contain_comma, a, b) CHOOSE2nd(contain_comma a, b)

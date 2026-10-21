@@ -5,9 +5,7 @@
 
 /*
  * 物理区域表。RAM 和外设都登记在这里。
- * 设备节拍不在这里登记：板卡保存已注册实例，
- * machine_advance / machine_update 只刷新这些实例。
- * bus_init 清映射，并调用板卡登记的复位回调，然后重新登记 RAM。
+ * 设备节拍不在这里。板卡用同一个逻辑时间调用 machine_advance。
  */
 
 #define MAX_MEM_REGIONS 16
@@ -46,10 +44,6 @@ bool mem_region_add(paddr_t base, paddr_t size, const MemObject* object) {
   LogDevice("region %-9s [" FMT_PADDR ", " FMT_PADDR "]", object->name, base,
             base + size - 1);
   return true;
-}
-
-bool mmio_map(paddr_t base, paddr_t size, const MemObject* object) {
-  return mem_region_add(base, size, object);
 }
 
 const MemRegion* mem_region_find(paddr_t addr, word_t len) {

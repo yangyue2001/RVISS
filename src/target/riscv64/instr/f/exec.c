@@ -1,4 +1,5 @@
 #include "../fp/exec_common.h"
+#include <memory/vaddr.h>
 
 static word_t fp32_classify(word_t value) {
   return fp_classify_bits(value, FP32_MANT_BITS, FP32_EXP_BITS);
@@ -98,12 +99,21 @@ static word_t fp32_move_to_x(CpuState* hart, uint8_t rs) {
 
 /* Load/store stay placeholders until the new memory operand path exists. */
 ExecResult exec_flw(ExecContext* ctx) {
-  (void)ctx;
+  if (!fp_enabled(ctx->hart)) return fp_illegal(ctx);
+  const vaddr_t addr = gpr_read(ctx->hart, FLOAT_RS1(ctx)) + FLOAT_IMM(ctx);
+  const MemResult mem = vaddr_read(addr, 4);
+  if (mem.exception) return exec_trap(mem.cause, mem.tval);
+  fp32_write(ctx->hart, FLOAT_RD(ctx), mem.data);
+  fp_mark_dirty(ctx->hart);
   return exec_ok();
 }
 
 ExecResult exec_fsw(ExecContext* ctx) {
-  (void)ctx;
+  if (!fp_enabled(ctx->hart)) return fp_illegal(ctx);
+  const vaddr_t addr = gpr_read(ctx->hart, FLOAT_RS1(ctx)) + FLOAT_IMM(ctx);
+  ctx->hart->reservation_valid = false;
+  const MemResult mem = vaddr_write(addr, 4, (uint32_t)ctx->hart->fpr[FLOAT_RS2(ctx)]);
+  if (mem.exception) return exec_trap(mem.cause, mem.tval);
   return exec_ok();
 }
 

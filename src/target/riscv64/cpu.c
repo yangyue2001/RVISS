@@ -5,6 +5,7 @@
 #include "csr.h"
 #include "mmu.h"
 #include "pmp.h"
+#include "trap.h"
 
 /* 体系结构状态实例 */
 CpuState cpu;
@@ -13,8 +14,10 @@ void cpu_reset(vaddr_t reset_pc) {
   memset(&cpu, 0, sizeof(cpu));
   cpu.pc = reset_pc;
   cpu.priv = PRV_M; /* RISC-V 复位后进入 M 模式 */
+  cpu.misa = riscv_misa_supported();
   cpu.mstatus = csr_status_value(0);
   riscv_pmp_reset();
+  riscv_intr_reset();
   Log("cpu reset: pc = " FMT_WORD ", priv = M", reset_pc);
 }
 

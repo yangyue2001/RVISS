@@ -1,67 +1,66 @@
 #include <common.h>
 #include <cpu/decode.h>
-#include <cpu/interrupt.h>
-#include <memory/vaddr.h>
 #include <util/log.h>
 
-#include "cpu_state.h"
 #include "encoding.h"
 
 /*
- * 译码：取指 → opcode/funct3 候选索引 → 完整模式匹配 → 填操作数。
- *
- * 对比 NEMU：它用"opcode 一级表 + funct3/funct7 二级表"分级译码；
- * 这里保留一张扁平表（一条指令一行完整模式）作为唯一来源，
- * 只在初始化阶段生成轻量的 opcode/funct3 候选索引。这样新增指令时
- * 仍只需维护一行模式，运行时也不必扫描整张表。
+ * 译码只匹配已经取到的 32 位编码，并填好 ExecOperands。
+ * 取指在 riscv_execute()。扁平表仍是一条指令一行；初始化时建
+ * opcode/funct3 索引，运行时再用完整 key/mask 确认。
  */
 
-/* 注意：宏参数名不能叫 name/pattern/fmt —— 它们会和结构体成员
- * .name/.pattern/.fmt 撞名，预处理后变成 .add = "add"
- * 这种垃圾。所以参数统一加下划线前缀。 */
-
-/* ---- 由 .def 生成执行函数声明（exec_<名字> 在 exec.c 里实现） ---- */
-#define INSTR(_n, _p, _f) void CONCAT(exec_, _n)(Decode * s);
-#include "instr/a/instr.def"
-#include "instr/fp/instr.def"
-#include "instr/i/instr.def"
-#include "instr/m/instr.def"
-#include "instr/system/instr.def"
+#define INSTR(_n, _p, _f) ExecResult CONCAT(exec_, _n)(ExecContext* ctx);
+#include "instr/a/zaamo/zaamo.def"
+#include "instr/a/zalrsc/zalrsc.def"
+#include "instr/d/d.def"
+#include "instr/f/f.def"
+#include "instr/i/i.def"
+#include "instr/m/m.def"
+#include "instr/m/zmmul/zmmul.def"
+#include "instr/priv-m/priv-m.def"
+#include "instr/priv-s/priv-s.def"
+#include "instr/zicsr/zicsr.def"
+#include "instr/zifencei/zifencei.def"
 #undef INSTR
 
-/* ---- 由同一份 .def 生成指令元信息表 ---- */
 #define INSTR(_n, _p, _f) \
-  {.name = #_n, .pattern = _p, .fmt = _f, .exec = CONCAT(exec_, _n)},
+  {.name = #_n, .pattern = _p, .fmt = #_f, .exec = CONCAT(exec_, _n)},
 static InstrEntry instr_table[] = {
-#include "instr/a/instr.def"
-#include "instr/fp/instr.def"
-#include "instr/i/instr.def"
-#include "instr/m/instr.def"
-#include "instr/system/instr.def"
+#include "instr/a/zaamo/zaamo.def"
+#include "instr/a/zalrsc/zalrsc.def"
+#include "instr/d/d.def"
+#include "instr/f/f.def"
+#include "instr/i/i.def"
+#include "instr/m/m.def"
+#include "instr/m/zmmul/zmmul.def"
+#include "instr/priv-m/priv-m.def"
+#include "instr/priv-s/priv-s.def"
+#include "instr/zicsr/zicsr.def"
+#include "instr/zifencei/zifencei.def"
 };
 #undef INSTR
 
 #define NR_INSTRS ((int)ARRLEN(instr_table))
 
-/*
- * 扁平表是可读性和匹配优先级的来源；这个索引只是运行时加速结构。
- * 每条指令最多因 funct3 通配而出现在 8 个桶中，最终仍用完整 key/mask
- * 检查，因此不会改变重叠 pattern 的原有表序优先级。
- */
-enum { DECODE_OPCODE_COUNT = 1 << 7, DECODE_FUNCT3_COUNT = 1 << 3 };
+enum {
+  DECODE_OPCODE_COUNT = 1 << 7,
+  DECODE_FUNCT3_COUNT = 1 << 3,
+  OPCODE_LOAD_FP = 0x07,
+  OPCODE_STORE_FP = 0x27,
+  OPCODE_MADD = 0x43,
+  OPCODE_MSUB = 0x47,
+  OPCODE_NMSUB = 0x4b,
+  OPCODE_NMADD = 0x4f,
+  OPCODE_OP_FP = 0x53
+};
+
 static uint16_t decode_bucket_count[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
 static uint16_t decode_bucket_offset[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
 static uint16_t decode_bucket_cursor[DECODE_OPCODE_COUNT][DECODE_FUNCT3_COUNT];
 static uint16_t decode_candidates[NR_INSTRS * DECODE_FUNCT3_COUNT];
 static bool decode_index_ready;
 
-/* x0 的写入要被丢弃：指向这个哑元寄存器即可（NEMU 里叫 zero_null） */
-static reg_t zero_reg;
-static reg_t* gpr_or_zero(uint8_t r) {
-  return r != 0 ? &cpu.gpr[r] : &zero_reg;
-}
-
-/* 把 "0000000 ????? ????? 000 ????? 0110011" 编译成 (key, mask, shift) */
 static void pattern_decode(const char* pat, uint64_t* key, uint64_t* mask,
                            uint8_t* shift) {
   uint64_t k = 0, m = 0;
@@ -71,7 +70,6 @@ static void pattern_decode(const char* pat, uint64_t* key, uint64_t* mask,
     switch (*p) {
       case ' ':
         continue;
-      /* 注意：'0' 是"固定为 0"，mask 也必须置 1；只有 '?' 才是通配 */
       case '0':
         k <<= 1;
         m = (m << 1) | 1u;
@@ -92,13 +90,11 @@ static void pattern_decode(const char* pat, uint64_t* key, uint64_t* mask,
     }
   }
 
-  /* 尾部通配位不算，缩短移位 */
   *shift = (uint8_t)trailing_wild;
   *key = k >> trailing_wild;
   *mask = m >> trailing_wild;
 }
 
-/* 从原始 32 位 pattern 中提取一个字段，不受尾部通配压缩影响。 */
 static void pattern_field(const char* pat, unsigned low, unsigned width,
                           uint32_t* key, uint32_t* mask) {
   uint32_t k = 0, m = 0;
@@ -139,7 +135,7 @@ static void pattern_bucket(const InstrEntry* e, unsigned* opcode,
 
 static bool pattern_matches_funct3(unsigned funct3, uint32_t key,
                                    uint32_t mask) {
-  return ((funct3 & mask) == key);
+  return (funct3 & mask) == key;
 }
 
 void riscv_decode_init(void) {
@@ -200,98 +196,70 @@ void riscv_decode_init(void) {
       NR_INSTRS, total, max_bucket);
 }
 
-static void fill_operands(word_t instr, Decode* s, char fmt) {
-  const uint32_t i = s->encoding;
-  s->rd = RD(i);
-  s->rs1 = RS1(i);
-  s->rs2 = RS2(i);
-
-  switch (fmt) {
-    case 'R':
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.preg = &cpu.gpr[s->rs1];
-      s->src2.preg = &cpu.gpr[s->rs2];
-      break;
-
-    case 'I':
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.preg = &cpu.gpr[s->rs1];
-      s->src2.imm = IMM_I(i);
-      s->src2.is_imm = true;
-      break;
-
-    case 'X': /* 移位立即数 */
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.preg = &cpu.gpr[s->rs1];
-      s->src2.imm = SHAMT(i);
-      s->src2.is_imm = true;
-      break;
-
-    case 'Z': /* CSR 立即数形式：zimm 在 rs1 位域 */
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.imm = ZIMM5(i);
-      s->src1.is_imm = true;
-      break;
-
-    case 'S': /* dest.imm 借用来放 store 偏移；src2 是数据寄存器 */
-      s->dest.imm = IMM_S(i);
-      s->src1.preg = &cpu.gpr[s->rs1];
-      s->src2.preg = &cpu.gpr[s->rs2];
-      break;
-
-    case 'B':
-      s->dest.imm = IMM_B(i); /* dest.imm 借用来放分支偏移 */
-      s->src1.preg = &cpu.gpr[s->rs1];
-      s->src2.preg = &cpu.gpr[s->rs2];
-      break;
-
-    case 'U':
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.imm = IMM_U(i);
-      s->src1.is_imm = true;
-      break;
-
-    case 'J':
-      s->dest.preg = gpr_or_zero(s->rd);
-      s->src1.imm = IMM_J(i);
-      s->src1.is_imm = true;
-      break;
-
-    case 'N': /* 无操作数 */
-      break;
-
+static bool opcode_uses_fp(uint32_t instr) {
+  switch (instr & 0x7f) {
+    case OPCODE_LOAD_FP:
+    case OPCODE_STORE_FP:
+    case OPCODE_MADD:
+    case OPCODE_MSUB:
+    case OPCODE_NMSUB:
+    case OPCODE_NMADD:
+    case OPCODE_OP_FP:
+      return true;
     default:
-      panic("未知操作数格式 '%c' (指令 %s)", fmt, s->mnemonic);
+      return false;
   }
 }
 
-static bool fetch_halfword(Decode* s, vaddr_t addr, uint16_t* data) {
-  MemAccess access = vaddr_ifetch(addr, 2);
-  if (access.status != MEM_OK) {
-    s->memory = access;
-    if (access.status == MEM_HOST_ERROR)
-      s->host_error = true;
-    else
-      riscv_exec_trap(s, access.cause, access.tval);
-    return false;
-  }
-  *data = (uint16_t)access.data;
-  return true;
+static word_t format_imm(uint32_t instr, const char* fmt) {
+  if (fmt[0] == 'I' && fmt[1] == '\0') return (word_t)IMM_I(instr);
+  if (fmt[0] == 'S' && fmt[1] == '\0') return (word_t)IMM_S(instr);
+  if (fmt[0] == 'B' && fmt[1] == '\0') return (word_t)IMM_B(instr);
+  if (fmt[0] == 'U' && fmt[1] == '\0') return (word_t)IMM_U(instr);
+  if (fmt[0] == 'J' && fmt[1] == '\0') return (word_t)IMM_J(instr);
+  return 0;
 }
 
-Decode riscv_decode(word_t instr) {
+static void fill_operands(uint32_t instr, Decode* s, const char* fmt) {
+  const uint8_t rd = RD(instr);
+  const uint8_t rs1 = RS1(instr);
+  const uint8_t rs2 = RS2(instr);
+  const word_t imm = format_imm(instr, fmt);
+  if (opcode_uses_fp(instr)) {
+    s->operands.floating = (FpOperands){
+        .rd = rd,
+        .rs1 = rs1,
+        .rs2 = rs2,
+        .rs3 = (uint8_t)BITS(instr, 31, 27),
+        .imm = imm,
+        .rm = (FpRoundingMode)FUNCT3(instr),
+    };
+    return;
+  }
+  s->operands.integer = (IntOperands){
+      .rd = rd,
+      .rs1 = rs1,
+      .rs2 = rs2,
+      .imm = imm,
+  };
+}
+
+bool riscv_decode(uint32_t instr, Decode* s) {
   Assert(decode_index_ready, "riscv_decode_init() was not called");
+  Assert(s != NULL, "riscv_decode 缺少结果");
 
-  unsigned opcode = s->encoding & UINT32_C(0x7f);
-  unsigned funct3 = (s->encoding >> 12) & UINT32_C(0x7);
-  unsigned begin = decode_bucket_offset[opcode][funct3];
-  unsigned end = begin + decode_bucket_count[opcode][funct3];
+  s->illegal = true;
+  s->exec = NULL;
+  const unsigned opcode = instr & 0x7fu;
+  const unsigned funct3 = (instr >> 12) & 0x7u;
+  const unsigned begin = decode_bucket_offset[opcode][funct3];
+  const unsigned end = begin + decode_bucket_count[opcode][funct3];
   for (unsigned pos = begin; pos < end; pos++) {
     const InstrEntry* e = &instr_table[decode_candidates[pos]];
-    if (((s->encoding >> e->shift) & e->mask) == e->key) {
+    if (((instr >> e->shift) & e->mask) == e->key) {
+      s->illegal = false;
       s->exec = e->exec;
-      if (!s->mnemonic) s->mnemonic = e->name;
-      fill_operands(s, e->fmt);
+      fill_operands(instr, s, e->fmt);
       return true;
     }
   }

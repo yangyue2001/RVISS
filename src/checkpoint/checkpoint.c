@@ -9,7 +9,7 @@
 /*
  * Checkpoint：把 CPU + 整块 RAM 存成文件（骨架版）。
  *
- * 格式：[头部 | CPU_state | RAM 全量数据]，头部含校验和。
+ * 格式：[头部 | CpuState | RAM 全量数据]，头部含校验和。
  * TODO(M7)：稀疏存储（只存非零页）+ 设备状态（CLINT/PLIC）+ 压缩，
  *          见 docs/implementation_plan.md。
  */
@@ -23,7 +23,7 @@ typedef struct {
   uint32_t header_size;
   uint64_t ram_base;
   uint64_t ram_size;
-  CPU_state cpu;
+  CpuState cpu;
   uint64_t checksum; /* 固定头部 + CPU 状态 + RAM 内容的 FNV-1a */
 } CptHeader;
 

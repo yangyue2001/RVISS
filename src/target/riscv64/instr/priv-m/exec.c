@@ -1,19 +1,27 @@
 #include <cpu/exec.h>
 
-static ExecResult exec_mret(ExecContext* ctx) {
+#include "csr.h"
+
+ExecResult exec_mret(ExecContext* ctx) {
   CpuState* hart = ctx->hart;
-  bool exception = hart->priv < PRV_M;
-  if (!exception) {
-    // mie <- mpie
-    // mpie <- 1
-    reg_t mstatus = hart->mstatus;
-    mstatus = xret_restore_xie(mstatus, MSTATUS_MIE, MSTATUS_MPIE);
-    // mpp <- u
-    mstatus &= ~MSTATUS_MPP;
-    mstatus |= MSTATUS_MPP_U;
+  if (hart->priv != PRV_M) return exec_trap(EXCP_ILLEGAL_INST, ctx->raw_instr);
 
-    // mpp != m  clear mprv
+  word_t status = csr_status_value(hart->mstatus);
+  const Priv previous = (Priv)BITS(status, 12, 11);
+  status = xret_restore_xie(status, MSTATUS_MIE, MSTATUS_MPIE);
+  status = (status & ~MSTATUS_MPP) | MSTATUS_MPP_U;
+  if (previous != PRV_M) status &= ~MSTATUS_MPRV;
+  hart->mstatus = csr_status_value(status);
+  hart->priv = previous;
+  ctx->npc = csr_epc_read_value(hart->mepc);
+  return exec_ok();
+}
+
+ExecResult exec_wfi(ExecContext* ctx) {
+  const CpuState* hart = ctx->hart;
+  if (hart->priv == PRV_U ||
+      (hart->priv != PRV_M && (hart->mstatus & MSTATUS_TW) != 0)) {
+    return exec_trap(EXCP_ILLEGAL_INST, ctx->raw_instr);
   }
-
-  return exception ? exec_trap(EXCP_ILLEGAL_INST, ctx->raw_instr) : exec_ok();
+  return exec_ok();
 }
