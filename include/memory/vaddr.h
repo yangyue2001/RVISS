@@ -16,6 +16,8 @@ typedef enum {
   kMemIFetch,
   kMemRead,
   kMemWrite,
+  /* AMO 要读出旧值，但权限、A/D 和异常都按 store/AMO，不按 load。 */
+  kMemAmo,
   kMemPteRead,
   kMemPteWrite,
 } MemAccessType;
@@ -85,6 +87,7 @@ static inline Exception mem_misaligned_fault(MemAccessType type) {
     case kMemPteRead:
       return EXCP_LOAD_ADDR_MIS;
     case kMemWrite:
+    case kMemAmo:
     case kMemPteWrite:
       return EXCP_STORE_AMO_ADDR_MIS;
   }
@@ -99,6 +102,7 @@ static inline Exception mem_access_fault(MemAccessType type) {
     case kMemPteRead:
       return EXCP_LOAD_ACCESS_FAULT;
     case kMemWrite:
+    case kMemAmo:
     case kMemPteWrite:
       return EXCP_STORE_AMO_ACCESS_FAULT;
   }
@@ -113,6 +117,7 @@ static inline Exception mem_page_fault(MemAccessType type) {
     case kMemPteRead:
       return EXCP_LOAD_PAGE_FAULT;
     case kMemWrite:
+    case kMemAmo:
     case kMemPteWrite:
       return EXCP_STORE_AMO_PAGE_FAULT;
   }
@@ -150,6 +155,16 @@ static inline MemResult vaddr_write(vaddr_t addr, int len, word_t data) {
                     .len = (word_t)len,
                     .type = kMemWrite,
                     .data = data,
+                    .privilege = cpu_effective_data_priv()};
+  return vaddr_access(&req);
+}
+
+/* 读出 AMO/SC 需要的旧值。异常原因是 store/AMO，不是 load。 */
+static inline MemResult vaddr_amo_read(vaddr_t addr, int len) {
+  MemRequest req = {.addr = addr,
+                    .len = (word_t)len,
+                    .type = kMemAmo,
+                    .data = 0,
                     .privilege = cpu_effective_data_priv()};
   return vaddr_access(&req);
 }

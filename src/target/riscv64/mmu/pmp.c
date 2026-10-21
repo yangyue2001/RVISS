@@ -1,7 +1,6 @@
 #include "pmp.h"
 
 #include <cpu/cpu.h>
-#include <cpu/csr_list.h>
 
 /*
  * 16 entry，粒度 4 字节。OFF/TOR/NA4/NAPOT。
@@ -11,11 +10,8 @@
  */
 
 enum {
-  BITS_PER_BYTE = 8,
   PMP_ADDR_BITS = 54,
   PMP_NA4_BYTES = 4,
-  PMP_CFG_ENTRIES = 8,
-  PMP_CFG_CSR_COUNT = 16,
   PMP_ADDR_CSR_COUNT = 64
 };
 
@@ -44,62 +40,15 @@ void riscv_pmp_set_regions(unsigned count) {
   cpu.pmp_count = (uint8_t)count;
 }
 
-bool riscv_pmp_csr(word_t addr) {
-  bool cfg = addr >= CSR_PMPCFG0 && addr < CSR_PMPCFG0 + PMP_CFG_CSR_COUNT &&
-             (addr % 2) == 0;
-  bool pmpaddr = addr >= CSR_PMPADDR0 && addr < CSR_PMPADDR0 + PMP_ADDR_CSR_COUNT;
-  return cfg || pmpaddr;
-}
-
-static unsigned cfg_first(word_t addr) {
-  /* RV64 的 pmpcfg 地址间隔是 2，每个寄存器装 8 个 entry。 */
-  return (unsigned)(addr - CSR_PMPCFG0) * (PMP_CFG_ENTRIES / 2);
-}
-
-word_t riscv_pmp_read(word_t addr) {
-  if (addr >= CSR_PMPADDR0) {
-    unsigned index = (unsigned)(addr - CSR_PMPADDR0);
-    return index < cpu.pmp_count ? cpu.pmpaddr[index] : 0;
-  }
-  if ((addr & 1) != 0 || addr < CSR_PMPCFG0) return 0;
-  unsigned first = cfg_first(addr);
-  word_t value = 0;
-  for (unsigned i = 0; i < PMP_CFG_ENTRIES && first + i < cpu.pmp_count; i++) {
-    value |= (word_t)cpu.pmpcfg[first + i] << (BITS_PER_BYTE * i);
-  }
-  return value;
-}
-
-void riscv_pmp_write(word_t addr, word_t value) {
-  if (addr >= CSR_PMPADDR0) {
-    unsigned index = (unsigned)(addr - CSR_PMPADDR0);
-    if (index >= cpu.pmp_count || (cpu.pmpcfg[index] & PMP_LOCK) != 0) return;
-    unsigned tor = (unsigned)PMP_AMATCH_TOR << PMP_AMATCH_SHIFT;
-    if (index + 1 < cpu.pmp_count &&
-        (cpu.pmpcfg[index + 1] & (PMP_LOCK | PMP_AMATCH)) == (PMP_LOCK | tor)) {
-      return;
-    }
-    cpu.pmpaddr[index] = value & PMPADDR_ADDR_RV64;
-    return;
-  }
-  if ((addr & 1) != 0 || addr < CSR_PMPCFG0) return;
-  unsigned first = cfg_first(addr);
-  word_t keep = PMP_READ | PMP_WRITE | PMP_EXEC | PMP_AMATCH | PMP_LOCK;
-  for (unsigned i = 0; i < PMP_CFG_ENTRIES && first + i < cpu.pmp_count; i++) {
-    if ((cpu.pmpcfg[first + i] & PMP_LOCK) != 0) continue;
-    uint8_t cfg = (uint8_t)((value >> (BITS_PER_BYTE * i)) & keep);
-    if ((cfg & PMP_READ) == 0) cfg = (uint8_t)(cfg & ~PMP_WRITE);
-    cpu.pmpcfg[first + i] = cfg;
-  }
-}
-
 static unsigned pmp_permission(MemAccessType type) {
   if (type == kMemIFetch) return PMP_EXEC;
   if (type == kMemRead || type == kMemPteRead) return PMP_READ;
+  /* store 与 AMO 都检查写权限。 */
   return PMP_WRITE;
 }
 
-bool riscv_pmp_check(paddr_t addr, word_t len, MemAccessType type, Priv privilege) {
+bool riscv_pmp_check(paddr_t addr, word_t len, MemAccessType type,
+                     Priv privilege) {
   if (len == 0 || addr > UINT64_MAX - (len - 1)) return false;
   if (cpu.pmp_count == 0) return true;
   paddr_t end = addr + len;
@@ -117,8 +66,8 @@ bool riscv_pmp_check(paddr_t addr, word_t len, MemAccessType type, Priv privileg
       low = cpu.pmpaddr[i] << 2;
       high = low + PMP_NA4_BYTES;
     } else {
-      unsigned ones =
-          (unsigned)__builtin_ctzll(~cpu.pmpaddr[i] | (UINT64_C(1) << PMP_ADDR_BITS));
+      unsigned ones = (unsigned)__builtin_ctzll(~cpu.pmpaddr[i] |
+                                                (UINT64_C(1) << PMP_ADDR_BITS));
       low = (cpu.pmpaddr[i] & ~((UINT64_C(1) << ones) - 1)) << 2;
       high = low + (UINT64_C(1) << (ones + 3));
     }
@@ -130,6 +79,7 @@ bool riscv_pmp_check(paddr_t addr, word_t len, MemAccessType type, Priv privileg
   return privilege == PRV_M;
 }
 
-bool isa_pmp_permit(paddr_t addr, word_t len, MemAccessType type, Priv privilege) {
+bool isa_pmp_permit(paddr_t addr, word_t len, MemAccessType type,
+                    Priv privilege) {
   return riscv_pmp_check(addr, len, type, privilege);
 }

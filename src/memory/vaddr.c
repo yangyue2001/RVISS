@@ -138,8 +138,9 @@ MemResult vaddr_access(MemRequest* req) {
   Assert(guest_len_ok(req->len), "vaddr_access 长度必须是 1、2、4 或 8");
 
   bool misaligned = (req->addr & (req->len - 1)) != 0;
-  if (misaligned &&
-      (req->type == kMemIFetch || !load_store_misaligned_native())) {
+  /* LR/SC/AMO 必须自然对齐，不能走 load/store 的拆分。 */
+  if (misaligned && (req->type == kMemIFetch || req->type == kMemAmo ||
+                     !load_store_misaligned_native())) {
     return mem_result_fault(mem_misaligned_fault(req->type), req->addr);
   }
   if (!misaligned) return vaddr_unit(req);

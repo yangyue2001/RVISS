@@ -17,7 +17,7 @@ static void snapshot(DiffSnapshot *s) {
   for (unsigned i = 0; i < 32; i++) s->fpr[i] = cpu.fpr[i] & (input_double?UINT64_MAX:UINT32_MAX);
   /* 体系结构可见状态；只读 peek 不通过客户机权限，不改变运行中特权。 */
   for (unsigned i = 0; i < DIFF_CSR_COUNT; i++) {
-    if (!csr_peek(diff_csrs[i], &s->csr[i])) case_error("snapshot CSR");
+    if (!csr_peek(&cpu, diff_csrs[i], &s->csr[i])) case_error("snapshot CSR");
   }
 }
 
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
       if(i==CSR_FFLAGS) cpu.fcsr=(cpu.fcsr&0xe0)|(c.csr[i]&31);
       if(i==CSR_FRM) cpu.fcsr=(cpu.fcsr&31)|((c.csr[i]&7)<<5);
       if(i==CSR_FCSR) cpu.fcsr=c.csr[i]&0xff;
-    } else if (!csr_write(i, c.csr[i])) case_error("DUT initial CSR");
+    } else if (!csr_write(&cpu, i, c.csr[i])) case_error("DUT initial CSR");
   }
   cpu.priv = c.priv;
   DiffSnapshot initial = {.outcome = "initial", .pc_before = cpu.pc,

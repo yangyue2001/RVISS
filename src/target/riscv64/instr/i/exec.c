@@ -24,19 +24,8 @@ static inline uint32_t arithmetic_shift_right32(uint32_t value,
   return result;
 }
 
-static unsigned ialign_bytes(const CpuState* hart) {
-#ifdef CONFIG_RV_C
-  if ((hart->misa & MISA_C) != 0) return 2;
-#else
-  (void)hart;
-#endif
-  return 4;
-}
-
 static ExecResult redirect(ExecContext* ctx, vaddr_t target) {
-  if ((target & (ialign_bytes(ctx->hart) - 1)) != 0) {
-    return exec_trap(EXCP_INST_ADDR_MIS, target);
-  }
+  if ((target & 1) != 0) return exec_trap(EXCP_INST_ADDR_MIS, target);
   ctx->npc = target;
   return exec_ok();
 }
@@ -71,20 +60,15 @@ ExecResult exec_auipc(ExecContext* ctx) {
 /* ================= 无条件跳转：JAL / JALR ================= */
 ExecResult exec_jal(ExecContext* ctx) {
   const vaddr_t target = PC(ctx) + INT_IMM(ctx);
-  if ((target & (ialign_bytes(ctx->hart) - 1)) != 0) {
-    return exec_trap(EXCP_INST_ADDR_MIS, target);
-  }
+  if ((target & 1) != 0) return exec_trap(EXCP_INST_ADDR_MIS, target);
   gpr_write(ctx->hart, INT_RD(ctx), ctx->npc);
   ctx->npc = target;
   return exec_ok();
 }
 
 ExecResult exec_jalr(ExecContext* ctx) {
-  /* Compute the target before writing rd: jalr permits rd == rs1. */
+  /* IALIGN=16：最低位直接清掉，不会再产生取指非对齐。 */
   const vaddr_t target = (INT_SRC1(ctx) + INT_IMM(ctx)) & ~UINT64_C(1);
-  if ((target & (ialign_bytes(ctx->hart) - 1)) != 0) {
-    return exec_trap(EXCP_INST_ADDR_MIS, target);
-  }
   gpr_write(ctx->hart, INT_RD(ctx), ctx->npc);
   ctx->npc = target;
   return exec_ok();

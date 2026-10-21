@@ -34,7 +34,6 @@ typedef struct {
   reg_t mideleg;
   reg_t mie;
   reg_t mip;
-  reg_t mip_software;
   reg_t mtvec;
   reg_t mscratch;
   reg_t mepc;
@@ -53,7 +52,9 @@ typedef struct {
   paddr_t reservation_addr;
   uint8_t reservation_len;
   bool reservation_valid;
-  /* CSR 描述符还没接管 PMP。访问检查和 pmpcfg/pmpaddr 读写都使用这里。 */
+  /* WFI 退休后为真。单独使能的中断到来前不再执行指令。 */
+  bool wfi_sleep;
+  /* PMP 条目。pmpcfg/pmpaddr 的 CSR 描述符通过读写函数访问这里。 */
   uint8_t pmp_count;
   uint8_t pmpcfg[CPU_PMP_ENTRIES];
   word_t pmpaddr[CPU_PMP_ENTRIES];

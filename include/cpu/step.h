@@ -24,7 +24,6 @@ void riscv_execute(void);
 /* 先处理可响应中断，否则执行一条指令。result 暂不使用。 */
 void riscv_step(StepResult* result);
 word_t riscv_query_intr(void);
-void riscv_update_counters(const StepResult* result);
 bool riscv_wait_resume(
     void); /* any individually enabled IRQ, global enables ignored */
 

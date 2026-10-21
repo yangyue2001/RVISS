@@ -101,4 +101,8 @@ static inline uint64_t xret_restore_xie(uint64_t status, uint64_t xie_bit,
   return status | xpie_bit;
 }
 
+static inline void reservation_clear(CpuState* hart) {
+  hart->reservation_valid = false;
+}
+
 #endif /* RVISS_CPU_EXEC_H */

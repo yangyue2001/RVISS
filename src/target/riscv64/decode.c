@@ -10,7 +10,7 @@
  * opcode/funct3 索引，运行时再用完整 key/mask 确认。
  */
 
-#define INSTR(_n, _p, _f) ExecResult CONCAT(exec_, _n)(ExecContext* ctx);
+#define INSTR(_n, _p, _f) ExecResult CONCAT(exec_, _n)(ExecContext * ctx);
 #include "instr/a/zaamo/zaamo.def"
 #include "instr/a/zalrsc/zalrsc.def"
 #include "instr/d/d.def"
@@ -230,7 +230,7 @@ static void fill_operands(uint32_t instr, Decode* s, const char* fmt) {
         .rd = rd,
         .rs1 = rs1,
         .rs2 = rs2,
-        .rs3 = (uint8_t)BITS(instr, 31, 27),
+        .rs3 = RS3(instr),
         .imm = imm,
         .rm = (FpRoundingMode)FUNCT3(instr),
     };

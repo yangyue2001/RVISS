@@ -56,7 +56,7 @@ config RV_D
 config RV_C
 	bool "C：压缩指令（RVC）"
 	help
-	  RV64 C 2.0 整数压缩指令；misa.C 控制 IALIGN 与动态启用。
+	  RV64 C 2.0 整数压缩指令。C 固定实现，IALIGN 为 16 位。
 	  编译 D 时包含 C.FLD/FSD/FLDSP/FSDSP。
 
 comment "地址翻译（Bare 始终可用；分页能力编译期选择）"

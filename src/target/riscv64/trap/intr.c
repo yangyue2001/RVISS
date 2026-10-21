@@ -10,13 +10,9 @@
 /*
  * 中断输入与查询。
  *
- * 设备侧看到的是"输出线对象"（IrqLine），不认识 ISA；
- * 板子调用 cpu_irq_input(mip_bit) 把线接到 CPU 的某一位上 ——
- * "位 ↔ 设备"的映射只存在于板级接线处（等价 QEMU 的 sysbus_connect_irq）。
- *
- * 设备线的电平记录在 hw_pending，由 riscv_query_intr() 折进 mip。
- * 不直接写 cpu.mip 的原因：mip 同时是软件可写的 CSR，
- * 分开保存可以避免"软件写 mip 把设备线写没"。
+ * 设备线直接改 mip 的对应位。MEIP、MTIP、MSIP 只由设备驱动。
+ * SEIP 是 PLIC 电平和软件可写位的或，任一侧变化都立刻写回 mip。
+ * SSIP、STIP 只由 CSR 写修改。
  */
 
 #define NR_IRQ_INPUTS 16
@@ -27,16 +23,24 @@ typedef struct {
 
 static IrqInput input_ctx[NR_IRQ_INPUTS];
 static IrqLine input_lines[NR_IRQ_INPUTS];
-static word_t hw_pending; /* 设备线电平快照 */
-static word_t hw_mask;    /* 哪些 mip 位由设备线驱动 */
+static bool seip_level;
+static bool seip_soft;
+
+static void publish_seip(CpuState* hart) {
+  if (seip_level || seip_soft) hart->mip |= MIP_SEIP;
+  else hart->mip &= ~MIP_SEIP;
+}
 
 static void irq_input_set(void* ctx, bool level) {
   const IrqInput* in = ctx;
   const word_t mask = 1ull << in->mip_bit;
-  if (level) {
-    hw_pending |= mask;
+  if (in->mip_bit == INT_SEI) {
+    seip_level = level;
+    publish_seip(&cpu);
+  } else if (level) {
+    cpu.mip |= mask;
   } else {
-    hw_pending &= ~mask;
+    cpu.mip &= ~mask;
   }
   LogTrap("irq input (mip bit %d) -> %s", in->mip_bit, level ? "high" : "low");
 }
@@ -46,11 +50,32 @@ IrqLine* cpu_irq_input(int mip_bit) {
   input_ctx[mip_bit].mip_bit = mip_bit;
   input_lines[mip_bit].set = irq_input_set;
   input_lines[mip_bit].ctx = &input_ctx[mip_bit];
-  hw_mask |= 1ull << mip_bit;
   return &input_lines[mip_bit];
 }
 
-void riscv_intr_reset(void) { hw_pending = 0; }
+void cpu_write_mip(CpuState* hart, word_t value) {
+  const word_t software = MIP_SSIP | MIP_STIP;
+  hart->mip = (hart->mip & ~software) | (value & software);
+  seip_soft = (value & MIP_SEIP) != 0;
+  publish_seip(hart);
+}
+
+void cpu_write_sip(CpuState* hart, word_t value) {
+  const word_t mask = hart->mideleg & MIP_SSIP;
+  hart->mip = (hart->mip & ~mask) | (value & mask);
+}
+
+void cpu_load_mip(CpuState* hart, word_t value) {
+  hart->mip = value & ~MIP_SEIP;
+  seip_soft = (value & MIP_SEIP) != 0;
+  publish_seip(hart);
+}
+
+void riscv_intr_reset(void) {
+  seip_level = false;
+  seip_soft = false;
+  cpu.mip &= ~(MIP_MSIP | MIP_MTIP | MIP_MEIP | MIP_SEIP);
+}
 
 /* 同一目标级的优先顺序；目标 M 必须整体优先于目标 S。 */
 static const int intr_priority[] = {
@@ -58,13 +83,6 @@ static const int intr_priority[] = {
 };
 
 word_t riscv_query_intr(void) {
-  /*
-   * 设备驱动的 mip 位必须反映"当前电平"，不能是粘滞的：
-   * 直接 |= 会让设备拉低线之后 mip 里的位仍为 1，导致永远误报中断。
-   * 所以先清掉这些位，再写入当前电平。
-   */
-  cpu_sync_irq_inputs();
-
   const word_t pending = cpu.mip & cpu.mie;  // 有挂起的中断
   word_t eligible = 0;
   if (cpu.priv < PRV_M ||
@@ -84,12 +102,4 @@ word_t riscv_query_intr(void) {
   return 0;
 }
 
-bool riscv_wait_resume(void) {
-  cpu_sync_irq_inputs();
-  return (cpu.mip & cpu.mie) != 0;
-}
-
-void cpu_sync_irq_inputs(void) {
-  cpu.mip = (cpu.mip & ~hw_mask & ~SIE_MASK) | (cpu.mip_software & SIE_MASK) |
-            hw_pending;
-}
+bool riscv_wait_resume(void) { return (cpu.mip & cpu.mie) != 0; }

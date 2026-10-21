@@ -20,9 +20,10 @@ desc->check                     地址位表达不了的额外检查；NULL 表�
 desc->read / desc->write        NULL 则走默认读写
 ```
 
-外部仍保留 `csr_read(addr)` / `csr_write(addr)` / `csr_peek(addr)`。
-指令路径以后先拿到 `CsrDesc`，再调用 `csr_desc_read/write`；不要在每个
-CSR 函数里重复做特权级和只读编码检查。
+地址合法性只看当前特权：`csr_accessible(privilege, addr, write)`。
+真正读写必须带 hart：`csr_read(hart, addr, val)`、`csr_write(hart, addr, val)`、
+`csr_peek(hart, addr, val)`。`TVM`、`counteren`、`FS` 这类检查在 hart 上做，
+不放进只看地址的 `csr_accessible`。单 hart 时调用方传入 `&cpu`。
 
 ## 参考里采用和不采用的部分
 

@@ -9,13 +9,13 @@ ExecResult exec_sret(ExecContext* ctx) {
     return exec_trap(EXCP_ILLEGAL_INST, ctx->raw_instr);
   }
 
-  word_t status = csr_status_value(hart->mstatus);
+  word_t status = hart->mstatus;
   const Priv previous = (status & MSTATUS_SPP) != 0 ? PRV_S : PRV_U;
   status = xret_restore_xie(status, MSTATUS_SIE, MSTATUS_SPIE);
   status &= ~(MSTATUS_SPP | MSTATUS_MPRV);
-  hart->mstatus = csr_status_value(status);
+  hart->mstatus = status;
   hart->priv = previous;
-  ctx->npc = csr_epc_read_value(hart->sepc);
+  ctx->npc = hart->sepc;
   return exec_ok();
 }
 

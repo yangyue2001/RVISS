@@ -10,7 +10,7 @@
  * ★ CSR 清单：唯一事实来源 ★
  *
  * 这里只生成地址常量。存储字段在 CPU_state；哪个地址真正可访问、
- * 读写成什么样，由 src/target/riscv64/csr/csr.c 的 RVISS_CSR_IMPL 决定。
+ * 读写成什么样，由 src/target/riscv64/csr/csr.c 的 RVISS_CSR 决定。
  * 目录里有名字不等于客户机可以访问。
  *
  * 特权级和整寄存器只读不写进实现清单：csr[9:8] 是最低特权，

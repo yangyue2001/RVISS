@@ -1,5 +1,6 @@
 #include <common.h>
 #include <cpu/cpu.h>
+#include <cpu/interrupt.h>
 #include <memory/paddr.h>
 #include <util/log.h>
 #include <util/state.h>
@@ -91,8 +92,7 @@ void difftest_csrcpy(void* csrs, bool direction) {
   cpu.mtval = r->mtval;
   cpu.mtvec = r->mtvec;
   cpu.mie = r->mie;
-  cpu.mip = r->mip;
-  cpu.mip_software = r->mip & SIE_MASK;
+  cpu_load_mip(&cpu, r->mip);
   cpu.mscratch = r->mscratch;
   cpu.medeleg = r->medeleg;
   cpu.mideleg = r->mideleg;

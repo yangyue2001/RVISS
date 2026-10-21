@@ -12,6 +12,7 @@
 #define RD(i) ((uint8_t)BITS(i, 11, 7))
 #define RS1(i) ((uint8_t)BITS(i, 19, 15))
 #define RS2(i) ((uint8_t)BITS(i, 24, 20))
+#define RS3(i) (uint8_t)BITS(instr, 31, 27)
 #define FUNCT3(i) BITS(i, 14, 12)
 #define FUNCT7(i) BITS(i, 31, 25)
 #define OPCODE(i) BITS(i, 6, 0)

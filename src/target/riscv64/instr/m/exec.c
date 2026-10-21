@@ -48,7 +48,7 @@ static word_t word_remu(word_t a, word_t b) {
   return (word_t)(sword_t)(int32_t)result;
 }
 
-static ExecResult exec_int(ExecContext* ctx, word_t value) {
+static inline ExecResult exec_int(ExecContext* ctx, word_t value) {
   gpr_write(ctx->hart, INT_RD(ctx), value);
   return exec_ok();
 }

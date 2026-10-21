@@ -106,8 +106,10 @@ MemResult riscv_mmu_translate(MmuRequest* req) {
         permitted = (pte & PTE_X) != 0;
       else if (req->type == kMemRead)
         permitted = (pte & PTE_R) != 0 || (req->mxr && (pte & PTE_X) != 0);
-      else
+      else if (req->type == kMemWrite || req->type == kMemAmo)
         permitted = (pte & PTE_W) != 0;
+      else
+        permitted = false;
 
       if (!permitted)
         return mem_result_fault(mem_page_fault(req->type), req->vaddr);
@@ -120,7 +122,8 @@ MemResult riscv_mmu_translate(MmuRequest* req) {
 
       /* Svadu 才硬件置 A/D。未实现时，缺 A 或 store 缺 D 报 page fault，不改
        * PTE。 */
-      word_t needed = PTE_A | (req->type == kMemWrite ? PTE_D : 0);
+      bool writes = req->type == kMemWrite || req->type == kMemAmo;
+      word_t needed = PTE_A | (writes ? PTE_D : 0);
       if ((pte & needed) != needed) {
         return mem_result_fault(mem_page_fault(req->type), req->vaddr);
       }

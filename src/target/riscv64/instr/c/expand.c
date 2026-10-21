@@ -51,7 +51,8 @@ static bool expand(uint16_t parcel, int kind, uint32_t* out) {
   const unsigned rs2 = (unsigned)BITS(parcel, 6, 2);
   const unsigned rp = 8 + (unsigned)BITS(parcel, 9, 7);
   const unsigned r2p = 8 + (unsigned)BITS(parcel, 4, 2);
-  const unsigned ci = ((unsigned)BIT(parcel, 12) << 5) | (unsigned)BITS(parcel, 6, 2);
+  const unsigned ci =
+      ((unsigned)BIT(parcel, 12) << 5) | (unsigned)BITS(parcel, 6, 2);
   const int32_t simm = (int32_t)SEXT(ci, 6);
   const unsigned word_offset = ((unsigned)BITS(parcel, 12, 10) << 3) |
                                ((unsigned)BIT(parcel, 6) << 2) |
@@ -115,7 +116,8 @@ static bool expand(uint16_t parcel, int kind, uint32_t* out) {
     case C_c_addi16sp:
       imm = ((unsigned)BIT(parcel, 12) << 9) | ((unsigned)BIT(parcel, 6) << 4) |
             ((unsigned)BIT(parcel, 5) << 6) |
-            ((unsigned)BITS(parcel, 4, 3) << 7) | ((unsigned)BIT(parcel, 2) << 5);
+            ((unsigned)BITS(parcel, 4, 3) << 7) |
+            ((unsigned)BIT(parcel, 2) << 5);
       if (imm == 0) return false;
       expanded = imm_op(0x13, 0, 2, 2, (int32_t)SEXT(imm, 10));
       break;
@@ -151,10 +153,12 @@ static bool expand(uint16_t parcel, int kind, uint32_t* out) {
       expanded = reg_op(0x3b, 0, 0, rp, rp, r2p);
       break;
     case C_c_j:
-      imm = ((unsigned)BIT(parcel, 12) << 11) | ((unsigned)BIT(parcel, 11) << 4) |
-            ((unsigned)BITS(parcel, 10, 9) << 8) | ((unsigned)BIT(parcel, 8) << 10) |
-            ((unsigned)BIT(parcel, 7) << 6) | ((unsigned)BIT(parcel, 6) << 7) |
-            ((unsigned)BITS(parcel, 5, 3) << 1) | ((unsigned)BIT(parcel, 2) << 5);
+      imm =
+          ((unsigned)BIT(parcel, 12) << 11) | ((unsigned)BIT(parcel, 11) << 4) |
+          ((unsigned)BITS(parcel, 10, 9) << 8) |
+          ((unsigned)BIT(parcel, 8) << 10) | ((unsigned)BIT(parcel, 7) << 6) |
+          ((unsigned)BIT(parcel, 6) << 7) |
+          ((unsigned)BITS(parcel, 5, 3) << 1) | ((unsigned)BIT(parcel, 2) << 5);
       expanded = jump((uint32_t)SEXT(imm, 12));
       break;
     case C_c_beqz:
@@ -162,7 +166,8 @@ static bool expand(uint16_t parcel, int kind, uint32_t* out) {
       imm = ((unsigned)BIT(parcel, 12) << 8) |
             ((unsigned)BITS(parcel, 11, 10) << 3) |
             ((unsigned)BITS(parcel, 6, 5) << 6) |
-            ((unsigned)BITS(parcel, 4, 3) << 1) | ((unsigned)BIT(parcel, 2) << 5);
+            ((unsigned)BITS(parcel, 4, 3) << 1) |
+            ((unsigned)BIT(parcel, 2) << 5);
       expanded = branch(kind == C_c_beqz ? 0 : 1, rp, (uint32_t)SEXT(imm, 9));
       break;
     case C_c_slli:
