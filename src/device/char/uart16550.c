@@ -2,16 +2,6 @@
 
 #define UART_MAX 8
 
-struct Uart16550 {
-  IrqLine* irq;
-  void (*transmit)(void* opaque, uint8_t byte);
-  void* transmit_opaque;
-  uint8_t dll, dlm, ier, fcr, lcr, mcr, scr, msr;
-  uint8_t fifo[16], head, count;
-  bool overrun, thre_pending, timeout;
-  uint64_t now, rx_activity;
-};
-
 static Uart16550 pool[UART_MAX];
 static bool used[UART_MAX];
 
@@ -26,22 +16,19 @@ static Uart16550* uart_alloc(void) {
   return NULL;
 }
 
-static bool uart_owned(const Uart16550* uart) {
-  return uart != NULL && uart >= pool && uart < pool + UART_MAX;
-}
-
 static unsigned trigger(const Uart16550* uart) {
   static const unsigned levels[] = {1, 4, 8, 14};
   return (uart->fcr & 1) ? levels[uart->fcr >> 6] : 1;
 }
 
 unsigned uart16550_rx_capacity(const Uart16550* uart) {
-  if (uart == NULL) return 0;
+  Assert(uart != NULL, "UART 为空");
   return ((uart->fcr & 1) ? 16 : 1) - uart->count;
 }
 
 bool uart16550_loopback(const Uart16550* uart) {
-  return uart != NULL && (uart->mcr & 0x10) != 0;
+  Assert(uart != NULL, "UART 为空");
+  return (uart->mcr & 0x10) != 0;
 }
 
 static unsigned interrupt_id(const Uart16550* uart) {
@@ -66,9 +53,9 @@ static void activity(Uart16550* uart) {
   uart->timeout = false;
 }
 
-uint64_t uart16550_deadline(const Uart16550* uart) {
-  if (uart == NULL || !(uart->fcr & 1) || !uart->count || uart->timeout)
-    return UINT64_MAX;
+static uint64_t uart_deadline(const Uart16550* uart) {
+  Assert(uart != NULL, "UART 为空");
+  if (!(uart->fcr & 1) || !uart->count || uart->timeout) return UINT64_MAX;
   unsigned divisor = uart->dll | ((unsigned)uart->dlm << 8);
   if (divisor == 0) divisor = 1;
   /* 半 bit 帧长：起始 + 5..8 数据 + 可选校验 + 停止位。 */
@@ -81,22 +68,24 @@ uint64_t uart16550_deadline(const Uart16550* uart) {
                                                 : uart->rx_activity + delay;
 }
 
-void uart16550_advance(Uart16550* uart, uint64_t logical_ticks) {
-  if (uart == NULL) return;
+static void uart_advance(void* ctx, uint64_t logical_ticks) {
+  Uart16550* uart = ctx;
+  Assert(uart != NULL, "UART 为空");
   uart->now = logical_ticks;
-  if (!uart->timeout && logical_ticks >= uart16550_deadline(uart) &&
+  if (!uart->timeout && logical_ticks >= uart_deadline(uart) &&
       uart->count && (uart->fcr & 1)) {
     uart->timeout = true;
     uart_drive(uart);
   }
 }
 
-void uart16550_update(Uart16550* uart) {
-  if (uart != NULL) uart_drive(uart);
+static void uart_update(void* ctx) {
+  Assert(ctx != NULL, "UART 为空");
+  uart_drive(ctx);
 }
 
 bool uart16550_receive(Uart16550* uart, uint8_t byte) {
-  if (uart == NULL) return false;
+  Assert(uart != NULL, "UART 为空");
   if (uart16550_rx_capacity(uart) == 0) {
     uart->overrun = true;
     if (!(uart->fcr & 1)) {
@@ -238,31 +227,9 @@ static bool uart_write(void* ctx, paddr_t offset, int len, word_t data) {
   return true;
 }
 
-Uart16550* uart16550_create(IrqLine* irq,
-                            void (*transmit)(void* opaque, uint8_t byte),
-                            void* transmit_opaque) {
-  Uart16550* uart = uart_alloc();
-  if (uart == NULL) return NULL;
-  uart->irq = irq;
-  uart->transmit = transmit;
-  uart->transmit_opaque = transmit_opaque;
-  return uart;
-}
-
-void uart16550_release(Uart16550* uart) {
-  if (!uart_owned(uart)) return;
-  used[uart - pool] = false;
-}
-
-void uart16550_mmio(Uart16550* uart, MemObject* mmio) {
-  *mmio = (MemObject){.name = "uart16550",
-                      .ctx = uart,
-                      .read = uart_read,
-                      .write = uart_write};
-}
-
-void uart16550_reset(Uart16550* uart) {
-  if (uart == NULL) return;
+static void uart_reset(void* ctx) {
+  Uart16550* uart = ctx;
+  Assert(uart != NULL, "UART 为空");
   uart->dll = 1;
   uart->dlm = 0;
   uart->ier = 0;
@@ -280,4 +247,18 @@ void uart16550_reset(Uart16550* uart) {
   uart->now = 0;
   uart->rx_activity = 0;
   uart_drive(uart);
+}
+
+MemObject uart16550_init(void) {
+  Uart16550* uart = uart_alloc();
+  Assert(uart != NULL, "UART 分配失败");
+  uart_reset(uart);
+  return (MemObject){
+      .name = "uart16550",
+      .ctx = uart,
+      .read = uart_read,
+      .write = uart_write,
+      .update = uart_update,
+      .advance = uart_advance,
+  };
 }

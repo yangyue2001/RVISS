@@ -1,143 +1,148 @@
 #include <device/timer/clint.h>
 
 #define TICKS_PER_MTIME 128
-#define CLINT_MAX 8
 
-struct Clint {
-  IrqLine* mtimer_irq;
-  IrqLine* msip_irq;
-  uint64_t last_ticks;
-  uint64_t mtime;
-  uint64_t mtimecmp;
-  uint32_t msip;
-};
-
-static Clint pool[CLINT_MAX];
-static bool used[CLINT_MAX];
+static Clint clint;
+static bool clint_used;
 
 static Clint* clint_alloc(void) {
-  for (int i = 0; i < CLINT_MAX; i++) {
-    if (!used[i]) {
-      used[i] = true;
-      memset(&pool[i], 0, sizeof(pool[i]));
-      return &pool[i];
-    }
+  if (clint_used) return NULL;
+  clint_used = true;
+  memset(&clint, 0, sizeof(clint));
+  return &clint;
+}
+
+static void clint_drive(Clint* dev) {
+  for (int hart = 0; hart < CLINT_NHART; hart++) {
+    if (dev->mtime >= dev->mtimecmp[hart])
+      irq_raise(dev->mtimer_irq[hart]);
+    else
+      irq_lower(dev->mtimer_irq[hart]);
+    if (dev->msip[hart] & 1u)
+      irq_raise(dev->msip_irq[hart]);
+    else
+      irq_lower(dev->msip_irq[hart]);
   }
-  return NULL;
 }
 
-static bool clint_owned(const Clint* clint) {
-  return clint != NULL && clint >= pool && clint < pool + CLINT_MAX;
+static int msip_hart(paddr_t offset, int len) {
+  if (len != 4 || (offset & 3) != 0 || offset >= 0x4000) return -1;
+  unsigned hart = (unsigned)(offset / 4);
+  return hart < CLINT_NHART ? (int)hart : -1;
 }
 
-static void clint_drive(Clint* clint) {
-  if (clint->mtime >= clint->mtimecmp)
-    irq_raise(clint->mtimer_irq);
-  else
-    irq_lower(clint->mtimer_irq);
-  if (clint->msip)
-    irq_raise(clint->msip_irq);
-  else
-    irq_lower(clint->msip_irq);
+static int mtimecmp_hart(paddr_t offset, int len, unsigned* shift) {
+  if (offset < 0x4000 || offset >= 0x4000 + (paddr_t)CLINT_NHART * 8) return -1;
+  paddr_t rel = offset - 0x4000;
+  unsigned hart = (unsigned)(rel / 8);
+  unsigned byte = (unsigned)(rel % 8);
+  if (len == 8 && byte == 0) {
+    *shift = 0;
+    return (int)hart;
+  }
+  if (len == 4 && (byte == 0 || byte == 4)) {
+    *shift = byte * 8;
+    return (int)hart;
+  }
+  return -1;
 }
 
-static bool clint_accepts(paddr_t offset, int len) {
-  return (offset == 0 && len == 4) ||
-         ((offset == 0x4000 || offset == 0xbff8) && (len == 4 || len == 8)) ||
-         ((offset == 0x4004 || offset == 0xbffc) && len == 4);
+static bool mtime_access(paddr_t offset, int len) {
+  return (offset == 0xbff8 && (len == 4 || len == 8)) ||
+         (offset == 0xbffc && len == 4);
+}
+
+static uint64_t read_reg(uint64_t value, int len, unsigned shift) {
+  return len == 8 ? value : (uint32_t)(value >> shift);
+}
+
+static void write_reg(uint64_t* reg, int len, unsigned shift, word_t data) {
+  if (len == 8) {
+    *reg = data;
+    return;
+  }
+  *reg = (*reg & ~(UINT64_C(0xffffffff) << shift)) |
+         ((uint64_t)(uint32_t)data << shift);
 }
 
 static bool clint_read(void* ctx, paddr_t offset, int len, word_t* data) {
-  Clint* clint = ctx;
-  if (!clint_accepts(offset, len)) return false;
-  if (offset == 0) {
-    *data = clint->msip;
+  Clint* dev = ctx;
+  unsigned shift = 0;
+  int hart = msip_hart(offset, len);
+  if (hart >= 0) {
+    *data = dev->msip[hart];
     return true;
   }
-  const uint64_t value = offset < 0x8000 ? clint->mtimecmp : clint->mtime;
-  *data = len == 8 ? value : (uint32_t)(value >> ((offset & 4) ? 32 : 0));
+  hart = mtimecmp_hart(offset, len, &shift);
+  if (hart >= 0) {
+    *data = read_reg(dev->mtimecmp[hart], len, shift);
+    return true;
+  }
+  if (!mtime_access(offset, len)) return false;
+  *data = read_reg(dev->mtime, len, offset == 0xbffc ? 32 : 0);
   return true;
 }
 
 static bool clint_write(void* ctx, paddr_t offset, int len, word_t data) {
-  Clint* clint = ctx;
-  if (!clint_accepts(offset, len)) return false;
-  if (offset == 0) {
-    clint->msip = (uint32_t)data & 1u;
+  Clint* dev = ctx;
+  unsigned shift = 0;
+  int hart = msip_hart(offset, len);
+  if (hart >= 0) {
+    dev->msip[hart] = (uint32_t)data & 1u;
   } else {
-    uint64_t* reg = offset < 0x8000 ? &clint->mtimecmp : &clint->mtime;
-    if (len == 8) {
-      *reg = data;
+    hart = mtimecmp_hart(offset, len, &shift);
+    if (hart >= 0) {
+      write_reg(&dev->mtimecmp[hart], len, shift, data);
+    } else if (mtime_access(offset, len)) {
+      write_reg(&dev->mtime, len, offset == 0xbffc ? 32 : 0, data);
     } else {
-      unsigned shift = (offset & 4) ? 32 : 0;
-      *reg = (*reg & ~(UINT64_C(0xffffffff) << shift)) |
-             ((uint64_t)(uint32_t)data << shift);
+      return false;
     }
   }
-  clint_drive(clint);
+  clint_drive(dev);
   return true;
 }
 
-static Clint* time_source;
-
-Clint* clint_create(IrqLine* timer_irq, IrqLine* software_irq) {
-  Clint* clint = clint_alloc();
-  if (clint == NULL) return NULL;
-  if (time_source == NULL) time_source = clint;
-  clint->mtimer_irq = timer_irq;
-  clint->msip_irq = software_irq;
-  clint->mtimecmp = UINT64_MAX;
-  return clint;
-}
-
-void clint_release(Clint* clint) {
-  if (!clint_owned(clint)) return;
-  used[clint - pool] = false;
-}
-
-void clint_mmio(Clint* clint, MemObject* mmio) {
-  *mmio = (MemObject){.name = "clint",
-                      .ctx = clint,
-                      .read = clint_read,
-                      .write = clint_write};
-}
-
-void clint_reset(Clint* clint) {
-  if (clint == NULL) return;
-  clint->last_ticks = 0;
-  clint->mtime = 0;
-  clint->msip = 0;
-  clint->mtimecmp = UINT64_MAX;
-  clint_drive(clint);
-}
-
-void clint_update(Clint* clint) {
-  if (clint != NULL) clint_drive(clint);
-}
-
-void clint_advance(Clint* clint, uint64_t logical_ticks) {
-  if (clint == NULL) return;
-  if (logical_ticks >= clint->last_ticks) {
-    clint->mtime += logical_ticks / TICKS_PER_MTIME -
-                    clint->last_ticks / TICKS_PER_MTIME;
+static void clint_reset(void* ctx) {
+  Clint* dev = ctx;
+  Assert(dev != NULL, "CLINT 为空");
+  dev->last_ticks = 0;
+  dev->mtime = 0;
+  for (int hart = 0; hart < CLINT_NHART; hart++) {
+    dev->msip[hart] = 0;
+    dev->mtimecmp[hart] = UINT64_MAX;
   }
-  clint->last_ticks = logical_ticks;
-  clint_drive(clint);
+  clint_drive(dev);
 }
 
-uint64_t clint_deadline(const Clint* clint) {
-  if (clint == NULL || clint->mtime >= clint->mtimecmp ||
-      clint->mtimecmp == UINT64_MAX)
-    return UINT64_MAX;
-  const uint64_t distance = clint->mtimecmp - clint->mtime;
-  if (distance > (UINT64_MAX - clint->last_ticks) / TICKS_PER_MTIME)
-    return UINT64_MAX;
-  return clint->last_ticks + distance * TICKS_PER_MTIME -
-         clint->last_ticks % TICKS_PER_MTIME;
+static void clint_update(void* ctx) {
+  Assert(ctx != NULL, "CLINT 为空");
+  clint_drive(ctx);
 }
 
-uint64_t clint_mtime(const Clint* clint) {
-  return clint == NULL ? 0 : clint->mtime;
+static void clint_advance(void* ctx, uint64_t logical_ticks) {
+  Clint* dev = ctx;
+  Assert(dev != NULL, "CLINT 为空");
+  if (logical_ticks >= dev->last_ticks) {
+    dev->mtime +=
+        logical_ticks / TICKS_PER_MTIME - dev->last_ticks / TICKS_PER_MTIME;
+  }
+  dev->last_ticks = logical_ticks;
+  clint_drive(dev);
 }
 
-uint64_t clint_mtime_now(void) { return clint_mtime(time_source); }
+MemObject clint_init(void) {
+  Clint* dev = clint_alloc();
+  Assert(dev != NULL, "CLINT 分配失败");
+  clint_reset(dev);
+  return (MemObject){
+      .name = "clint",
+      .ctx = dev,
+      .read = clint_read,
+      .write = clint_write,
+      .update = clint_update,
+      .advance = clint_advance,
+  };
+}
+
+uint64_t clint_mtime_now(void) { return clint.mtime; }

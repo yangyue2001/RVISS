@@ -1,29 +1,21 @@
 #include <cpu/cpu.h>
 #include <cpu/decode.h>
+#include <memory/image.h>
 #include <util/config.h>
+#include <util/log.h>
 #include <util/state.h>
 
 #include "../../machine/machine.h"
 #include "../engine.h"
 
-void engine_init(void) { riscv_decode_init(); }
-
-void engine_set_history(bool enabled) { (void)enabled; }
-
-size_t engine_recent(StepResult* out, size_t capacity) {
-  (void)out;
-  (void)capacity;
-  return 0;
+void engine_init(void) {
+  sim_reset();
+  riscv_decode_init();
+  if (rt_cfg.image == NULL) return;
+  const paddr_t end = image_load(rt_cfg.image, machine_get()->ram_base);
+  Assert(end != 0, "加载镜像失败: %s", rt_cfg.image);
+  Log("image loaded, end = " FMT_PADDR, end);
 }
-
-void engine_dump_recent(void) {}
-
-bool engine_raise_trap(word_t cause) {
-  (void)cause;
-  return false;
-}
-
-void engine_flush(void) {}
 
 bool engine_step(StepResult* result) {
   if (!sim_running()) return false;

@@ -20,9 +20,6 @@ typedef enum {
   PMP_AMATCH_NAPOT /* Naturally aligned power-of-two region */
 } PmpAm;
 
-void riscv_pmp_reset(void);
-/* 初始化硬件 profile；客户机不能调用此配置接口。 */
-void riscv_pmp_set_regions(unsigned count);
 bool riscv_pmp_check(paddr_t addr, word_t len, MemAccessType type,
                      Priv privilege);
 

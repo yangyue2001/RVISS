@@ -39,8 +39,6 @@ build = stage / 'out'
 make = ['make', '-j4', 'CC=/usr/bin/gcc', 'BUILD_DIR=' + str(build)]
 run('clean-minimal-config', make + ['minimal_defconfig'])
 run('clean-minimal-check', make + ['check'])
-run('clean-ref-config', make + ['ref_defconfig'])
-run('clean-ref-check', make + ['check'])
 run('clean-debug-config', make + ['debug_defconfig'])
 run('clean-debug-check', make + ['check'])
 
@@ -75,6 +73,6 @@ for case, source in [('uart', 'start.S'), ('fault', 'fault.S'), ('irq', 'irq.S')
 run('workspace-final-check', ['make', 'CC=/usr/bin/gcc', 'check'], cwd=repo)
 hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
           for p in [repo / '.config', repo / 'include/generated/autoconf.h',
-                    build / 'rviss', build / 'librviss_ref.so']}
+                    build / 'rviss']}
 (evidence / 'hashes.json').write_text(json.dumps(hashes, indent=2) + '\n')
 print('T003 verification passed: minimal/ref/debug, faults, budgets, trace and real MMIO output.')

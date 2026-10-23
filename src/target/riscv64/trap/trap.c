@@ -8,8 +8,8 @@
 
 /* trap 目标只由 ISA 决定；设备不读取 CPU 的私有 CSR。 */
 vaddr_t riscv_raise_trap(word_t cause, vaddr_t epc, vaddr_t tval) {
-  bool is_intr = (cause & IRQ_BIT) != 0;
-  word_t code = cause & ~IRQ_BIT;
+  bool is_intr = (cause & MCAUSE_INTERRUPT) != 0;
+  word_t code = cause & MCAUSE_CODE;
   word_t delegation = is_intr ? cpu.mideleg : cpu.medeleg;
   bool to_s = cpu.priv <= PRV_S && code < 64 && ((delegation >> code) & 1);
   word_t status = cpu.mstatus;
@@ -41,32 +41,4 @@ vaddr_t riscv_raise_trap(word_t cause, vaddr_t epc, vaddr_t tval) {
   LogTrap("trap: %s=%lu epc=" FMT_WORD " -> " FMT_WORD " (priv -> %s)",
           is_intr ? "intr" : "exc", code, epc, target, cpu_priv_name(cpu.priv));
   return target;
-}
-
-/* 调用方先检查指令权限。epc 的 bit 0 在写入时已经清掉。 */
-vaddr_t riscv_mret(void) {
-  word_t status = cpu.mstatus;
-  uint8_t previous = BITS(status, 12, 11);
-  vaddr_t target = cpu.mepc;
-  status = (status & ~(MSTATUS_MIE | MSTATUS_MPP)) |
-           ((status & MSTATUS_MPIE) ? MSTATUS_MIE : 0) | MSTATUS_MPIE;
-  if (previous != PRV_M) status &= ~MSTATUS_MPRV;
-  cpu.mstatus = status;
-  cpu.priv = previous;
-  return target;
-}
-
-vaddr_t riscv_sret(void) {
-  word_t status = cpu.mstatus;
-  uint8_t previous = (status & MSTATUS_SPP) ? PRV_S : PRV_U;
-  vaddr_t target = cpu.sepc;
-  status = (status & ~(MSTATUS_SIE | MSTATUS_SPP | MSTATUS_MPRV)) |
-           ((status & MSTATUS_SPIE) ? MSTATUS_SIE : 0) | MSTATUS_SPIE;
-  cpu.mstatus = status;
-  cpu.priv = previous;
-  return target;
-}
-
-vaddr_t cpu_raise_trap(word_t cause, vaddr_t epc) {
-  return riscv_raise_trap(cause, epc, 0);
 }

@@ -2,6 +2,7 @@
 #include <cpu/decode.h>
 #include <cpu/step.h>
 #include <memory/vaddr.h>
+#include <util/state.h>
 
 #include "trap.h"
 
@@ -10,11 +11,13 @@ static void inline take_trap(word_t cause, vaddr_t epc, word_t tval) {
 }
 
 static void retire_counters(void) {
+  sim.instret++;
   if ((cpu.mcountinhibit & 1) == 0) cpu.mcycle++;
   if ((cpu.mcountinhibit & 4) == 0) cpu.minstret++;
 }
 
 void riscv_execute(void) {
+  sim.attempts++;
   const vaddr_t pc = cpu.pc;
   uint32_t instr = 0;
   uint8_t ilen = 4;

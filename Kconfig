@@ -87,6 +87,14 @@ config DEBUG
 	help
 	  关掉后所有 Log* 变成空操作，用于跑性能或减小二进制。
 
+config ASSERT
+	bool "启用 Assert"
+	default y
+	help
+	  打开时 Assert 就是条件失败后 panic。
+	  关掉后不检查。条件仍会求值，没有副作用的条件在 -O2 下没有指令。
+	  已经在失败分支里、必须停机时用 panic。
+
 config TRACE_INST
 	bool "指令 trace（pc + 助记符）"
 	depends on DEBUG
@@ -109,21 +117,6 @@ config TRACE_MMU
 	bool "地址翻译 / TLB trace"
 	depends on DEBUG
 	default n
-
-config TRACE_STREAM
-	bool "结构化 RVTR 二进制 trace"
-	default n
-	help
-	  编译独立的 --trace-file sink。记录带版本头的 RV64 执行事件，
-	  使用批量缓冲写入，不经过文本日志。文件可在运行结束后用
-	  zstd -T0 -1 压缩；该选项不改变客户机执行语义。
-
-config SHARE
-	bool "编译为 difftest 参考共享库（librviss_ref.so）"
-	default n
-	help
-	  产物供香山 / XS-GEM5 等 DUT 通过 dlopen 加载做逐指令对拍，
-	  对外 ABI 见 include/rviss.h。
 
 endmenu
 

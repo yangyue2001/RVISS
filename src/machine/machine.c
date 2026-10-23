@@ -26,31 +26,20 @@
 #include "machine.h"
 
 /*
- * 板卡只保存已注册的不透明指针，并负责 MMIO 基址和中断线。
- * 外设结构体在各自的 .c 里。仿真器状态和 CPU 复位不在这里。
+ * 板卡 = CPU + 一堆外设。外设 init 分配、复位，再返回 MemObject。
+ * 中断线和回调由这里写进 ctx，再按基址映射。
+ * 先复位 CPU，再登记外设，避免外设复位拉高的中断被清掉。
+ * 仿真器复位和镜像不在这里。
  */
-
-#define MACHINE_DEV_MAX 8
 
 static MachineConfig active;
 
-#ifdef CONFIG_HAS_CLINT
-static Clint* clints[MACHINE_DEV_MAX];
-static int nr_clints;
-#endif
 #ifdef CONFIG_HAS_PLIC
-static Plic* plics[MACHINE_DEV_MAX];
-static int nr_plics;
+static Plic* board_plic;
 #endif
 #ifdef CONFIG_HAS_UART16550
-static Uart16550* uarts[MACHINE_DEV_MAX];
-static int nr_uarts;
+static Uart16550* console_uart;
 static IrqLine uart_lines[MACHINE_UART_MAX];
-static bool uart_host_rx;
-#endif
-#ifdef CONFIG_HAS_TEST_FINISHER
-static TestFinisher* finishers[MACHINE_DEV_MAX];
-static int nr_finishers;
 #endif
 
 #ifdef CONFIG_HAS_TEST_FINISHER
@@ -68,8 +57,8 @@ static void uart_transmit(void* opaque, uint8_t byte) {
 }
 
 static void uart_host_poll(void) {
-  if (nr_uarts == 0) return;
-  Uart16550* uart = uarts[0];
+  Uart16550* uart = console_uart;
+  Assert(uart != NULL, "控制台 UART 为空");
   if ((!rt_cfg.uart_stdin && !host_uart_replaying()) ||
       uart16550_loopback(uart))
     return;
@@ -88,98 +77,42 @@ static void uart_host_poll(void) {
 #ifdef CONFIG_HAS_PLIC
 static void uart_irq(void* opaque, bool level) {
   unsigned source = (unsigned)(uintptr_t)opaque;
-  if (nr_plics > 0) plic_set_source(plics[0], source, level);
+  Assert(board_plic != NULL, "UART 中断时 PLIC 为空");
+  plic_set_source(board_plic, source, level);
 }
 #endif
 #endif
 
 const MachineConfig* machine_get(void) { return &active; }
 
-#ifdef CONFIG_HAS_CLINT
-Clint* machine_add_clint(paddr_t base, IrqLine* timer_irq,
-                         IrqLine* software_irq) {
-  if (nr_clints >= MACHINE_DEV_MAX) return NULL;
-  Clint* clint = clint_create(timer_irq, software_irq);
-  if (clint == NULL) return NULL;
-  MemObject mmio;
-  clint_mmio(clint, &mmio);
-  if (!mem_region_add(base, CLINT_MMIO_SIZE, &mmio)) {
-    clint_release(clint);
-    return NULL;
-  }
-  clint_reset(clint);
-  clints[nr_clints++] = clint;
-  return clint;
+static bool map_device(paddr_t base, paddr_t size, MemObject* object) {
+  Assert(object != NULL && object->ctx != NULL, "设备没有实例");
+  return mem_region_add(base, size, object);
 }
-#endif
-
-#ifdef CONFIG_HAS_PLIC
-Plic* machine_add_plic(paddr_t base, IrqLine* machine_external,
-                       IrqLine* supervisor_external) {
-  if (nr_plics >= MACHINE_DEV_MAX) return NULL;
-  Plic* plic = plic_create(machine_external, supervisor_external);
-  if (plic == NULL) return NULL;
-  MemObject mmio;
-  plic_mmio(plic, &mmio);
-  if (!mem_region_add(base, PLIC_MMIO_SIZE, &mmio)) {
-    plic_release(plic);
-    return NULL;
-  }
-  plic_reset(plic);
-  plics[nr_plics++] = plic;
-  return plic;
-}
-#endif
-
-#ifdef CONFIG_HAS_UART16550
-Uart16550* machine_add_uart(paddr_t base, IrqLine* irq,
-                            void (*transmit)(void* opaque, uint8_t byte),
-                            void* transmit_opaque) {
-  if (nr_uarts >= MACHINE_DEV_MAX) return NULL;
-  Uart16550* uart = uart16550_create(irq, transmit, transmit_opaque);
-  if (uart == NULL) return NULL;
-  MemObject mmio;
-  uart16550_mmio(uart, &mmio);
-  if (!mem_region_add(base, UART16550_MMIO_SIZE, &mmio)) {
-    uart16550_release(uart);
-    return NULL;
-  }
-  uart16550_reset(uart);
-  uarts[nr_uarts++] = uart;
-  return uart;
-}
-#endif
-
-#ifdef CONFIG_HAS_TEST_FINISHER
-TestFinisher* machine_add_finisher(paddr_t base,
-                                   void (*finish)(void* opaque, int code),
-                                   void* opaque) {
-  if (nr_finishers >= MACHINE_DEV_MAX) return NULL;
-  TestFinisher* finisher = test_finisher_create(finish, opaque);
-  if (finisher == NULL) return NULL;
-  MemObject mmio;
-  test_finisher_mmio(finisher, &mmio);
-  if (!mem_region_add(base, TEST_FINISHER_MMIO_SIZE, &mmio)) {
-    test_finisher_release(finisher);
-    return NULL;
-  }
-  finishers[nr_finishers++] = finisher;
-  return finisher;
-}
-#endif
 
 static void machine_register(const MachineConfig* cfg) {
   Assert(mem_init(cfg->ram_base, cfg->ram_size), "RAM 初始化失败");
   Assert(mem_install_ram(cfg->ram_base, cfg->ram_size), "RAM 登记失败");
 #ifdef CONFIG_HAS_CLINT
-  Assert(machine_add_clint(cfg->clint_base, cpu_irq_input(INT_MTI),
-                           cpu_irq_input(INT_MSI)) != NULL,
-         "CLINT 注册失败");
+  {
+    MemObject object = clint_init();
+    Clint* clint = object.ctx;
+    clint->mtimer_irq[0] = cpu_irq_input(INT_MTI);
+    clint->msip_irq[0] = cpu_irq_input(INT_MSI);
+    Assert(map_device(cfg->clint_base, CLINT_MMIO_SIZE, &object),
+           "CLINT 注册失败");
+  }
 #endif
 #ifdef CONFIG_HAS_PLIC
-  Assert(machine_add_plic(cfg->plic_base, cpu_irq_input(INT_MEI),
-                          cpu_irq_input(INT_SEI)) != NULL,
-         "PLIC 注册失败");
+  {
+    MemObject object = plic_init();
+    Plic* plic = object.ctx;
+    plic->external_irq[0] = cpu_irq_input(INT_MEI);
+    plic->external_irq[1] = cpu_irq_input(INT_SEI);
+    Assert(map_device(cfg->plic_base, PLIC_MMIO_SIZE, &object),
+           "PLIC 注册失败");
+    board_plic = plic;
+  }
 #endif
 #ifdef CONFIG_HAS_UART16550
   Assert(host_uart_input_init(rt_cfg.uart_record, rt_cfg.uart_replay),
@@ -190,63 +123,55 @@ static void machine_register(const MachineConfig* cfg) {
     IrqLine* line = NULL;
 #ifdef CONFIG_HAS_PLIC
     unsigned source = cfg->uart[i].plic_source;
-    if (nr_plics > 0 && source != 0 && source < PLIC_NR_SOURCES) {
+    if (board_plic != NULL && source != 0 && source < PLIC_NR_SOURCES) {
       uart_lines[i].set = uart_irq;
       uart_lines[i].ctx = (void*)(uintptr_t)source;
       line = &uart_lines[i];
     }
 #endif
-    Assert(
-        machine_add_uart(cfg->uart[i].base, line, uart_transmit, NULL) != NULL,
-        "UART 注册失败");
+    MemObject object = uart16550_init();
+    Uart16550* uart = object.ctx;
+    uart->irq = line;
+    uart->transmit = uart_transmit;
+    uart->transmit_opaque = NULL;
+    Assert(map_device(cfg->uart[i].base, UART16550_MMIO_SIZE, &object),
+           "UART 注册失败");
+    if (console_uart == NULL) console_uart = uart;
   }
-  if (cfg->nr_uart > 0) uart_host_rx = true;
 #endif
 #ifdef CONFIG_HAS_TEST_FINISHER
-  Assert(machine_add_finisher(cfg->test_base, finish_guest, NULL) != NULL,
-         "test finisher 注册失败");
+  {
+    MemObject object = test_finisher_init();
+    TestFinisher* finisher = object.ctx;
+    finisher->finish = finish_guest;
+    finisher->finish_opaque = NULL;
+    Assert(map_device(cfg->test_base, TEST_FINISHER_MMIO_SIZE, &object),
+           "test finisher 注册失败");
+  }
 #endif
-  (void)cfg;
 }
 
 void machine_init(const MachineConfig* cfg) {
   active = *cfg;
   Log("machine: %s", active.name);
+  cpu_reset(cfg->reset_pc);
   machine_register(&active);
 }
 
-void machine_reset(void) {
-#ifdef CONFIG_HAS_CLINT
-  for (int i = 0; i < nr_clints; i++) clint_reset(clints[i]);
-#endif
-#ifdef CONFIG_HAS_UART16550
-  for (int i = 0; i < nr_uarts; i++) uart16550_reset(uarts[i]);
-#endif
-#ifdef CONFIG_HAS_PLIC
-  for (int i = 0; i < nr_plics; i++) plic_reset(plics[i]);
-#endif
-}
-
 void machine_advance(uint64_t logical_ticks) {
-#ifdef CONFIG_HAS_CLINT
-  for (int i = 0; i < nr_clints; i++) clint_advance(clints[i], logical_ticks);
-#endif
+  for (int i = 0; i < mem_region_count(); i++) {
+    const MemObject* object = &mem_region_at(i)->object;
+    if (object->advance != NULL) object->advance(object->ctx, logical_ticks);
+  }
 #ifdef CONFIG_HAS_UART16550
-  for (int i = 0; i < nr_uarts; i++) uart16550_advance(uarts[i], logical_ticks);
-  if (uart_host_rx) uart_host_poll();
+  if (console_uart != NULL) uart_host_poll();
 #endif
 }
 
 void machine_update(StepResult* result) {
-#ifdef CONFIG_HAS_CLINT
-  for (int i = 0; i < nr_clints; i++) clint_update(clints[i]);
-#endif
-#ifdef CONFIG_HAS_UART16550
-  for (int i = 0; i < nr_uarts; i++) uart16550_update(uarts[i]);
-#endif
-#ifdef CONFIG_HAS_PLIC
-  for (int i = 0; i < nr_plics; i++) plic_update(plics[i]);
-#endif
-
+  for (int i = 0; i < mem_region_count(); i++) {
+    const MemObject* object = &mem_region_at(i)->object;
+    if (object->update != NULL) object->update(object->ctx);
+  }
   riscv_step(result);
 }

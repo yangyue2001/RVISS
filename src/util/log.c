@@ -15,7 +15,7 @@ static const char* level_name[LOG_LEVEL_NR] = {
 };
 
 static const char* category_name[LOG_CAT_NR] = {
-    "general", "instr", "mem", "mmu", "trap", "dev", "diff",
+    "general", "instr", "mem", "mmu", "trap", "dev",
 };
 
 void log_init(const char* path) {
@@ -38,12 +38,6 @@ void log_close(void) {
 }
 
 void log_set_level(LogLevel level) { min_level = level; }
-
-void log_set_category(LogCategory cat, bool enable) {
-  if (cat >= 0 && cat < LOG_CAT_NR) {
-    cat_enabled[cat] = enable;
-  }
-}
 
 void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...) {
   if (log_fp == NULL || level > min_level || !cat_enabled[cat]) {

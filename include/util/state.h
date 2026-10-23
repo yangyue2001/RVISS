@@ -21,8 +21,6 @@ typedef struct {
   uint64_t event_seq;     /* 每个执行边界的累计序号；UART 重放按它对齐 */
   uint64_t logical_ticks; /* 平台时间源，与客户机 cycle/instret 独立 */
   uint64_t idle_ticks, idle_advances; /* WFI 快进的逻辑时间 */
-  uint64_t max_instr;     /* 尝试上限；0 表示不限 */
-  uint64_t max_events;    /* 独立事件上限；0 表示不限 */
 } SimState;
 
 extern SimState sim;

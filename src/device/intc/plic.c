@@ -1,33 +1,13 @@
 #include <device/intc/plic.h>
 
-#define PLIC_MAX 8
-
-struct Plic {
-  IrqLine* external_irq[PLIC_NR_CONTEXTS];
-  uint32_t priority[PLIC_NR_SOURCES];
-  uint32_t enable_bits[PLIC_NR_CONTEXTS];
-  uint32_t threshold[PLIC_NR_CONTEXTS];
-  uint32_t levels;
-  uint32_t pending;
-  uint32_t busy;
-};
-
-static Plic pool[PLIC_MAX];
-static bool used[PLIC_MAX];
+static Plic plic_singleton;
+static bool plic_used;
 
 static Plic* plic_alloc(void) {
-  for (int i = 0; i < PLIC_MAX; i++) {
-    if (!used[i]) {
-      used[i] = true;
-      memset(&pool[i], 0, sizeof(pool[i]));
-      return &pool[i];
-    }
-  }
-  return NULL;
-}
-
-static bool plic_owned(const Plic* plic) {
-  return plic != NULL && plic >= pool && plic < pool + PLIC_MAX;
+  if (plic_used) return NULL;
+  plic_used = true;
+  memset(&plic_singleton, 0, sizeof(plic_singleton));
+  return &plic_singleton;
 }
 
 static unsigned select_irq(const Plic* plic, unsigned context) {
@@ -121,28 +101,9 @@ static bool plic_write(void* ctx, paddr_t offset, int len, word_t data) {
   return true;
 }
 
-Plic* plic_create(IrqLine* machine_external, IrqLine* supervisor_external) {
-  Plic* plic = plic_alloc();
-  if (plic == NULL) return NULL;
-  plic->external_irq[0] = machine_external;
-  plic->external_irq[1] = supervisor_external;
-  return plic;
-}
-
-void plic_release(Plic* plic) {
-  if (!plic_owned(plic)) return;
-  used[plic - pool] = false;
-}
-
-void plic_mmio(Plic* plic, MemObject* mmio) {
-  *mmio = (MemObject){.name = "plic",
-                      .ctx = plic,
-                      .read = plic_read,
-                      .write = plic_write};
-}
-
-void plic_reset(Plic* plic) {
-  if (plic == NULL) return;
+static void plic_reset(void* ctx) {
+  Plic* plic = ctx;
+  Assert(plic != NULL, "PLIC 为空");
   memset(plic->priority, 0, sizeof(plic->priority));
   memset(plic->enable_bits, 0, sizeof(plic->enable_bits));
   memset(plic->threshold, 0, sizeof(plic->threshold));
@@ -152,12 +113,27 @@ void plic_reset(Plic* plic) {
   plic_drive(plic);
 }
 
-void plic_update(Plic* plic) {
-  if (plic != NULL) plic_drive(plic);
+static void plic_update(void* ctx) {
+  Assert(ctx != NULL, "PLIC 为空");
+  plic_drive(ctx);
+}
+
+MemObject plic_init(void) {
+  Plic* plic = plic_alloc();
+  Assert(plic != NULL, "PLIC 分配失败");
+  plic_reset(plic);
+  return (MemObject){
+      .name = "plic",
+      .ctx = plic,
+      .read = plic_read,
+      .write = plic_write,
+      .update = plic_update,
+  };
 }
 
 void plic_set_source(Plic* plic, unsigned source, bool level) {
-  if (plic == NULL || source == 0 || source >= PLIC_NR_SOURCES) return;
+  Assert(plic != NULL, "PLIC 为空");
+  if (source == 0 || source >= PLIC_NR_SOURCES) return;
   const uint32_t bit = UINT32_C(1) << source;
   if (level) {
     plic->levels |= bit;

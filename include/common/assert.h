@@ -20,9 +20,19 @@ void rviss_panic(const char *fmt, ...);
 
 #define panic(...) rviss_panic(__VA_ARGS__)
 
+/*
+ * 打开时就是 if (!条件) panic。
+ * 关掉后不检查、不生成分支。条件仍求值，因此 Assert(mem_init()) 里的
+ * 初始化还会执行；没有副作用的条件在 -O2 及更高优化下没有指令。
+ * 格式参数不求值。没有条件、已经在失败分支里的停机仍用 panic()。
+ */
+#ifdef CONFIG_ASSERT
 #define Assert(cond, ...)                  \
   do {                                     \
     if (!(cond)) rviss_panic(__VA_ARGS__); \
   } while (0)
+#else
+#define Assert(cond, ...) ((void)(cond))
+#endif
 
 #endif /* RVISS_COMMON_ASSERT_H */

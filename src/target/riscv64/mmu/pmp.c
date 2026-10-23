@@ -9,36 +9,12 @@
  * 实现了 PMP 的 S/U 访问失败，M 访问成功。
  */
 
-enum {
-  PMP_ADDR_BITS = 54,
-  PMP_NA4_BYTES = 4,
-  PMP_ADDR_CSR_COUNT = 64
-};
+enum { PMP_ADDR_BITS = 54, PMP_NA4_BYTES = 4, PMP_ADDR_CSR_COUNT = 64 };
 
 _Static_assert(((UINT64_C(1) << PMP_ADDR_BITS) - 1) == PMPADDR_ADDR_RV64,
                "pmpaddr width");
 _Static_assert((unsigned)CPU_PMP_ENTRIES <= (unsigned)PMP_ADDR_CSR_COUNT,
                "PMP entry count");
-
-void riscv_pmp_reset(void) {
-  memset(cpu.pmpcfg, 0, sizeof(cpu.pmpcfg));
-  memset(cpu.pmpaddr, 0, sizeof(cpu.pmpaddr));
-#ifdef CONFIG_RV_PMP
-  riscv_pmp_set_regions(CPU_PMP_ENTRIES);
-#else
-  riscv_pmp_set_regions(0);
-#endif
-}
-
-void riscv_pmp_set_regions(unsigned count) {
-#ifdef CONFIG_RV_PMP
-  Assert(count == 0 || count == CPU_PMP_ENTRIES,
-         "PMP profile must have 0 or %d entries", CPU_PMP_ENTRIES);
-#else
-  Assert(count == 0, "PMP unavailable in this build");
-#endif
-  cpu.pmp_count = (uint8_t)count;
-}
 
 static unsigned pmp_permission(MemAccessType type) {
   if (type == kMemIFetch) return PMP_EXEC;

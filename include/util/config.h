@@ -14,8 +14,7 @@
  */
 
 typedef struct {
-  size_t ram_size_override; /* 0 = 用板级（Kconfig）默认值 */
-
+  size_t ram_size_override; /* -m：0 表示用板级默认 RAM 大小 */
   uint64_t max_instr;  /* 指令尝试上限，含同步异常；0 = 不限 */
   uint64_t max_events; /* 指令/陷阱/中断事件总上限；0 = 不限 */
   bool uart_stdin;     /* explicit stdin ownership, batch only */
@@ -25,11 +24,8 @@ typedef struct {
   bool log_trace; /* -t：打开指令 trace（还需编译期 CONFIG_TRACE_INST*） */
   const char* log_file;
   LogLevel log_level;
-  const char* trace_file; /* --trace-file：RVTR 二进制事件流 */
 
-  const char* image;          /* 位置参数：镜像路径 */
-  const char* checkpoint_in;  /* --checkpoint-in  */
-  const char* checkpoint_out; /* --checkpoint-out */
+  const char* image; /* 位置参数：镜像路径 */
 } RuntimeConfig;
 
 extern RuntimeConfig rt_cfg;

@@ -25,14 +25,12 @@ typedef enum {
   LOG_CAT_TRANSLATE,   /* 地址翻译/TLB trace */
   LOG_CAT_TRAP,        /* 异常与中断 */
   LOG_CAT_DEVICE,      /* 设备访问 */
-  LOG_CAT_DIFFTEST,    /* difftest 交互 */
   LOG_CAT_NR
 } LogCategory;
 
 void log_init(const char* path); /* path == NULL 时输出到 stdout */
 void log_close(void);
 void log_set_level(LogLevel level);
-void log_set_category(LogCategory cat, bool enable);
 void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...)
     __attribute__((format(printf, 3, 4)));
 
@@ -61,7 +59,6 @@ void log_printf(LogCategory cat, LogLevel level, const char* fmt, ...)
 #define Loge(...) RVISS_DEBUG_LOG(LOG_CAT_GENERAL, LOG_ERROR, __VA_ARGS__)
 #define LogTrap(...) RVISS_DEBUG_LOG(LOG_CAT_TRAP, LOG_DEBUG, __VA_ARGS__)
 #define LogDevice(...) RVISS_DEBUG_LOG(LOG_CAT_DEVICE, LOG_DEBUG, __VA_ARGS__)
-#define LogDiff(...) RVISS_DEBUG_LOG(LOG_CAT_DIFFTEST, LOG_DEBUG, __VA_ARGS__)
 
 #if defined(CONFIG_TRACE_INST) || defined(CONFIG_TRACE_INST_DASM)
 #define LogInstr(...) RVISS_LOG(LOG_CAT_INSTR, LOG_TRACE, __VA_ARGS__)

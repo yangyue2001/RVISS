@@ -5,11 +5,10 @@
 
 /*
  * 物理区域表。RAM 和外设都登记在这里。
- * 设备节拍不在这里。板卡用同一个逻辑时间调用 machine_advance。
+ * 节拍不在这里：板卡按登记顺序调用 MemObject 的 advance 和 update。
  */
 
 #define MAX_MEM_REGIONS 16
-#define MAX_BUS_RESETS 8
 
 static MemRegion regions[MAX_MEM_REGIONS];
 static int nr_regions;
@@ -56,4 +55,11 @@ const MemRegion* mem_region_find(paddr_t addr, word_t len) {
     }
   }
   return NULL;
+}
+
+int mem_region_count(void) { return nr_regions; }
+
+const MemRegion* mem_region_at(int index) {
+  if (index < 0 || index >= nr_regions) return NULL;
+  return &regions[index];
 }

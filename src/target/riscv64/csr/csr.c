@@ -41,11 +41,16 @@
 #define MIE_READ_MASK \
   (MIP_SSIP | MIP_MSIP | MIP_STIP | MIP_MTIP | MIP_SEIP | MIP_MEIP)
 #define MIE_WRITE_MASK MIE_READ_MASK
+/* M-ecall 不能委托，只出现在 mcause。中断号与 mip 位号相同。 */
+#define MCAUSE_EXC_MASK (MEDELEG_READ_MASK | (1ull << EXCP_M_ECALL))
+#define MCAUSE_INTR_MASK MIE_READ_MASK
+#define SCAUSE_EXC_MASK MEDELEG_READ_MASK
+#define SCAUSE_INTR_MASK MIDELEG_READ_MASK
 #define MIP_READ_MASK MIE_READ_MASK
 #define MIP_WRITE_MASK (MIP_SSIP | MIP_STIP | MIP_SEIP)
 
-#define SIE_WRITE_MASK MIP_SSIP
-#define SIP_WRITE_MASK SIE_WRITE_MASK
+#define SIE_WRITE_MASK (MIP_SSIP | MIP_STIP | MIP_SEIP)
+#define SIP_WRITE_MASK MIP_SSIP
 #define MCOUNTEREN_READ_MASK (MCOUNTEREN_CY | MCOUNTEREN_TM | MCOUNTEREN_IR)
 #define MCOUNTEREN_WRITE_MASK MCOUNTEREN_READ_MASK
 #define MCOUNTINHIBIT_READ_MASK (MCOUNTINHIBIT_CY | MCOUNTINHIBIT_IR)
@@ -139,11 +144,6 @@ static void csr_write_frm(CpuState* hart, const CsrDesc* csr, word_t value) {
 }
 #endif
 
-static void csr_init_misa(CpuState* hart, const CsrDesc* csr) {
-  (void)csr;
-  hart->misa = MISA_INIT;
-}
-
 static void csr_init_mstatus(CpuState* hart, const CsrDesc* csr) {
   (void)csr;
   /* MPP=U，FS/VS/XS=Off，因此 SD=0。UXL/SXL 固定为 64。 */
@@ -156,26 +156,51 @@ static void csr_write_tvec(CpuState* hart, const CsrDesc* csr, word_t value) {
   *csr_slot(hart, csr) = (value & ~3ull) | mode;
 }
 
+/* 原因码是编码而不是独立的位。非法组合不产生异常，两个字段都保留旧值。 */
+static void csr_write_cause(CpuState* hart, const CsrDesc* csr, word_t value,
+                            word_t exc_mask, word_t intr_mask) {
+  const bool interrupt = (value & MCAUSE_INTERRUPT) != 0;
+  const word_t code = value & MCAUSE_CODE;
+  const word_t mask = interrupt ? intr_mask : exc_mask;
+  if (code >= 64 || ((mask >> code) & 1) == 0) return;
+  *csr_slot(hart, csr) = (interrupt ? MCAUSE_INTERRUPT : 0) | code;
+}
+
+static void csr_write_mcause(CpuState* hart, const CsrDesc* csr, word_t value) {
+  csr_write_cause(hart, csr, value, MCAUSE_EXC_MASK, MCAUSE_INTR_MASK);
+}
+
+static void csr_write_scause(CpuState* hart, const CsrDesc* csr, word_t value) {
+  csr_write_cause(hart, csr, value, SCAUSE_EXC_MASK, SCAUSE_INTR_MASK);
+}
+
 /* 可见位还要看当前 mideleg，静态掩码只能给出上限。 */
 static word_t csr_read_sie(CpuState* hart, const CsrDesc* csr) {
   (void)csr;
   return hart->mie & hart->mideleg & SIE_MASK;
 }
 
-// 只有委托了才能看见
-static word_t csr_read_sip(CpuState* hart, const CsrDesc* csr) {
+/* sie 是 mie 的委托视图。只改已经委托的 SSIE/STIE/SEIE。 */
+static void csr_write_sie(CpuState* hart, const CsrDesc* csr, word_t value) {
   (void)csr;
-  return hart->mip & hart->mideleg & SIE_MASK;
+  const word_t mask = hart->mideleg & SIE_MASK;
+  hart->mie = (hart->mie & ~mask) | (value & mask);
 }
 
-static void csr_write_mip(CpuState* hart, const CsrDesc* csr, word_t value) {
+static word_t csr_read_mip(CpuState* hart, const CsrDesc* csr) {
   (void)csr;
-  cpu_write_mip(hart, value);
+  return cpu_read_mip(hart) & MIP_READ_MASK;
+}
+
+/* 只有委托了才能看见。SEIP 使用可见值。 */
+static word_t csr_read_sip(CpuState* hart, const CsrDesc* csr) {
+  (void)csr;
+  return cpu_read_mip(hart) & hart->mideleg & SIE_MASK;
 }
 
 static void csr_write_sip(CpuState* hart, const CsrDesc* csr, word_t value) {
-  (void)csr;
-  cpu_write_sip(hart, value);
+  const word_t mask = hart->mideleg & MIP_SSIP;
+  hart->mip = (hart->mip & ~mask) | (value & mask);
 }
 
 static bool csr_check_satp(CpuState* hart, const CsrDesc* csr, bool write) {
@@ -262,6 +287,12 @@ static void csr_write_pmp(CpuState* hart, const CsrDesc* csr, word_t value) {
   }
 }
 
+static word_t csr_read_misa(CpuState* hart, const CsrDesc* csr) {
+  (void)hart;
+  (void)csr;
+  return MISA_INIT;
+}
+
 // clang-format off
 /* 新 CSR 只在 RVISS_CSR 加一行：名字、存储、读掩码、写掩码、check、read、write、init。
  * 地址由 CSR_<名字> 得到。read/write 为空则按掩码访问存储。init 为空则复位保持 0。 */
@@ -282,15 +313,15 @@ static void csr_write_pmp(CpuState* hart, const CsrDesc* csr, word_t value) {
 #define RVISS_CSR(X) \
   X(mstatus, offsetof(CpuState, mstatus), MSTATUS_READ_MASK, MSTATUS_WRITE_MASK, NULL, csr_read_mstatus, csr_write_mstatus, csr_init_mstatus) \
   X(sstatus, offsetof(CpuState, mstatus), SSTATUS_READ_MASK, SSTATUS_WRITE_MASK, NULL, csr_read_mstatus, csr_write_mstatus, NULL) \
-  X(misa, offsetof(CpuState, misa), ~0ull, 0, NULL, NULL, NULL, csr_init_misa) \
+  X(misa, CSR_NO_FIELD, 0, 0, NULL, csr_read_misa, NULL, NULL) \
   X(medeleg, offsetof(CpuState, medeleg), MEDELEG_READ_MASK, MEDELEG_WRITE_MASK, NULL, NULL, NULL, NULL) \
   X(mideleg, offsetof(CpuState, mideleg), MIDELEG_READ_MASK, MIDELEG_WRITE_MASK, NULL, NULL, NULL, NULL) \
   X(mie, offsetof(CpuState, mie), MIE_READ_MASK, MIE_WRITE_MASK, NULL, NULL, NULL, NULL) \
-  X(mip, offsetof(CpuState, mip), MIP_READ_MASK, MIP_WRITE_MASK, NULL, NULL, csr_write_mip, NULL) \
+  X(mip, offsetof(CpuState, mip), MIP_READ_MASK, MIP_WRITE_MASK, NULL, csr_read_mip, NULL, NULL) \
   X(mtvec, offsetof(CpuState, mtvec), ~0ull, ~0ull, NULL, NULL, csr_write_tvec, NULL) \
   X(mscratch, offsetof(CpuState, mscratch), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
   X(mepc, offsetof(CpuState, mepc), CSR_EPC_MASK, CSR_EPC_MASK, NULL, NULL, NULL, NULL) \
-  X(mcause, offsetof(CpuState, mcause), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
+  X(mcause, offsetof(CpuState, mcause), ~0ull, ~0ull, NULL, NULL, csr_write_mcause, NULL) \
   X(mtval, offsetof(CpuState, mtval), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
   X(mcounteren, offsetof(CpuState, mcounteren), MCOUNTEREN_READ_MASK, MCOUNTEREN_WRITE_MASK, NULL, NULL, NULL, NULL) \
   X(mcountinhibit, offsetof(CpuState, mcountinhibit), MCOUNTINHIBIT_READ_MASK, MCOUNTINHIBIT_WRITE_MASK, NULL, NULL, NULL, NULL) \
@@ -300,10 +331,10 @@ static void csr_write_pmp(CpuState* hart, const CsrDesc* csr, word_t value) {
   X(scounteren, offsetof(CpuState, scounteren), MCOUNTEREN_READ_MASK, MCOUNTEREN_WRITE_MASK, NULL, NULL, NULL, NULL) \
   X(sscratch, offsetof(CpuState, sscratch), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
   X(sepc, offsetof(CpuState, sepc), CSR_EPC_MASK, CSR_EPC_MASK, NULL, NULL, NULL, NULL) \
-  X(scause, offsetof(CpuState, scause), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
+  X(scause, offsetof(CpuState, scause), ~0ull, ~0ull, NULL, NULL, csr_write_scause, NULL) \
   X(stval, offsetof(CpuState, stval), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
   X(satp, offsetof(CpuState, satp), ~0ull, ~0ull, csr_check_satp, NULL, csr_write_satp, NULL) \
-  X(sie, offsetof(CpuState, mie), SIE_MASK, SIE_WRITE_MASK, NULL, csr_read_sie, NULL, NULL) \
+  X(sie, offsetof(CpuState, mie), SIE_MASK, SIE_WRITE_MASK, NULL, csr_read_sie, csr_write_sie, NULL) \
   X(sip, offsetof(CpuState, mip), SIE_MASK, SIP_WRITE_MASK, NULL, csr_read_sip, csr_write_sip, NULL) \
   X(cycle, offsetof(CpuState, mcycle), ~0ull, 0, csr_check_counter, NULL, NULL, NULL) \
   X(time, CSR_NO_FIELD, ~0ull, 0, csr_check_counter, csr_read_time, NULL, NULL) \

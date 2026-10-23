@@ -39,8 +39,6 @@ INC_DIR += $(RVISS_HOME)/src/target/$(ISA)/local_include
 # ---------------------------------------------------------------- 源文件收集
 # 目录整体收集（NEMU 风格：新增文件不用改 Makefile）
 DIRS-y  = src/util src/host src/memory src/machine src/monitor
-DIRS-y += src/checkpoint src/difftest
-DIRS-y += src/trace
 DIRS-y += src/engine/$(ENGINE)
 DIRS-y += src/target/$(ISA)
 ifdef CONFIG_RV_F
@@ -70,17 +68,6 @@ CFLAGS += $(if $(CONFIG_CC_NATIVE),-march=native,)
 
 NAME = rviss
 
-# ---------------------------------------------------------------- 参考库模式
-# 必须在 include build.mk 之前定义：build.mk 里的 `app: $(BINARY)` 会在
-# 定义规则时就展开 BINARY（Make 的 prerequisites 是立即展开的）。
-# CONFIG_SHARE=y：产出 librviss_ref.so 骨架；ABI 可用性需独立契约测试
-ifdef CONFIG_SHARE
-CFLAGS  += -fPIC -D_SHARE=1
-LDFLAGS += -shared -fPIC
-OBJ_DIR  = $(BUILD_DIR)/obj-rviss-ref
-BINARY   = $(BUILD_DIR)/librviss_ref.so
-endif
-
 include $(RVISS_HOME)/scripts/config.mk
 include $(RVISS_HOME)/scripts/build.mk
 
@@ -91,24 +78,10 @@ $(OBJS): | $(FIXDEP)
 # ---------------------------------------------------------------- 测试
 # 单元测试：tests/unit/*.c 各自是一个 main()，链接除 main.c 外的所有对象
 TEST_SRCS = $(wildcard tests/unit/*.c)
-TEST_DIR = $(if $(CONFIG_SHARE),$(BUILD_DIR)/tests-ref,$(BUILD_DIR))
+TEST_DIR = $(BUILD_DIR)
 TEST_BINS = $(patsubst tests/unit/%.c,$(TEST_DIR)/%.test,$(TEST_SRCS))
 CORE_OBJS = $(filter-out $(OBJ_DIR)/src/main.o,$(OBJS))
 
-$(BUILD_DIR)/rviss_dut: tools/spike/dut.c tools/spike/case.h $(CORE_OBJS) | $(FIXDEP)
-	@$(CC) $(CFLAGS) -o $@ $< $(CORE_OBJS) $(filter-out -shared,$(LDFLAGS)) $(LIBS)
-	$(call call_fixdep, $(@:=.d), $@)
-
--include $(BUILD_DIR)/rviss_dut.d
-
-check-diff: $(BUILD_DIR)/rviss_dut
-	@python3 tools/spike/check.py --dut $(BUILD_DIR)/rviss_dut --out $(BUILD_DIR)/difftest --suite $(if $(DIFF_SUITE),$(DIFF_SUITE),i)
-
-DIFF_SUITE := $(if $(CONFIG_RV_M),m)$(if $(CONFIG_RV_A),a)$(if $(CONFIG_RV_C),c)
-
-.PHONY: check-diff
-
-# ref 对象可链接进测试可执行文件，但测试本身不能用 -shared 链接。
 $(TEST_DIR)/%.test: tests/unit/%.c $(CORE_OBJS) | $(FIXDEP)
 	@echo + LD $@
 	@mkdir -p $(dir $@)
@@ -120,12 +93,8 @@ $(TEST_DIR)/%.test: tests/unit/%.c $(CORE_OBJS) | $(FIXDEP)
 check: $(TEST_BINS) $(BINARY)
 	@for t in $(TEST_BINS); do echo "=== $$t"; $$t || exit 1; done
 	@echo "=== 单元测试全部通过"
-ifndef CONFIG_SHARE
 	@$(RVISS_HOME)/tests/smoke/run.sh $(BINARY)
 	@python3 $(RVISS_HOME)/tests/cli/test_step.py $(BINARY)
-else
-	@echo "=== ref 配置：共享库已构建；CLI smoke 需在 minimal 配置运行"
-endif
 
 # ---------------------------------------------------------------- 运行
 IMG  ?=

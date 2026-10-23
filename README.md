@@ -1,8 +1,8 @@
 # RVISS
 
-RVISS 是 C / Makefile / Kconfig 的单 hart RV64 功能模型。目标为
-RV64GC + M/S/U + Sv39、真实 OpenSBI/Linux、Spike 对拍、RTL reference、
-trace 与 checkpoint；当前实现和验收范围如下。
+RVISS 是 C / Makefile / Kconfig 的单 hart RV64 功能模型。当前树保留
+RV64GC + M/S/U + Sv39 和真实 OpenSBI/Linux 启动。difftest、参考共享库和
+checkpoint 已从源码删除；下面的历史验收记录它们曾经通过，不代表命令还在。
 
 ## 当前实现与验证状态（2026-10-12）
 
@@ -50,7 +50,7 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | --- | --- | --- |
 | RV64I / Zifencei | RV64整数、访存、分支、fence/fence.i；无缓存 | 固定Spike定向/随机和真实异常路径验证；没有规范认证声明 |
 | Zicsr / 特权 | M/S/U、WARL/别名、同步委派、M/S中断、xRET、counter权限、WFI等待请求 | T008–T010逐事件Spike与边界unit；T014确定性WFI计数分离验证 |
-| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault；最近 16 个事件只读记录 | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；特权/GC/Sv39/PMP由后续任务独立矩阵验证 |
+| 执行边界 | 单步区分退休、同步 trap、中断、停机/暂停和 host error；精确 Bare fault | T003 回归和 T004 I/RAM/同步异常独立 Spike 差分通过；特权/GC/Sv39/PMP由后续任务独立矩阵验证 |
 | M | CONFIG_RV_M 开启后支持 13 条 M 2.0 指令；m_defconfig 可验证 | T005 边界/别名/除零/overflow/*W 与 Spike、UBSan 通过；misa 对应编译支持位已固定 |
 | A | CONFIG_RV_A 开启后支持 LR/SC 与 9 种 AMO 的 W/D，RAM 原子；SC 明确记录是否 store | T006 aq/rl、alias、reservation、fault、Spike 与 UBSan 通过；无多 hart/DMA |
 | C | RV64 整数压缩、NOP/HINT/reserved、混合取指；misa.C 可切换，增大 IALIGN 的非法写被抑制 | T007 全 16 位编码与定向/随机 Spike；关闭 C 保留 IALIGN32，T013已增加压缩D访存完整8192编码差分 |
@@ -58,8 +58,8 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | MMU / PMP | RV64 集中访问规则、Bare/Sv39、16-entry PMP、硬件 A/D 与 SFENCE | M 访问忽略 satp、MPRV 数据访问路径已测；T011 PMP/T012 Sv39 真实路径/Spike 验证；无 TLB |
 | 设备 | UART DLAB/FIFO/IRQ/输入；CLINT32/64半寄存器与WFI逻辑快进；PLIC M/S/source10；finisher关机 | T014设备476/输入32检查、UBSan、真实IRQ/MMIO异常及整机输入重放通过 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
-| checkpoint | 原生 CPU_state + 全量 RAM；不保存设备/sim/事件号/平台时间，CPU 不在校验覆盖内；明确输出限制 | cycle/reservation 改变原生结构大小，旧布局不兼容；完整恢复等价、损坏拒绝未验证 |
-| difftest / 嵌入 API | 独立 C DUT 与 C++ Spike bridge 已用于真实逐事件比较；ref 共享库的多个 difftest 函数仍为空或部分实现 | 固定Spike已扩展到GC、44 CSR、Sv39/PMP与IRQ/counter；NEMU/RTL ABI和rviss_create未验收 |
+| checkpoint | 已从源码删除 | 不再提供保存或恢复 |
+| difftest / 嵌入 API | DUT、Spike bridge、`librviss_ref.so` 和 `include/rviss.h` 已删除 | 历史 Spike 矩阵不能再从本树复现 |
 | Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU单独验收；T015 RVISS PID1/probe/BusyBox/真实UART、3次100轮与1次1000轮全部正常关机，T014整机输入重放通过 |
 
 固定Linux入口（工件见 `build/linux/artifacts/manifest.json`）：
@@ -94,14 +94,7 @@ make -j4 CC=/usr/bin/gcc check
 产物是 build/rviss 与 build/*.test。可用 BUILD_DIR 指向独立目录，
 避免 make clean 删除同在 build/ 下的 Linux 工件。
 
-```sh
-make CC=/usr/bin/gcc ref_defconfig
-make -j4 CC=/usr/bin/gcc check
-```
-
-ref 产物为 build/librviss_ref.so 和 build/tests-ref/*.test；共享库链接及
-unit 通过不代表 difftest consumer 可用。切回 CLI 使用 minimal_defconfig。
-minimal/ref的隔离构建证据见T001/T003；最终Linux验收使用gc_defconfig。
+最终 Linux 验收当时使用 gc_defconfig。当前没有 ref 配置。
 
 ```sh
 ./build/rviss -b --max-instr 1000000 image.elf
@@ -115,25 +108,6 @@ make CC=/usr/bin/gcc compiledb
 
 ## 当前平台和接口限制
 
-固定 Spike 差分入口（源码/库放 build/spike，不修改外部仓库）：
-
-```sh
-python3 tools/spike/build.py --jobs 4
-make CC=/usr/bin/gcc check-diff
-```
-
-默认最小入口有29个case，在新进程重复运行并保存首差异；结果位于
-build/difftest/。最终GC完整矩阵入口：
-
-```sh
-make gc_defconfig
-make -j4 CC=/usr/bin/gcc BUILD_DIR=build/rv64gc check build/rv64gc/rviss_dut
-python3 tools/spike/check.py --dut build/rv64gc/rviss_dut --suite mac --csr --priv --irq --counters --pmp --sv39 --fp fd --exhaustive-c --fp-exhaustive-c --out build/rv64gc/difftest-final
-```
-
-Spike对拍覆盖指令/架构状态矩阵，完整平台设备和Linux整机逐步对拍不在此
-入口范围；NEMU/RTL共享库ABI也未验收。
-
 minimal 板只映射以下地址，默认 RAM 为 128 MiB、复位 PC 为 0x80000000。
 Linux 的固定 RAM 为256MiB，使用 `--memory 256M`；T014已装配固定virt设备。
 
@@ -144,10 +118,7 @@ Linux 的固定 RAM 为256MiB，使用 `--memory 256M`；T014已装配固定virt
 | PLIC M/S | 0x0c000000 |
 | test finisher | 0x00100000 |
 
-没有 UARTLite 或其它 NEMU 地址别名。include/rviss.h 的结构/符号声明不能作为
-ABI 验收证据：当前 difftest_init 未完成整机初始化，set_ramsize 忽略参数，
-regcpy 仅传 GPR/PC/priv，csrcpy 使用本项目结构而非 NEMU 的 4096-CSR 数组；
-store_commit 无定义，status 恒为 0。需要独立契约测试和真实 consumer smoke。
+没有 UARTLite 或其它 NEMU 地址别名。对外 difftest ABI 已删除。
 
 任务入口见 [rviss_linux_next.md](docs/prompts/rviss_linux_next.md)。
 验证命令、退出码、日志及修改前备份保存在 build/baseline/t001/，

@@ -3,13 +3,18 @@
 
 #include <device/device.h>
 
-typedef struct TestFinisher TestFinisher;
+/*
+ * 测试停机设备。test_finisher_init 只分配对象。
+ * 板卡随后填写 finish。客人写出停机码时调用它。
+ */
 
-TestFinisher* test_finisher_create(void (*finish)(void* opaque, int code),
-                                   void* opaque);
-void test_finisher_release(TestFinisher* finisher);
 #define TEST_FINISHER_MMIO_SIZE UINT64_C(0x1000)
 
-void test_finisher_mmio(TestFinisher* finisher, MemObject* mmio);
+typedef struct TestFinisher {
+  void (*finish)(void* opaque, int code);
+  void* finish_opaque;
+} TestFinisher;
+
+MemObject test_finisher_init(void);
 
 #endif /* RVISS_DEVICE_MISC_TEST_FINISHER_H */

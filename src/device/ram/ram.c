@@ -44,10 +44,8 @@ uint8_t* mem_host_ptr(paddr_t addr) {
 
 static bool ram_read(void* ctx, paddr_t offset, int len, word_t* data) {
   (void)ctx;
-  if (ram == NULL || data == NULL || len <= 0 ||
-      (size_t)offset + (size_t)len > mem_size) {
-    return false;
-  }
+  Assert(ram != NULL && data != NULL, "RAM 为空");
+  if (len <= 0 || (size_t)offset + (size_t)len > mem_size) return false;
   word_t value = 0;
   const uint8_t* bytes = ram + offset;
   for (int i = 0; i < len; i++) {
@@ -59,9 +57,8 @@ static bool ram_read(void* ctx, paddr_t offset, int len, word_t* data) {
 
 static bool ram_write(void* ctx, paddr_t offset, int len, word_t data) {
   (void)ctx;
-  if (ram == NULL || len <= 0 || (size_t)offset + (size_t)len > mem_size) {
-    return false;
-  }
+  Assert(ram != NULL, "RAM 为空");
+  if (len <= 0 || (size_t)offset + (size_t)len > mem_size) return false;
   uint8_t* bytes = ram + offset;
   for (int i = 0; i < len; i++) {
     bytes[i] = (uint8_t)(data >> (BITS_PER_BYTE * i));
@@ -70,8 +67,8 @@ static bool ram_write(void* ctx, paddr_t offset, int len, word_t data) {
 }
 
 bool mem_install_ram(paddr_t base, size_t size) {
-  if (ram == NULL || size == 0 || base != mem_base || size != mem_size)
-    return false;
+  Assert(ram != NULL, "RAM 为空");
+  if (size == 0 || base != mem_base || size != mem_size) return false;
   MemObject object = {
       .name = RAM_OBJECT_NAME, .read = ram_read, .write = ram_write};
   return mem_region_add(base, (paddr_t)size, &object);

@@ -102,25 +102,6 @@ static paddr_t image_load_elf_buf(const void* buf, size_t size,
   return end;
 }
 
-static paddr_t image_load_file(const char* path, paddr_t load_addr, bool elf) {
-  void* buf = NULL;
-  size_t size = 0;
-  if (!host_read_file(path, &buf, &size)) return 0;
-  paddr_t end =
-      elf ? (is_elf(buf, size) ? image_load_elf_buf(buf, size, load_addr) : 0)
-          : image_load_raw_buf(buf, size, load_addr);
-  free(buf);
-  return end;
-}
-
-paddr_t image_load_raw(const char* path, paddr_t load_addr) {
-  return image_load_file(path, load_addr, false);
-}
-
-paddr_t image_load_elf(const char* path, paddr_t load_addr) {
-  return image_load_file(path, load_addr, true);
-}
-
 paddr_t image_load(const char* path, paddr_t load_addr) {
   void* buf = NULL;
   size_t size = 0;

@@ -13,10 +13,8 @@ CSR与trap支持M/S/U委派/返回/IRQ/counter。板级装配UART→PLIC source1
 M/S输出、CLINT与test finisher；设备不读CPU CSR。MMIO接受规则在副作用前
 检查，legal WFI可按设备deadline推进逻辑时间，事件/退休/guest counters独立。
 `host/uart_input.c`按event记录/重放输入；host wallclock仅做性能统计。
-`tools/spike`是固定独立C DUT/C++参考进程，已经实际执行GC矩阵；对外
-`rviss.h`与原生checkpoint仍有未验收部分，不能据符号认定ABI完成。
-下文旧目录树与路线描述作为历史记录；当前行为与边界以源码及T004–T015
-验收证据为准。
+difftest、`tools/spike`、`include/rviss.h` 和 checkpoint 已从当前源码删除。
+下文旧目录树与路线描述作为历史记录；当前行为与边界以源码为准。
 
 > 本文回答两个问题：**目录为什么这样分**、**每个文件负责什么**。
 > 实现路线见 [implementation_plan.md](implementation_plan.md)。
@@ -43,7 +41,7 @@ M/S输出、CLINT与test finisher；设备不读CPU CSR。MMIO接受规则在副
 
 5. **确定性**
    客户机时间（CLINT mtime）由指令条数驱动，不读宿主时钟；宿主相关的系统调用
-   全部收敛在 `src/host/`。同一镜像两次运行结果完全一致（checkpoint/difftest 的前提）。
+   全部收敛在 `src/host/`。同一镜像两次运行结果完全一致。
 
 6. **可测试**
    `tests/` 从第一天就在：单元测试直接链接核心库，冒烟测试跑真实汇编程序。
@@ -77,7 +75,7 @@ ISS/
 │   ├── common/types.h      word_t / vaddr_t / paddr_t / reg_t
 │   ├── common/bits.h       BITS / BIT / SEXT
 │   ├── common/macro.h      str / CONCAT / likely / unlikely
-│   ├── common/assert.h     panic / Assert（内部 bug 的出口，noreturn）
+│   ├── common/assert.h     panic / Assert（Assert 由 CONFIG_ASSERT 控制）
 │   ├── cpu/cpu.h           ★ 体系结构状态 CPU_state + cpu_reset + cpu_raise_trap
 │   ├── cpu/csr-list.h      ★ CSR 清单（唯一事实来源）：地址/掩码 + 生成存储与访问表
 │   ├── cpu/interrupt.h     异常号 EX_* 与中断号 IRQ_*（设备层也用，故放公共区）
@@ -250,7 +248,7 @@ ISS/
 ```
 make menuconfig          交互配置（tools/kconfig 的 mconf）
 make minimal_defconfig   套用 configs/minimal_defconfig
-make -j                  编译 → build/rviss（或 CONFIG_SHARE 时 build/librviss_ref.so）
+make -j                  编译 → build/rviss
 make check               单元测试 + 冒烟测试
 make run IMG=xx.elf      运行；make gdb IMG=xx.elf 用 gdb 跑
 make compiledb           生成 compile_commands.json（clangd 用，参数取自真实构建）

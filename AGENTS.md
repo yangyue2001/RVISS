@@ -2,8 +2,8 @@
 
 ## 目标与上下文
 
-RVISS 是 RV64 功能模型。当前目标为 RV64GC + M/S/U + Sv39、稳定启动 Linux、
-RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
+RVISS 是 RV64 功能模型。当前目标为 RV64GC + M/S/U + Sv39，并能稳定启动 Linux。
+difftest、Spike bridge 和 checkpoint 已按用户要求从源码删除，不要加回，除非用户重新要求。
 当前阶段以单 hart 为默认；H 和其它扩展后续加入。不做多 ISA/RV32 抽象或周期模型。
 
 - 本次任务的目标、授权和范围由用户请求决定。
@@ -23,7 +23,6 @@ RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
 ## 实现边界
 
 - 保持 C 核心、Makefile + Kconfig、解释器和 RV64 单目标。
-  Spike 所需 C++ 代码限于独立桥接工具，不扩散到模拟器核心。
 - 扩展语义放在 `src/target/riscv64`；引擎通过明确的执行/结果接口与它交互。
   不为假设中的 JIT、插件或其它 ISA 建立框架。
 - 设备不读取 CPU 私有 CSR；板级负责设备映射和 IRQ 接线。
@@ -32,7 +31,7 @@ RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
   有 WARL、别名或副作用的 CSR 使用显式访问处理。
 - 分清正常退休、同步异常、异步中断、暂停与宿主错误。
   故障不能写入目的寄存器或伪装为退休；规范允许的隐式内存副作用另行处理。
-- trace/统计只观察；checkpoint/状态同步通过暂停后的专用状态接口操作。
+- 文本 trace 只观察。checkpoint 不在当前源码里。
 - 同一输入可重放。逻辑时间、累计退休数、客户机计数器和事件序号分别管理。
 - 未完成能力不得宣称已支持；导出符号、空函数、编译通过均不等于 ABI 可用。
 
@@ -46,10 +45,9 @@ RVISS 与 Spike 对拍、作为 RTL reference、trace 和 checkpoint。
    不得改期望、扩大 skip 或关闭检查来取得通过。
 6. 基线失败与本次回归分开报告。需要扩大范围时解释依赖，不顺手重构。
 7. 更新相关任务状态与证据；仅提炼可复用结论，不保存整段聊天作为每次必读上下文。
-8. 用户已授权持续推进到 RVISS 启动固定 Linux 与完成 Spike difftest。
-   每个验证通过的任务点或阶段成果创建 Git 提交，写清验证与未完成项；
-   origin 为 git@github.com:yangyue2001/RVISS.git。完成一个局部任务后继续下一项，
-   不把局部交付当作整个目标结束。总契约见 docs/plans/linux_spike_goal.md。
+8. 固定 Linux 启动仍然是已完成能力。difftest 与 checkpoint 已删除，
+   不要把旧总契约里的对拍或快照当成当前任务。用户要求提交时再创建 Git 提交，
+   写清验证与未完成项；origin 为 git@github.com:yangyue2001/RVISS.git。
 
 ## 自主执行与报告
 
@@ -83,7 +81,7 @@ T011 PMP verified：4378 / 16606、三配置与 UBSan；T012 Sv39 verified：526
 [T015](docs/plans/t015_linux_acceptance.md) verified：最终 GC Spike 66293 cases /
 132231 events、reset 重放与4种差异注入通过；固定 Linux 三次冷启动各100轮
 和一次1000轮全部正常关机，17 unit /25676 checks、3 smoke、CLI14通过。
-用户本次 Linux/Spike 总目标已 complete，证据见
-[最终验收](docs/validation/t015_completion.json)。后续任务按用户的新请求确定，
-不要把完整 checkpoint/RTL ABI 等未验收能力当作已完成。
+用户本次 Linux 启动已 complete，证据见
+[最终验收](docs/validation/t015_completion.json)。difftest 源码随后已删除。
+后续任务按用户的新请求确定。
 使用 `BUILD_DIR` 隔离构建；不要以 `make clean` 删除同在 build/ 下的固定 Linux 工件。

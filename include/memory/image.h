@@ -10,8 +10,5 @@
  */
 paddr_t image_load(const char *path, paddr_t load_addr);
 
-/* Explicit format entry points retain the historical caller interface. */
-paddr_t image_load_raw(const char *path, paddr_t load_addr);
-paddr_t image_load_elf(const char *path, paddr_t load_addr);
 
 #endif /* RVISS_MEMORY_IMAGE_H */

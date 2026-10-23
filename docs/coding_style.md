@@ -70,7 +70,6 @@ common → util/host → memory/device → rtl(接口) ← engine(实现)
                                  target/riscv64
                                         ↑
                         machine → monitor → main
-                        difftest / checkpoint / trace / uarch（分析层，只能向下看）
 ```
 
 硬规则：
@@ -108,9 +107,11 @@ common → util/host → memory/device → rtl(接口) ← engine(实现)
 反例（我们明确避免的）：`isa_mmu_translate` 在 Sv39 未实现时**不会**返回原地址假装成功，
 而是 panic —— 因为"看起来能跑、语义是错的"比崩溃危险得多。
 
+`Assert(条件, ...)` 就是 `if (!条件) panic(...)`，由 `CONFIG_ASSERT` 控制。关掉后不检查；条件仍求值，没有副作用的条件在 `-O2` 下没有指令。没有条件、已经在失败分支里的停机仍用 `panic()`。
+
 ## 8. 日志
 
-- 用分类宏（`LogInstr`/`LogMem`/`LogTlb`/`LogTrap`/`LogDevice`/`LogDiff`），
+- 用分类宏（`LogInstr`/`LogMem`/`LogTlb`/`LogTrap`/`LogDevice`），
   **不要裸 `printf`**（除了交互调试器的用户界面输出）。
 - 新增 trace 类别 = 在 `util/log.h` 加宏 + 在 Kconfig 加选项，**不要在 core 里加 `if (config.xxx)`**。
 - 高频日志（每指令/每访存）必须放在编译期开关后面（见 `CONFIG_TRACE_*`）。

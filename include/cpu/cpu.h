@@ -28,7 +28,6 @@ typedef struct {
   Priv priv; /* 当前特权级 */
   reg_t satp;
   reg_t mstatus;
-  reg_t misa;
   reg_t mhartid;
   reg_t medeleg;
   reg_t mideleg;
@@ -58,6 +57,8 @@ typedef struct {
   uint8_t pmp_count;
   uint8_t pmpcfg[CPU_PMP_ENTRIES];
   word_t pmpaddr[CPU_PMP_ENTRIES];
+  /* PLIC 的 SEIP 电平。mip.SEIP 只存软件位，读出和中断判断再取或。 */
+  bool hw_seip;
 } CpuState;
 
 extern CpuState cpu;
@@ -65,9 +66,5 @@ extern CpuState cpu;
 /* 实现于 src/target/riscv64/cpu.c */
 void cpu_reset(vaddr_t reset_pc);
 const char* cpu_priv_name(Priv priv);
-
-/* target 提供的公共入口：注入一次陷阱（difftest 注入异常、monitor 调试用）。
- * 实现于 src/target/riscv64/trap/trap.c。 */
-vaddr_t cpu_raise_trap(word_t cause, vaddr_t epc);
 
 #endif /* RVISS_CPU_CPU_H */

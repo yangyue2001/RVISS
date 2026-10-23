@@ -1,3 +1,5 @@
+> 2026-10-23：用户要求删除 difftest 与 checkpoint。下文的对拍、共享库和快照路线是历史计划，不要据此把它们加回，除非用户重新要求。
+
 # RVISS：RV64GC/Linux 的 AI Coding 开发指导
 
 本文指导 agent 如何推进 RVISS；它不是“已经实现”的功能声明。
