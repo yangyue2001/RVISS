@@ -5,8 +5,9 @@
  *
  * 内存图（基址/大小/复位向量）来自 Kconfig：
  *   CONFIG_MBASE / CONFIG_MSIZE / CONFIG_PC_RESET_OFFSET
- * 换板子 = 加一个 MachineConfig 文件；只调内存图 = 改 Kconfig 或
- * 运行期用 --memory 覆盖大小。多串口把 nr_uart 加大，并填写 uart[]。
+ * 换板子 = 加一个 MachineConfig 文件。只调内存图 = 改 Kconfig 或
+ * 运行期用 --memory 覆盖大小。加设备 = 在 node 里加一行，名字和
+ * src/machine/parts 里登记的名字一致。
  */
 
 const MachineConfig machine_minimal = {
@@ -16,9 +17,12 @@ const MachineConfig machine_minimal = {
     .ram_size = CONFIG_MSIZE,
     .reset_pc = CONFIG_MBASE + CONFIG_PC_RESET_OFFSET,
 
-    .clint_base = 0x02000000ull,
-    .plic_base = 0x0c000000ull,
-    .test_base = 0x00100000ull,
-    .nr_uart = 1,
-    .uart = {{.base = 0x10000000ull, .plic_source = 10}},
+    .nr_node = 4,
+    .node =
+        {
+            {"clint", 0x02000000ull, 0},
+            {"plic", 0x0c000000ull, 0},
+            {"uart16550", 0x10000000ull, 10},
+            {"test-finisher", 0x00100000ull, 0},
+        },
 };

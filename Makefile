@@ -51,12 +51,13 @@ endif
 SRCS-y  = src/main.c
 SRCS-y += src/device/device.c
 SRCS-y += src/device/ram/ram.c
-SRCS-$(CONFIG_HAS_CLINT)     += src/device/timer/clint.c
-SRCS-$(CONFIG_HAS_UART16550) += src/device/char/uart16550.c
-SRCS-$(CONFIG_HAS_PLIC)      += src/device/intc/plic.c
-SRCS-$(CONFIG_HAS_TEST_FINISHER) += src/device/misc/test_finisher.c
+SRCS-$(CONFIG_HAS_CLINT)     += src/device/timer/clint.c src/machine/parts/clint.c
+SRCS-$(CONFIG_HAS_UART16550) += src/device/char/uart16550.c src/machine/parts/uart16550.c
+SRCS-$(CONFIG_HAS_PLIC)      += src/device/intc/plic.c src/machine/parts/plic.c
+SRCS-$(CONFIG_HAS_TEST_FINISHER) += src/device/misc/test_finisher.c src/machine/parts/test_finisher.c
 
-SRCS-y += $(shell find $(DIRS-y) -name "*.c")
+# parts 按 Kconfig 单独加入，避免 find 在设备关掉时仍编进来。
+SRCS-y += $(shell find $(DIRS-y) -name "*.c" ! -path "src/machine/parts/*")
 SRCS = $(SRCS-y)
 
 # ---------------------------------------------------------------- 编译选项
@@ -129,4 +130,36 @@ $(clean-tools):
 clean-all: clean distclean
 clean-all: $(clean-tools)
 
-.PHONY: run gdb check clean-all compiledb $(clean-tools)
+# ---------------------------------------------------------------- ref 库
+# 不含 main。对象单独放，避免和可执行文件的非 PIC 对象混用。
+REF_LIB := $(BUILD_DIR)/librviss_ref.so
+REF_OBJ_DIR := $(BUILD_DIR)/obj-rviss-ref
+REF_SRCS := $(filter-out src/main.c,$(SRCS)) src/difftest/ref.c
+REF_OBJS := $(REF_SRCS:%.c=$(REF_OBJ_DIR)/%.o)
+REF_CFLAGS := $(CFLAGS) -fPIC -fvisibility=hidden
+REF_CHECK := $(BUILD_DIR)/ref-check
+
+$(REF_OBJ_DIR)/%.o: %.c | $(FIXDEP)
+	@echo + CC $<
+	@mkdir -p $(dir $@)
+	@$(CC) $(REF_CFLAGS) -c -o $@ $<
+	$(call call_fixdep, $(@:.o=.d), $@)
+
+-include $(REF_OBJS:.o=.d)
+
+$(REF_LIB): $(REF_OBJS)
+	@echo + LD $@
+	@mkdir -p $(dir $@)
+	@$(CC) -shared -Wl,--no-undefined -o $@ $(REF_OBJS)
+
+$(REF_CHECK): tests/ref/check_ref.c $(REF_LIB)
+	@echo + LD $@
+	@$(CC) -Wall -Wextra -Werror -I$(RVISS_HOME)/include -o $@ $< \
+	  -L$(BUILD_DIR) -lrviss_ref -Wl,-rpath,$(BUILD_DIR)
+
+ref: $(REF_LIB)
+
+ref-check: $(REF_CHECK)
+	$(REF_CHECK)
+
+.PHONY: run gdb check clean-all compiledb ref ref-check $(clean-tools)

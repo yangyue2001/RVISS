@@ -55,6 +55,7 @@ engine_exec(n)、si n、--max-instr n 和 difftest_exec(n) 均为指令尝试预
 事件（算术溢出时饱和），异常循环按尝试数终止。外部 difftest_raise_intr 走
 同一计数入口，无指令尝试/退休，暂停或预算耗尽时不注入；这只验证本地 adapter，
 不表示 ABI 初始化或真实 consumer 已可用。
+T029 的 `librviss_ref.so` 是另一套外部 ref：`difftest_exec(n)` 仍按指令尝试计数，但不采样异步中断，也不推进设备。中断和同步异常都由 `difftest_raise_trap(cause, tval)` 注入，cause 的 bit63 区分中断。
 T010 已接入 mcycle/minstret、cycle/instret/time、权限和写优先；time 是板级
 CLINT mtime 回调，guest 写不影响平台时间/预算/累计退休。mcountinhibit 与
 M HPM 选择硬连线零，无可写抑制或 Zihpm。RV64 *h CSR 非法。

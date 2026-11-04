@@ -13,7 +13,7 @@ CSR与trap支持M/S/U委派/返回/IRQ/counter。板级装配UART→PLIC source1
 M/S输出、CLINT与test finisher；设备不读CPU CSR。MMIO接受规则在副作用前
 检查，legal WFI可按设备deadline推进逻辑时间，事件/退休/guest counters独立。
 `host/uart_input.c`按event记录/重放输入；host wallclock仅做性能统计。
-difftest、`tools/spike`、`include/rviss.h` 和 checkpoint 已从当前源码删除。
+旧的 Spike bridge、`include/rviss.h` 和 checkpoint 已删除。外部 difftest 使用 `include/difftest.h` 和 `librviss_ref.so`，见 [T029](plans/t029_ref_library.md)。
 下文旧目录树与路线描述作为历史记录；当前行为与边界以源码为准。
 
 > 本文回答两个问题：**目录为什么这样分**、**每个文件负责什么**。
@@ -157,14 +157,15 @@ ISS/
 │   ├── machine/            【整机装配】唯一知道"这台机器有什么"的地方
 │   │   ├── Kconfig         机器参数：MBASE / MSIZE / PC_RESET_OFFSET
 │   │   ├── machine.h       MachineConfig（内存图/设备地址/复位向量）+ machine_get
-│   │   ├── machine.c       按配置建内存、装设备（受 CONFIG_HAS_* 控制）、复位 CPU
+│   │   ├── machine.c       复位 CPU，按板级清单映射设备并接线
+│   │   ├── parts/          每种设备一份：map 映射，connect 接中断
 │   │   └── boards/minimal.c 最小板（内存图取自 Kconfig，设备地址 QEMU virt 风格）
 │   │
 │   ├── monitor/            【人机接口】
 │   │   ├── monitor.c       流程编排：配置→机器→镜像→运行→统计
 │   │   └── ui.c            交互调试器：c / si [n] / info r / x ADDR / q
 │   │
-│   ├── difftest/difftest_api.c  NEMU 兼容的 difftest_* ABI 实现（librviss_ref.so）
+│   ├── difftest/ref.c      librviss_ref.so 的 NEMU 风格 ref ABI（include/difftest.h）
 │   └── checkpoint/checkpoint.c  checkpoint 存取（头部+校验和+整块 RAM，稀疏化见 TODO）
 │
 └── tests/
@@ -216,7 +217,7 @@ ISS/
 | 加一条 RV64I 指令 | `instr/i/instr.def` 加一行 + `instr/i/exec.c` 实现 `exec_<名字>` |
 | 加一个扩展（如 M 扩展） | 新建 `instr/m/{instr.def,exec.c}`，在 `decode.c` 的两处 include 加上 |
 | 加一个 CSR | `include/cpu/csr_list.h` 管理地址/存储；WARL、别名、权限例外和副作用在 csr_access.c 显式实现并验证 |
-| 加一个设备 | 写 `src/device/xxx.c` 实现 `MmioRegion`，在 `device.h` 声明 init，在 `machine.c` 里实例化 |
+| 加一个设备 | 写 `src/device/xxx.c`，再写 `src/machine/parts/xxx.c` 登记 map/connect；板级清单加一行地址 |
 | 加一块板子 | `machine/boards/` 加一个 `MachineConfig`，在 monitor 里选择 |
 | 加一种 trace | 见 `docs/trace_and_uarch_plan.md`：core 只发事件，收集器是订阅者 |
 | 加微架构部件（PHR/预测器/cache） | 同上：`src/uarch/<部件>/` 订阅事件流，永不改核心状态 |
@@ -268,7 +269,6 @@ make distclean           清掉 build/ 与全部配置产物
 1. **自定位**：顶层 Makefile 用 `RVISS_HOME := $(abspath ...)` 定位自己，工具 Makefile
    同样自定位 —— 不依赖、也不受外部 `NEMU_HOME` 之类的环境变量干扰。
 2. **精确增量**：每个对象编译完调用 `fixdep`，把 `.d` 里宽泛的 `autoconf.h` 依赖
-   换成"这个源文件实际用到的 CONFIG_ 标记文件"。改一个配置项只重编真正相关的文件
-   （实测：关掉 `CONFIG_HAS_UART16550` 只重编了 `machine.c` 一个文件）。
-3. **配置即代码开关**：`#ifdef CONFIG_HAS_UART16550` 决定代码是否编入，
-   `SRCS-$(CONFIG_HAS_UART16550) += src/device/uart16550.c` 决定文件是否参与编译。
+   换成"这个源文件实际用到的 CONFIG_ 标记文件"。改一个配置项只重编真正相关的文件。
+3. **配置即代码开关**：设备是否编入由 Makefile 的 `SRCS-$(CONFIG_HAS_...)` 决定，
+   对应 `src/device` 和 `src/machine/parts`。板级清单不再按设备写 `#ifdef`。

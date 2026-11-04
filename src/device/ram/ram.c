@@ -16,8 +16,12 @@ size_t mem_size;
 
 static uint8_t* ram;
 
+void mem_shutdown(void);
+
 bool mem_init(paddr_t base, size_t size) {
   if (size == 0 || size > UINT64_MAX - base) return false;
+  /* 再次初始化先丢掉旧映射，避免 ref 重建时泄漏上一块 RAM。 */
+  if (ram != NULL) mem_shutdown();
   ram = host_mmap_anon(size);
   if (ram == NULL) {
     Loge("内存分配失败：%zu MiB", size >> 20);
@@ -35,6 +39,7 @@ void mem_shutdown(void) {
     host_munmap(ram, mem_size);
     ram = NULL;
   }
+  mem_size = 0;
 }
 
 uint8_t* mem_host_ptr(paddr_t addr) {

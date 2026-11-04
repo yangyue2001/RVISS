@@ -23,6 +23,8 @@ typedef struct Plic {
 } Plic;
 
 MemObject plic_init(void);
-void plic_set_source(Plic* plic, unsigned source, bool level);
+/* 没有编进 PLIC 时这是空符号，调用方要先判断。 */
+void plic_set_source(Plic* plic, unsigned source, bool level)
+    __attribute__((weak));
 
 #endif /* RVISS_DEVICE_INTC_PLIC_H */

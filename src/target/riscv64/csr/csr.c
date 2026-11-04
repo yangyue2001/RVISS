@@ -49,8 +49,11 @@
 #define MIP_READ_MASK MIE_READ_MASK
 #define MIP_WRITE_MASK (MIP_SSIP | MIP_STIP | MIP_SEIP)
 
-#define SIE_WRITE_MASK (MIP_SSIP | MIP_STIP | MIP_SEIP)
+#define SIE_WRITE_MASK SIE_MASK
+#define SIE_READ_MASK SIE_MASK
+
 #define SIP_WRITE_MASK MIP_SSIP
+#define SIP_READ_MASK SIE_MASK
 #define MCOUNTEREN_READ_MASK (MCOUNTEREN_CY | MCOUNTEREN_TM | MCOUNTEREN_IR)
 #define MCOUNTEREN_WRITE_MASK MCOUNTEREN_READ_MASK
 #define MCOUNTINHIBIT_READ_MASK (MCOUNTINHIBIT_CY | MCOUNTINHIBIT_IR)
@@ -334,8 +337,8 @@ static word_t csr_read_misa(CpuState* hart, const CsrDesc* csr) {
   X(scause, offsetof(CpuState, scause), ~0ull, ~0ull, NULL, NULL, csr_write_scause, NULL) \
   X(stval, offsetof(CpuState, stval), ~0ull, ~0ull, NULL, NULL, NULL, NULL) \
   X(satp, offsetof(CpuState, satp), ~0ull, ~0ull, csr_check_satp, NULL, csr_write_satp, NULL) \
-  X(sie, offsetof(CpuState, mie), SIE_MASK, SIE_WRITE_MASK, NULL, csr_read_sie, csr_write_sie, NULL) \
-  X(sip, offsetof(CpuState, mip), SIE_MASK, SIP_WRITE_MASK, NULL, csr_read_sip, csr_write_sip, NULL) \
+  X(sie, offsetof(CpuState, mie), SIE_READ_MASK, SIE_WRITE_MASK, NULL, csr_read_sie, csr_write_sie, NULL) \
+  X(sip, offsetof(CpuState, mip), SIP_READ_MASK, SIP_WRITE_MASK, NULL, csr_read_sip, csr_write_sip, NULL) \
   X(cycle, offsetof(CpuState, mcycle), ~0ull, 0, csr_check_counter, NULL, NULL, NULL) \
   X(time, CSR_NO_FIELD, ~0ull, 0, csr_check_counter, csr_read_time, NULL, NULL) \
   X(instret, offsetof(CpuState, minstret), ~0ull, 0, csr_check_counter, NULL, NULL, NULL) \

@@ -98,7 +98,6 @@
 #define SIP_SEIP (1ull << 9)
 #define SIP_LCOFIP (1ull << 13)
 #define SIE_MASK (SIE_SSIE | SIE_STIE | SIE_SEIE)
-#define SIP_MASK SIE_MASK
 
 /* ---- scounteren (0x106) : 控制 U 态可访问的计数器 ---- */
 #define SCOUNTEREN_CY (1ull << 0)

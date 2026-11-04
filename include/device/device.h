@@ -32,5 +32,7 @@ bool mem_region_add(paddr_t base, paddr_t size, const MemObject* object);
 const MemRegion* mem_region_find(paddr_t addr, word_t len);
 int mem_region_count(void);
 const MemRegion* mem_region_at(int index);
+/* 清空区域表。不释放对象；下一次登记从空表开始。 */
+void mem_region_reset(void);
 
 #endif /* RVISS_DEVICE_DEVICE_H */

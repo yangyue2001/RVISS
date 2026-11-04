@@ -1,158 +1,94 @@
 #include <common.h>
 #include <cpu/cpu.h>
-#include <cpu/interrupt.h>
 #include <cpu/step.h>
 #include <device/device.h>
-#include <host/host.h>
 #include <memory/paddr.h>
-#include <trap.h>
-#include <util/config.h>
 #include <util/log.h>
-#include <util/state.h>
-
-#ifdef CONFIG_HAS_CLINT
-#include <device/timer/clint.h>
-#endif
-#ifdef CONFIG_HAS_UART16550
-#include <device/char/uart16550.h>
-#endif
-#ifdef CONFIG_HAS_PLIC
-#include <device/intc/plic.h>
-#endif
-#ifdef CONFIG_HAS_TEST_FINISHER
-#include <device/misc/test_finisher.h>
-#endif
 
 #include "machine.h"
 
 /*
- * 板卡 = CPU + 一堆外设。外设 init 分配、复位，再返回 MemObject。
- * 中断线和回调由这里写进 ctx，再按基址映射。
+ * 板卡 = CPU + 清单上的外设。
+ * 外设在自己的 part 里登记。这里只做两轮：
+ * 先按清单 map，再 connect。接线时所有实例都已经存在。
  * 先复位 CPU，再登记外设，避免外设复位拉高的中断被清掉。
  * 仿真器复位和镜像不在这里。
  */
 
 static MachineConfig active;
 
-#ifdef CONFIG_HAS_PLIC
-static Plic* board_plic;
-#endif
-#ifdef CONFIG_HAS_UART16550
-static Uart16550* console_uart;
-static IrqLine uart_lines[MACHINE_UART_MAX];
-#endif
-
-#ifdef CONFIG_HAS_TEST_FINISHER
-static void finish_guest(void* opaque, int code) {
-  (void)opaque;
-  sim_halt(cpu.pc, code);
-}
-#endif
-
-#ifdef CONFIG_HAS_UART16550
-static void uart_transmit(void* opaque, uint8_t byte) {
-  (void)opaque;
-  putchar(byte);
-  fflush(stdout);
-}
-
-static void uart_host_poll(void) {
-  Uart16550* uart = console_uart;
-  Assert(uart != NULL, "控制台 UART 为空");
-  if ((!rt_cfg.uart_stdin && !host_uart_replaying()) ||
-      uart16550_loopback(uart))
-    return;
-  if (!host_uart_replaying() && sim.event_seq % 1024) return;
-  uint8_t bytes[16];
-  int count =
-      host_uart_input(sim.event_seq, bytes, uart16550_rx_capacity(uart));
-  if (count < 0) {
-    sim.state = SIM_ABORTED;
-    Loge("UART host input failed");
-    return;
-  }
-  for (int i = 0; i < count; i++) uart16550_receive(uart, bytes[i]);
-}
-
-#ifdef CONFIG_HAS_PLIC
-static void uart_irq(void* opaque, bool level) {
-  unsigned source = (unsigned)(uintptr_t)opaque;
-  Assert(board_plic != NULL, "UART 中断时 PLIC 为空");
-  plic_set_source(board_plic, source, level);
-}
-#endif
-#endif
+static struct {
+  const BoardPart* part;
+  bool used;
+} parts[MACHINE_PART_MAX];
+static int nr_parts;
 
 const MachineConfig* machine_get(void) { return &active; }
 
-static bool map_device(paddr_t base, paddr_t size, MemObject* object) {
+static bool part_named(const char* name) {
+  for (int i = 0; i < nr_parts; i++) {
+    if (strcmp(parts[i].part->name, name) == 0) return true;
+  }
+  return false;
+}
+
+void machine_add_part(const BoardPart* part) {
+  Assert(part != NULL && part->name != NULL && part->map != NULL,
+         "板卡部件不完整");
+  Assert(!part_named(part->name), "设备 %s 重复注册", part->name);
+  Assert(nr_parts < MACHINE_PART_MAX, "板卡部件超过上限 %d", MACHINE_PART_MAX);
+  parts[nr_parts].part = part;
+  parts[nr_parts].used = false;
+  nr_parts++;
+}
+
+void machine_map(paddr_t base, paddr_t size, const MemObject* object) {
   Assert(object != NULL && object->ctx != NULL, "设备没有实例");
-  return mem_region_add(base, size, object);
+  Assert(mem_region_add(base, size, object), "设备映射失败");
+}
+
+void* machine_device(const char* name) {
+  Assert(name != NULL, "设备名字为空");
+  for (int i = 0; i < mem_region_count(); i++) {
+    const MemRegion* region = mem_region_at(i);
+    if (strcmp(region->object.name, name) == 0) return region->object.ctx;
+  }
+  return NULL;
 }
 
 static void machine_register(const MachineConfig* cfg) {
+  Assert(cfg->nr_node >= 0 && cfg->nr_node <= MACHINE_NODE_MAX,
+         "板卡设备数量非法");
   Assert(mem_init(cfg->ram_base, cfg->ram_size), "RAM 初始化失败");
   Assert(mem_install_ram(cfg->ram_base, cfg->ram_size), "RAM 登记失败");
-#ifdef CONFIG_HAS_CLINT
-  {
-    MemObject object = clint_init();
-    Clint* clint = object.ctx;
-    clint->mtimer_irq[0] = cpu_irq_input(INT_MTI);
-    clint->msip_irq[0] = cpu_irq_input(INT_MSI);
-    Assert(map_device(cfg->clint_base, CLINT_MMIO_SIZE, &object),
-           "CLINT 注册失败");
-  }
-#endif
-#ifdef CONFIG_HAS_PLIC
-  {
-    MemObject object = plic_init();
-    Plic* plic = object.ctx;
-    plic->external_irq[0] = cpu_irq_input(INT_MEI);
-    plic->external_irq[1] = cpu_irq_input(INT_SEI);
-    Assert(map_device(cfg->plic_base, PLIC_MMIO_SIZE, &object),
-           "PLIC 注册失败");
-    board_plic = plic;
-  }
-#endif
-#ifdef CONFIG_HAS_UART16550
-  Assert(host_uart_input_init(rt_cfg.uart_record, rt_cfg.uart_replay),
-         "UART input initialization failed");
-  Assert(cfg->nr_uart >= 0 && cfg->nr_uart <= MACHINE_UART_MAX,
-         "UART 数量超过板卡上限");
-  for (int i = 0; i < cfg->nr_uart; i++) {
-    IrqLine* line = NULL;
-#ifdef CONFIG_HAS_PLIC
-    unsigned source = cfg->uart[i].plic_source;
-    if (board_plic != NULL && source != 0 && source < PLIC_NR_SOURCES) {
-      uart_lines[i].set = uart_irq;
-      uart_lines[i].ctx = (void*)(uintptr_t)source;
-      line = &uart_lines[i];
+
+  for (int i = 0; i < nr_parts; i++) parts[i].used = false;
+
+  /* 按清单顺序映射，和链接顺序无关。 */
+  for (int i = 0; i < cfg->nr_node; i++) {
+    const char* name = cfg->node[i].name;
+    Assert(name != NULL, "板卡设备没有名字");
+    const BoardPart* part = NULL;
+    for (int p = 0; p < nr_parts; p++) {
+      if (strcmp(parts[p].part->name, name) != 0) continue;
+      part = parts[p].part;
+      parts[p].used = true;
+      break;
     }
-#endif
-    MemObject object = uart16550_init();
-    Uart16550* uart = object.ctx;
-    uart->irq = line;
-    uart->transmit = uart_transmit;
-    uart->transmit_opaque = NULL;
-    Assert(map_device(cfg->uart[i].base, UART16550_MMIO_SIZE, &object),
-           "UART 注册失败");
-    if (console_uart == NULL) console_uart = uart;
+    Assert(part != NULL, "板卡设备 %s 没有注册", name);
+    part->map(&cfg->node[i]);
   }
-#endif
-#ifdef CONFIG_HAS_TEST_FINISHER
-  {
-    MemObject object = test_finisher_init();
-    TestFinisher* finisher = object.ctx;
-    finisher->finish = finish_guest;
-    finisher->finish_opaque = NULL;
-    Assert(map_device(cfg->test_base, TEST_FINISHER_MMIO_SIZE, &object),
-           "test finisher 注册失败");
+
+  for (int p = 0; p < nr_parts; p++) {
+    if (!parts[p].used || parts[p].part->connect == NULL) continue;
+    parts[p].part->connect();
   }
-#endif
 }
 
 void machine_init(const MachineConfig* cfg) {
   active = *cfg;
+  /* 再次 init 先清空旧区间，否则同一块 RAM 会和自己重叠。 */
+  mem_region_reset();
   Log("machine: %s", active.name);
   cpu_reset(cfg->reset_pc);
   machine_register(&active);
@@ -163,9 +99,9 @@ void machine_advance(uint64_t logical_ticks) {
     const MemObject* object = &mem_region_at(i)->object;
     if (object->advance != NULL) object->advance(object->ctx, logical_ticks);
   }
-#ifdef CONFIG_HAS_UART16550
-  if (console_uart != NULL) uart_host_poll();
-#endif
+  for (int i = 0; i < nr_parts; i++) {
+    if (parts[i].used && parts[i].part->poll != NULL) parts[i].part->poll();
+  }
 }
 
 void machine_update(StepResult* result) {

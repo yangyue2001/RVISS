@@ -59,7 +59,7 @@ CLINT 同源 time 与 UBSan。[T011 PMP](docs/plans/t011_pmp.md) verified：4378
 | 设备 | UART DLAB/FIFO/IRQ/输入；CLINT32/64半寄存器与WFI逻辑快进；PLIC M/S/source10；finisher关机 | T014设备476/输入32检查、UBSan、真实IRQ/MMIO异常及整机输入重放通过 |
 | 镜像 / CLI | ELF64/raw 装载；--max-instr 为尝试预算，--max-events 为事件预算；si 保持尝试口径 | CLI/UI 14 checks；真实 UART/异常/中断程序 trace 开关等价；完整研究 trace 未实现 |
 | checkpoint | 已从源码删除 | 不再提供保存或恢复 |
-| difftest / 嵌入 API | DUT、Spike bridge、`librviss_ref.so` 和 `include/rviss.h` 已删除 | 历史 Spike 矩阵不能再从本树复现 |
+| difftest ref | `librviss_ref.so`：init、memcpy、regcpy、exec、raise_trap | CPU 加 RAM；调用方注入中断和同步异常。旧 Spike bridge 和 `include/rviss.h` 仍不提供 |
 | Linux | 固定 FW_PAYLOAD/Image/BusyBox/initramfs | T002 QEMU单独验收；T015 RVISS PID1/probe/BusyBox/真实UART、3次100轮与1次1000轮全部正常关机，T014整机输入重放通过 |
 
 固定Linux入口（工件见 `build/linux/artifacts/manifest.json`）：

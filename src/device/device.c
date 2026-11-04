@@ -57,6 +57,8 @@ const MemRegion* mem_region_find(paddr_t addr, word_t len) {
   return NULL;
 }
 
+void mem_region_reset(void) { nr_regions = 0; }
+
 int mem_region_count(void) { return nr_regions; }
 
 const MemRegion* mem_region_at(int index) {
