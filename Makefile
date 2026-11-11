@@ -134,7 +134,7 @@ clean-all: $(clean-tools)
 # 不含 main。对象单独放，避免和可执行文件的非 PIC 对象混用。
 REF_LIB := $(BUILD_DIR)/librviss_ref.so
 REF_OBJ_DIR := $(BUILD_DIR)/obj-rviss-ref
-REF_SRCS := $(filter-out src/main.c,$(SRCS)) src/difftest/ref.c
+REF_SRCS := $(filter-out src/main.c,$(SRCS)) src/difftest/ref/ref.c
 REF_OBJS := $(REF_SRCS:%.c=$(REF_OBJ_DIR)/%.o)
 REF_CFLAGS := $(CFLAGS) -fPIC -fvisibility=hidden
 REF_CHECK := $(BUILD_DIR)/ref-check

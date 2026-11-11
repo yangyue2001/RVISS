@@ -5,7 +5,7 @@
 #include <memory/paddr.h>
 #include <util/state.h>
 
-#include "../machine/machine.h"
+#include "../../machine/machine.h"
 #include "csr.h"
 #include "trap.h"
 
@@ -15,17 +15,6 @@
  * 执行只调用 riscv_execute，不走 machine_update，因此设备节拍和
  * 异步中断都不会自己发生。
  */
-
-static bool ref_ready;
-
-static void ref_require(void) { Assert(ref_ready, "difftest_init 还没有调用"); }
-
-static int ref_direction(int direction) {
-  Assert(direction == DIFFTEST_TO_DUT || direction == DIFFTEST_TO_REF,
-         "difftest direction 只能是 %d 或 %d", DIFFTEST_TO_DUT,
-         DIFFTEST_TO_REF);
-  return direction;
-}
 
 static word_t ref_peek(word_t addr) {
   word_t value = 0;
@@ -70,10 +59,6 @@ static void ref_export(RvissRefState* out) {
     out->pmpcfg[i] = cpu.pmpcfg[i];
     out->pmpaddr[i] = cpu.pmpaddr[i];
   }
-  out->lr_valid = cpu.reservation_valid ? 1 : 0;
-  out->lr_addr = cpu.reservation_addr;
-  out->lr_len = cpu.reservation_len;
-  out->wfi = cpu.wfi_sleep ? 1 : 0;
 }
 
 static void ref_import(const RvissRefState* in) {
@@ -114,34 +99,11 @@ static void ref_import(const RvissRefState* in) {
     cpu.pmpcfg[i] = (uint8_t)in->pmpcfg[i];
     cpu.pmpaddr[i] = in->pmpaddr[i] & PMPADDR_ADDR_RV64;
   }
-  if (in->lr_valid == 0) {
-    cpu.reservation_valid = false;
-    cpu.reservation_addr = 0;
-    cpu.reservation_len = 0;
-  } else {
-    cpu.reservation_valid = true;
-    cpu.reservation_addr = in->lr_addr;
-    cpu.reservation_len = (uint8_t)in->lr_len;
-  }
-  cpu.wfi_sleep = in->wfi != 0;
-  cpu.hw_seip = false;
 }
 
 static void ref_take(word_t cause, word_t tval) {
   cpu.wfi_sleep = false;
   cpu.pc = riscv_raise_trap(cause, cpu.pc, tval);
-}
-
-uint64_t difftest_state_size(void) { return sizeof(RvissRefState); }
-
-uint64_t difftest_ram_base(void) {
-  ref_require();
-  return mem_base;
-}
-
-uint64_t difftest_ram_size(void) {
-  ref_require();
-  return mem_size;
 }
 
 void difftest_init(void) {
@@ -155,12 +117,9 @@ void difftest_init(void) {
   sim_reset();
   riscv_decode_init();
   machine_init(&cfg);
-  ref_ready = true;
 }
 
-void difftest_memcpy(uint64_t addr, void* buf, size_t n, int direction) {
-  ref_require();
-  direction = ref_direction(direction);
+void difftest_memcpy(uint64_t addr, void* buf, size_t n, bool direction) {
   if (n == 0) return;
   Assert(buf != NULL, "difftest_memcpy 缓冲区为空");
   Assert(mem_in_ram(addr, n),
@@ -173,10 +132,8 @@ void difftest_memcpy(uint64_t addr, void* buf, size_t n, int direction) {
   }
 }
 
-void difftest_regcpy(void* dut, int direction) {
-  ref_require();
+void difftest_regcpy(void* dut, bool direction) {
   Assert(dut != NULL, "difftest_regcpy 缓冲区为空");
-  direction = ref_direction(direction);
   if (direction == DIFFTEST_TO_REF) {
     ref_import(dut);
   } else {
@@ -185,7 +142,6 @@ void difftest_regcpy(void* dut, int direction) {
 }
 
 void difftest_exec(uint64_t n) {
-  ref_require();
   for (uint64_t stepped = 0; stepped < n; stepped++) {
     if (!sim_running() || cpu.wfi_sleep) return;
     riscv_execute();
@@ -193,7 +149,6 @@ void difftest_exec(uint64_t n) {
 }
 
 void difftest_raise_trap(uint64_t cause, uint64_t tval) {
-  ref_require();
   Assert((cause & ~MCAUSE_INTERRUPT) < 64,
          "difftest_raise_trap 原因码越界: %lu", (unsigned long)cause);
   ref_take(cause, tval);
